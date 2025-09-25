@@ -25,7 +25,6 @@ export default function PerfilPage() {
 
     return (
         <>
-            <Header />
             <main className="max-w-md mx-auto p-6">
                 <h1 className="text-2xl font-bold mb-6">Meu Perfil</h1>
                 <div className="mb-4">
