@@ -1,6 +1,8 @@
 'use client';
 import React, { useState } from "react";
 import Header from "../_components/Header";
+import JobOpeningStepsTable from "../_components/jobOpeningStepsTable";
+
 
 // Simulação de usuário logado
 const loggedUser = {
@@ -76,6 +78,9 @@ export default function PerfilPage() {
                         Editar Perfil
                     </button>
                 )}
+
+                {/* só pra testar */}
+                <JobOpeningStepsTable/> 
             </main>
         </>
     );
