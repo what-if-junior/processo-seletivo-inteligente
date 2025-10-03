@@ -1,0 +1,3 @@
+[submodule "apps/backend"]
+	path = apps/backend
+	url = https://github.com/what-if-junior/processo-seletivo-inteligente-back-nest
