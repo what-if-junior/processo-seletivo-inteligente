@@ -1,30 +1,52 @@
+/* eslint-disable prettier/prettier */
 import { Injectable } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { Usuario } from '../../../../packages/types/index';
 
 @Injectable()
 export class UserService {
-  create(createUserDto: CreateUserDto) {
-    return 'This action adds a new user';
+  private users: Usuario[] = [];
+
+  create(createUserDto: CreateUserDto): Usuario {
+    const newUser: Usuario = {
+      id_usuario: (this.users.length + 1).toString(),
+      ...createUserDto,
+      criado_em: new Date(),
+      atualizado_em: new Date(),
+    };
+    this.users.push(newUser);
+    return newUser;
   }
 
-  findAll() {
-    return [
-      { id: 1, nome: 'John Doe' },
-      { id: 2, nome: 'Jane Smith' },
-      { id: 3, nome: 'Alice Johnson' },
-    ]
+  findAll(): Usuario[] {
+    return this.users;
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} user`;
+  findOne(id: string): Usuario | { message: string } {
+    const user = this.users.find(user => user.id_usuario === id);
+    if (!user) return { message: `User ${id} not found` };
+    return user;
   }
 
-  update(id: number, updateUserDto: UpdateUserDto) {
-    return `This action updates a #${id} user`;
+  update(id: string, updateUserDto: UpdateUserDto): Usuario | { message: string } {
+    const index = this.users.findIndex(user => user.id_usuario === id);
+    if (index === -1) return { message: `User ${id} not found` };
+
+    this.users[index] = {
+      ...this.users[index],
+      ...updateUserDto,
+      atualizado_em: new Date(),
+    };
+    return this.users[index];
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} user`;
+  remove(id: string): Usuario | { message: string } {
+    const index = this.users.findIndex(user => user.id_usuario === id);
+    if (index === -1) return { message: `User ${id} not found` };
+
+    const deleted = this.users[index];
+    this.users.splice(index, 1);
+    return deleted;
   }
 }
