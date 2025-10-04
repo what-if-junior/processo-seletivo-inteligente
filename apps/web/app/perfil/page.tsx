@@ -1,8 +1,6 @@
 'use client';
 import React, { useState } from "react";
-import Header from "../_components/Header";
-import JobOpeningStepsTable from "../_components/jobOpeningStepsTable";
-
+import { useRouter } from "next/navigation";
 
 // Simulação de usuário logado
 const loggedUser = {
@@ -12,6 +10,8 @@ const loggedUser = {
 };
 
 export default function PerfilPage() {
+    const router = useRouter();
+
     const [user, setUser] = useState(loggedUser);
     const [editing, setEditing] = useState(false);
     const [form, setForm] = useState({ name: user.name, email: user.email });
@@ -27,8 +27,22 @@ export default function PerfilPage() {
 
     return (
         <>
-            <main className="max-w-md mx-auto p-6">
-                <h1 className="text-2xl font-bold mb-6">Meu Perfil</h1>
+            <main className="bg-white min-h-screen max-w-md mx-auto p-4">
+                <div className="flex items-center mb-8 gap-1">
+                    <button
+                        onClick={() => {
+                            if (window.history.length > 1) router.back();
+                            else router.push("/");
+                        }}
+                        className="text-3xl font-extrabold text-[#2f9e41] hover:bg-gray-300 rounded-md p-2 mr-4 transition w-14 leading-none"
+                    >
+                        &lt;
+                    </button>
+
+                    <h1 className="text-2xl font-bold text-[#2f9e41]">Perfil de Candidato</h1>
+                </div>
+
+
                 <div className="mb-4">
                     <label className="block font-semibold">Nome:</label>
                     {editing ? (
@@ -78,9 +92,6 @@ export default function PerfilPage() {
                         Editar Perfil
                     </button>
                 )}
-
-                {/* só pra testar */}
-                <JobOpeningStepsTable/> 
             </main>
         </>
     );
