@@ -1,30 +1,48 @@
+import { Usuario } from '@repo/types';
 import { Injectable } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 
 @Injectable()
 export class UserService {
-  create(createUserDto: CreateUserDto) {
-    return 'This action adds a new user';
+  private users: Usuario[] = [];
+
+  create(dto: CreateUserDto): Usuario {
+    const newUser: Usuario = {
+      id_usuario: (this.users.length + 1).toString(),
+      ...dto,
+      criado_em: new Date(),
+      atualizado_em: new Date(),
+    };
+    this.users.push(newUser);
+    return newUser;
   }
 
-  findAll() {
-    return [
-      { id: 1, nome: 'John Doe' },
-      { id: 2, nome: 'Jane Smith' },
-      { id: 3, nome: 'Alice Johnson' },
-    ]
+  findAll(): Usuario[] {
+    return this.users;
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} user`;
+  private findIndex(id: string): number {
+    return this.users.findIndex(u => u.id_usuario === id);
   }
 
-  update(id: number, updateUserDto: UpdateUserDto) {
-    return `This action updates a #${id} user`;
+  findOne(id: string): Usuario | { message: string } {
+    const user = this.users.find(u => u.id_usuario === id);
+    return user || { message: `User ${id} not found` };
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} user`;
+  update(id: string, dto: UpdateUserDto): Usuario | { message: string } {
+    const index = this.findIndex(id);
+    if (index === -1) return { message: `User ${id} not found` };
+
+    this.users[index] = { ...this.users[index], ...dto, atualizado_em: new Date() };
+    return this.users[index];
+  }
+
+  remove(id: string): Usuario | { message: string } {
+    const index = this.findIndex(id);
+    if (index === -1) return { message: `User ${id} not found` };
+
+    return this.users.splice(index, 1)[0];
   }
 }
