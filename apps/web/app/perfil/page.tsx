@@ -40,7 +40,10 @@ const loggedUser = {
     email: "gabriel@example.com",
     telefone: "(61) 99999-8888",
     cpf: "123.456.789-00",
-    dataNascimento: "1995-10-26"
+    dataNascimento: "1995-10-26",
+    cep: '72315-000',
+    logradouro: 'QNM 40 Conjunto J',
+    numero: '123',
 };
 
 export default function PerfilPage() {
@@ -54,6 +57,9 @@ export default function PerfilPage() {
         telefone: user.telefone,
         cpf: user.cpf,
         dataNascimento: user.dataNascimento,
+        cep: '72315-000',
+        logradouro: 'QNM 40 Conjunto J',
+        numero: '123'
     });
 
     function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -75,10 +81,10 @@ export default function PerfilPage() {
         <>
             <main className="bg-white min-h-screen max-w-md mx-auto px-8">
                 {/* Cabecalho de form */}
-                <div className="flex items-center mb-4 gap-3">
+                <div className="flex items-center mb-4 gap-1">
                     <button
                         onClick={() => router.back()}
-                        className="flex justify-center w-12 h-12 text-3xl font-black text-[#2f9e41] transition rounded-full hover:bg-green-400"
+                        className="flex justify-left w-12 h-12 text-3xl font-black text-[#2f9e41] transition rounded-full hover:bg-green-400"
                     >
                         &lt;
                     </button>
@@ -88,11 +94,20 @@ export default function PerfilPage() {
                 </div>
 
                 {/* --- Campos do Formulário --- */}
-                <FormField label="Nome Completo:" name="name" value={form.name} editing={editing} onChange={handleChange} placeholder="Digite seu nome" />
-                <FormField label="Email:" name="email" value={form.email} editing={editing} onChange={handleChange} placeholder="seu@email.com" />
-                <FormField label="Telefone:" name="telefone" value={form.telefone} editing={editing} onChange={handleChange} placeholder="(00) 00000-0000" />
-                <FormField label="CPF:" name="cpf" value={form.cpf} editing={editing} onChange={handleChange} placeholder="000.000.000-00" />
-                <FormField label="Data de Nascimento:" name="dataNascimento" value={form.dataNascimento} editing={editing} onChange={handleChange} placeholder="DD/MM/AAAA" />
+                <form className="space-y-4">
+                    <FormField label="Nome Completo:" name="name" value={form.name} editing={editing} onChange={handleChange} placeholder="Digite seu nome" />
+                    <FormField label="Email:" name="email" value={form.email} editing={editing} onChange={handleChange} placeholder="seu@email.com" />
+                    <FormField label="Telefone:" name="telefone" value={form.telefone} editing={editing} onChange={handleChange} placeholder="(00) 00000-0000" />
+                    <FormField label="CPF:" name="cpf" value={form.cpf} editing={editing} onChange={handleChange} placeholder="000.000.000-00" />
+                    <FormField label="Data de Nascimento:" name="dataNascimento" value={form.dataNascimento} editing={editing} onChange={handleChange} placeholder="DD/MM/AAAA" />
+                    <h1 className="text-2xl font-bold text-[#2f9e41] mt-4">
+                        Endereço de Candidato
+                    </h1>
+                    <FormField label="CEP:" name="cep" value={form.cep} editing={editing} onChange={handleChange} placeholder="00000-000" />
+                    <FormField label="Logradouro:" name="logradouro" value={form.logradouro} editing={editing} onChange={handleChange} placeholder="Digite seu logradouro" />
+                    <FormField label="Número:" name="numero" value={form.numero} editing={editing} onChange={handleChange} placeholder="Digite seu número" />
+                </form>
+
 
                 {/* --- Botões de Ação --- */}
                 <div className="mt-8">
