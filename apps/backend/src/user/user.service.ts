@@ -2,15 +2,16 @@ import { Usuario } from '@repo/types';
 import { Injectable } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class UserService {
   private users: Usuario[] = [];
 
-  create(dto: CreateUserDto): Usuario {
+  create(createuserDto: CreateUserDto): Usuario {
     const newUser: Usuario = {
-      id_usuario: (this.users.length + 1).toString(),
-      ...dto,
+      ...createuserDto,
+      id_usuario: uuidv4(),
       criado_em: new Date(),
       atualizado_em: new Date(),
     };
