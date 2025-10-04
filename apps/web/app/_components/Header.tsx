@@ -3,7 +3,7 @@ import Link from "next/link";
 
 export default function Header() {
   return (
-    <header className="text-white w-full h-32 flex items-center justify-center
+    <header className="text-white w-full h-40 relative flex items-center justify-center
       bg-[#2f9e41] bg-[url('/bg-header-effect.png')] bg-cover">
       <div className="grid grid-cols-[auto_1fr_auto] items-center w-90 gap-x-4">
         <Image
@@ -36,6 +36,7 @@ export default function Header() {
           </Link>
         </div>
       </div>
+      <div className="absolute bottom-0 left-0 right-0 h-6 bg-white rounded-t-4xl z-0"></div>
     </header>
   );
 }
