@@ -27,19 +27,18 @@ export default function PerfilPage() {
 
     return (
         <>
-            <main className="bg-white min-h-screen max-w-md mx-auto p-4">
-                <div className="flex items-center mb-8 gap-1">
+            <main className="bg-white min-h-screen max-w-md mx-auto px-8">
+                {/* Cabecalho de form */}
+                <div className="flex items-center mb-8 gap-3">
                     <button
-                        onClick={() => {
-                            if (window.history.length > 1) router.back();
-                            else router.push("/");
-                        }}
-                        className="text-3xl font-extrabold text-[#2f9e41] hover:bg-gray-300 rounded-md p-2 mr-4 transition w-14 leading-none"
+                        onClick={() => router.back()}
+                        className="flex justify-center w-12 h-12 text-3xl font-black text-[#2f9e41] transition rounded-full hover:bg-green-400"
                     >
                         &lt;
                     </button>
-
-                    <h1 className="text-2xl font-bold text-[#2f9e41]">Perfil de Candidato</h1>
+                    <h1 className="text-2xl font-bold text-[#2f9e41] -mt-2">
+                        Perfil de Candidato
+                    </h1>
                 </div>
 
 
