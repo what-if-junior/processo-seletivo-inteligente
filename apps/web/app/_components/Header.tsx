@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 
 export default function Header() {
   return (
@@ -11,15 +12,12 @@ export default function Header() {
           width={60}
           height={40}
         />
-
-        <h1 className="text-lg font-light leading-tight text-left">
-          Processos <br /> Seletivos
+        <h1 className="text-sm font-normal text-justify leading-tight">
+          PROCESSOS <br /> SELETIVOS
         </h1>
 
-        <div className="flex gap-2 justify-end">
-          <button
-            className="flex items-center justify-center bg-white w-10 h-10 rounded-md hover:bg-gray-200 transition"
-          >
+        <div className="flex gap-4 justify-end">
+          <button className="flex items-center justify-center bg-white w-9 h-9 rounded-md hover:bg-gray-200 transition">
             <Image
               src="/search-icon-green.svg"
               alt="Pesquisar"
@@ -28,16 +26,14 @@ export default function Header() {
             />
           </button>
 
-          <button
-            className="flex items-center justify-center bg-white w-10 h-10 rounded-md hover:bg-gray-200 transition"
-          >
+          <Link href="/perfil" className="flex items-center justify-center bg-white w-9 h-9 rounded-md hover:bg-gray-200 transition">
             <Image
               src="/user-icon-green.svg"
               alt="Usuário"
               width={20}
               height={20}
             />
-          </button>
+          </Link>
         </div>
       </div>
     </header>
