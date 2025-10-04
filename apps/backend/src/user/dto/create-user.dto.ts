@@ -4,6 +4,7 @@ import { Etnia } from '@repo/types';
 export class CreateUserDto {
   readonly nome_completo: string;
   readonly email: string;
+  readonly senha: string;
   readonly CPF: string;
   readonly data_nascimento: Date;
   readonly telefone: string;

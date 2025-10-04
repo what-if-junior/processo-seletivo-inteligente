@@ -4,12 +4,12 @@ import { UpdateCursoDto } from './dto/update-curso.dto';
 import { Cursos } from '@repo/types';
 import { v4 as uuidv4 } from 'uuid';
 
-
 @Injectable()
 export class CursosService {
   private cursos: Cursos[] = [];
 
   create(createCursoDto: CreateCursoDto): Cursos {
+
     const novoCurso: Cursos = { 
       ...createCursoDto,
       id_curso: uuidv4()

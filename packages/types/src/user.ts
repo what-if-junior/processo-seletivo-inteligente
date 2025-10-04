@@ -12,6 +12,7 @@ export interface Usuario {
   id_usuario: string;
   nome_completo: string;
   email: string;
+  senha: string;
   CPF: string;
   data_nascimento: Date;
   telefone: string;

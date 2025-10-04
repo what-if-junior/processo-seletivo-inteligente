@@ -3,18 +3,23 @@ import { Injectable } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { v4 as uuidv4 } from 'uuid';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class UserService {
   private users: Usuario[] = [];
 
-  create(createuserDto: CreateUserDto): Usuario {
+  async create(createUserDto: CreateUserDto): Promise<Usuario> {
+    const hashedPassword = await bcrypt.hash(createUserDto.senha, 10);
+
     const newUser: Usuario = {
-      ...createuserDto,
+      ...createUserDto,
       id_usuario: uuidv4(),
+      senha: hashedPassword,
       criado_em: new Date(),
       atualizado_em: new Date(),
     };
+
     this.users.push(newUser);
     return newUser;
   }
