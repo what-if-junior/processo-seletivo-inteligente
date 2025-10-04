@@ -113,8 +113,7 @@ export default function PerfilPage() {
     }
 
     return (
-        <>
-            <main className="bg-white min-h-screen max-w-md mx-auto px-8 pb-32"> {/* Padding bottom aplicada ate que correcao de navegacao seja aplicada */}
+            <div className="bg-white min-h-screen max-w-md mx-auto px-8">
                 {/* Cabecalho de form */}
                 <div className="flex items-center mb-4 gap-1">
                     <button
@@ -173,7 +172,6 @@ export default function PerfilPage() {
                         </button>
                     )}
                 </div>
-            </main>
-        </>
+            </div>
     );
 }
