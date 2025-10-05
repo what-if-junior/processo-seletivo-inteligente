@@ -1,16 +1,17 @@
 'use client';
 import { useRouter } from "next/navigation";
 import JobOpeningStepsTable from "../../_components/jobOpeningStepsTable";
+import { use } from 'react';
 
-export default function PaginaCurso({ params }: { params: { slug: string } }) {
+export default function Curso({ params }: { params: Promise<{ slug: string }> }) {
     const router = useRouter();
 
-    // O 'params.slug' corresponderá ao valor na URL.
-    const { slug } = params;
+    //  hook 'use' para "desembrulhar" a Promise de params
+    const { slug } = use(params);
 
     return (
-        <div className="mx-auto max-w-md px-6 py-8 bg-white">
-            {/* Cabecalho de form */}
+        <div className="mx-auto max-w-md px-6 py-4 bg-white">
+            {/* Cabecalho de curso */}
             <div className="flex items-center mb-4 gap-1">
                 <button
                     onClick={() => router.back()}
@@ -19,7 +20,7 @@ export default function PaginaCurso({ params }: { params: { slug: string } }) {
                     &lt;
                 </button>
                 <h1 className="text-2xl font-bold text-[#2f9e41] -mt-2">
-                    {params.slug.toLocaleUpperCase()}
+                    {slug.toLocaleUpperCase()}
                 </h1>
             </div>
 
