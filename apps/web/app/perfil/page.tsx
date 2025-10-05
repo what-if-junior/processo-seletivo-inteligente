@@ -2,6 +2,7 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { User } from "@repo/types";
+import HeaderTitle from "../_components/HeaderTitle";
 
 type FormFieldProps = {
     label: string;
@@ -114,18 +115,7 @@ export default function PerfilPage() {
 
     return (
             <div className="bg-white min-h-screen max-w-md mx-auto px-8">
-                {/* Cabecalho de form */}
-                <div className="flex items-center mb-4 gap-1">
-                    <button
-                        onClick={() => router.back()}
-                        className="flex justify-left w-12 h-12 text-3xl font-black text-[#2f9e41] transition rounded-full hover:bg-green-400"
-                    >
-                        &lt;
-                    </button>
-                    <h1 className="text-2xl font-bold text-[#2f9e41] -mt-2">
-                        Perfil de Candidato
-                    </h1>
-                </div>
+                <HeaderTitle title="Perfil de Candidato" />
 
                 {/* --- Campos do Formulário --- */}
                 <form className="space-y-4">
