@@ -1,54 +1,59 @@
-import { Usuario } from '@repo/types';
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { User } from './entities/user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { v4 as uuidv4 } from 'uuid';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class UserService {
-  private users: Usuario[] = [];
+  constructor(
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
+  ) {}
 
-  async create(createUserDto: CreateUserDto): Promise<Usuario> {
+  async create(createUserDto: CreateUserDto): Promise<User> {
     const hashedPassword = await bcrypt.hash(createUserDto.senha, 10);
 
-    const newUser: Usuario = {
-      ...createUserDto,
-      id_usuario: uuidv4(),
+    const user = this.userRepository.create({
+      nome_completo: createUserDto.nome_completo,
+      email: createUserDto.email,
       senha: hashedPassword,
-      criado_em: new Date(),
-      atualizado_em: new Date(),
-    };
+      CPF: createUserDto.CPF,
+      data_nascimento: createUserDto.data_nascimento,
+      telefone: createUserDto.telefone,
+      renda_familiar: createUserDto.renda_familiar,
+      etnia: createUserDto.etnia,
+      pcd: createUserDto.pcd ?? false,
+      RG: createUserDto.RG,
+      historico_escolar: createUserDto.historico_escolar,
+      foto: createUserDto.foto,
+      endereco: createUserDto.endereco ? { ...createUserDto.endereco } : undefined,
+    });
 
-    this.users.push(newUser);
-    return newUser;
+    return this.userRepository.save(user);
   }
 
-  findAll(): Usuario[] {
-    return this.users;
+
+  async findAll(): Promise<User[]> {
+    return this.userRepository.find();
   }
 
-  private findIndex(id: string): number {
-    return this.users.findIndex(u => u.id_usuario === id);
+  async findOne(id: string): Promise<User> {
+    const user = await this.userRepository.findOne({ where: { id_usuario: id } });
+    if (!user) throw new NotFoundException(`Usuário ${id} não encontrado`);
+    return user;
   }
 
-  findOne(id: string): Usuario | { message: string } {
-    const user = this.users.find(u => u.id_usuario === id);
-    return user || { message: `User ${id} not found` };
+  async update(id: string, dto: UpdateUserDto): Promise<User> {
+    const user = await this.findOne(id);
+    Object.assign(user, dto, { atualizado_em: new Date() });
+    return this.userRepository.save(user);
   }
 
-  update(id: string, dto: UpdateUserDto): Usuario | { message: string } {
-    const index = this.findIndex(id);
-    if (index === -1) return { message: `User ${id} not found` };
-
-    this.users[index] = { ...this.users[index], ...dto, atualizado_em: new Date() };
-    return this.users[index];
-  }
-
-  remove(id: string): Usuario | { message: string } {
-    const index = this.findIndex(id);
-    if (index === -1) return { message: `User ${id} not found` };
-
-    return this.users.splice(index, 1)[0];
+  async remove(id: string): Promise<void> {
+    const user = await this.findOne(id);
+    await this.userRepository.remove(user);
   }
 }

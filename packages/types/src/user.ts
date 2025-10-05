@@ -13,16 +13,16 @@ export interface Usuario {
   nome_completo: string;
   email: string;
   senha: string;
-  CPF: string;
-  data_nascimento: Date;
-  telefone: string;
-  RG: File;
-  historico_escolar: File;
-  renda_familiar: number;
-  foto: File;
-  etnia: Etnia;
-  pcd: boolean;
-  criado_em: Date;
-  atualizado_em: Date;
-  endereco: Endereco;
+  CPF?: string;
+  data_nascimento?: Date;
+  telefone?: string;
+  RG?: string;
+  historico_escolar?: string;
+  renda_familiar?: number;
+  foto?: string;
+  etnia?: Etnia;
+  pcd?: boolean;
+  criado_em?: Date;
+  atualizado_em?: Date;
+  endereco?: Endereco;
 }

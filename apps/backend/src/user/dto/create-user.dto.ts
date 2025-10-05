@@ -8,10 +8,10 @@ export class CreateUserDto {
   readonly CPF: string;
   readonly data_nascimento: Date;
   readonly telefone: string;
-  readonly RG: File;
-  readonly historico_escolar: File;
+  readonly RG: string;
+  readonly historico_escolar: string;
   readonly renda_familiar: number;
-  readonly foto: File;
+  readonly foto: string;
   readonly etnia: Etnia;
   readonly pcd: boolean;
   readonly endereco: Endereco;

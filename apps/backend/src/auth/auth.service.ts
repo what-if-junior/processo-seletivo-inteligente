@@ -16,7 +16,7 @@ export class AuthService {
   ) {}
 
   async validateUser(email: string, senha: string) {
-    const user = this.userService.findAll().find((u) => u.email === email);
+    const user = (await this.userService.findAll()).find((u) => u.email === email);
     if (!user) {
       throw new NotFoundException('Usuário não encontrado');
     }
