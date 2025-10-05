@@ -2,21 +2,21 @@ import Link from 'next/link';
 
 // --- Dados de Simulação ---
 const DADOS_CURSOS = [
-  { id: 1, nome: "Curso Técnico" },
-  { id: 2, nome: "Superior em Computação" },
-  { id: 3, nome: "Ensino Médio Integrado" },
-  { id: 4, nome: "Técnico em Vestuário" },
-  { id: 5, nome: "Técnico em Moda" },
-  { id: 6, nome: "Técnico em Hotelaria" },
+  { id: 1, nome: "Curso Técnico", slug: "curso-tecnico-2025.1" },
+  { id: 2, nome: "Superior em Computação", slug: "superior-computacao-2025.2" },
+  { id: 3, nome: "Ensino Médio Integrado", slug: "ensino-medio-integrado-2025.2" },
+  { id: 4, nome: "Técnico em Vestuário", slug: "tecnico-vestuario-2025.1" },
+  { id: 5, nome: "Técnico em Moda", slug: "tecnico-moda-2025.1" },
+  { id: 6, nome: "Técnico em Hotelaria", slug: "tecnico-hotelaria-2025.2" },
 ];
 
 // --- Subcomponente para os Botões de Cursos ---
 interface CourseButtonProps {
   nome: string;
-  href?: string;
+  href: string;
 }
 
-function CourseButton({ nome, href = "#" }: CourseButtonProps) {
+function CourseButton({ nome, href }: CourseButtonProps) {
   return (
     <Link
       href={href}
@@ -56,7 +56,7 @@ export default function Home() {
         <h2 className="mb-4 text-2xl font-bold text-gray-800">Cursos Disponíveis</h2>
         <div className="grid grid-cols-2 gap-4">
           {DADOS_CURSOS.map((curso) => (
-            <CourseButton key={curso.id} nome={curso.nome} />
+            <CourseButton key={curso.id} nome={curso.nome} href={`/cursos/${curso.slug}`} />
           ))}
         </div>
       </section>
