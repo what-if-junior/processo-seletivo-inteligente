@@ -29,31 +29,41 @@ export class UserService {
       RG: createUserDto.RG,
       historico_escolar: createUserDto.historico_escolar,
       foto: createUserDto.foto,
-      endereco: createUserDto.endereco ? { ...createUserDto.endereco } : undefined,
+      endereco: createUserDto.endereco,
     });
 
     return this.userRepository.save(user);
   }
 
-
   async findAll(): Promise<User[]> {
     return this.userRepository.find();
   }
 
-  async findOne(id: string): Promise<User> {
-    const user = await this.userRepository.findOne({ where: { id_usuario: id } });
+  async findByEmail(email: string): Promise<User> {
+    const user = await this.userRepository.findOne({ where: { email } });
+    if (!user)
+      throw new NotFoundException(
+        `Usuário com email: '${email}' não encontrado`,
+      );
+    return user;
+  }
+
+  async findById(id: string): Promise<User> {
+    const user = await this.userRepository.findOne({
+      where: { id_usuario: id },
+    });
     if (!user) throw new NotFoundException(`Usuário ${id} não encontrado`);
     return user;
   }
 
   async update(id: string, dto: UpdateUserDto): Promise<User> {
-    const user = await this.findOne(id);
+    const user = await this.findById(id);
     Object.assign(user, dto, { atualizado_em: new Date() });
     return this.userRepository.save(user);
   }
 
   async remove(id: string): Promise<void> {
-    const user = await this.findOne(id);
+    const user = await this.findById(id);
     await this.userRepository.remove(user);
   }
 }
