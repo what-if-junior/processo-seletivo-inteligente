@@ -77,9 +77,9 @@ CREATE TABLE "Documentos"(
     "criado_em" TIMESTAMP NOT NULL
 );
 CREATE TYPE ETAPA_PROCESSO AS ENUM(
-        'periodo_inscricoes'
+        'periodo_inscricoes',
         'manifestacao_interesse',
-        'entrega_documental'
+        'entrega_documental',
         'analise_documental',
         'publicacao_resultado_preliminar',
         'apresentacao_recurso',
