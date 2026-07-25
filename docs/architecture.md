@@ -85,35 +85,40 @@ Definidos em `packages/types/src/db-enums.ts` com valores **idênticos** ao SQL:
 
 ## 3. API do backend
 
-Todos os controllers são anotados com `@ApiTags` / `@ApiOperation`; Swagger em `/api`.
+Todos os controllers são anotados com `@ApiTags` / `@ApiOperation`; Swagger em `/api`
+(inclui exemplos de uso no Next.js e o botão **Authorize** para Bearer JWT).
 
-| Recurso | Método | Rota | Descrição |
-| --- | --- | --- | --- |
-| auth | POST | `/auth/login` | Autentica e retorna JWT |
-| user | GET | `/user` | Lista usuários com endereços |
-| user | GET | `/user/:id` | Usuário por id |
-| user | POST | `/user` | Cria usuário (+ endereço opcional) |
-| user | PATCH/DELETE | `/user/:id` | Atualiza / remove |
-| cursos | GET | `/cursos` | Lista cursos |
-| cursos | GET | `/cursos/:id` | Curso por id |
-| cursos | GET | `/cursos/:id/candidaturas` | Candidaturas do curso |
-| cursos | POST/PATCH/DELETE | `/cursos[/:id]` | CRUD |
-| candidaturas | GET | `/candidaturas` | Lista com usuário + curso |
-| candidaturas | GET | `/candidaturas/:id` | Detalhe com documentos, etapas, recursos |
-| candidaturas | POST | `/candidaturas` | Cria (bloqueia duplicidade usuário+curso) |
-| documentos | GET | `/documentos?candidatura=:id` | Lista / por candidatura |
-| documentos | GET | `/documentos/:id` | Detalhe (sem binário) |
-| gestores | GET | `/gestores`, `/gestores/:id` | Gestor + usuário |
-| etapas-processo | GET | `/etapas-processo?candidatura=:id` | Lista / por candidatura |
-| etapas-processo | GET | `/etapas-processo/:id` | Detalhe com candidatura, gestor, recursos |
-| recursos | GET | `/recursos?etapa=:id` | Lista / por etapa |
-| recursos | GET | `/recursos/:id` | Detalhe com etapa e gestor |
+| Recurso | Método | Rota | Auth | Descrição |
+| --- | --- | --- | --- | --- |
+| auth | POST | `/auth/login` | público | Autentica e retorna JWT |
+| user | POST | `/user` | público | Cadastro (+ endereço opcional) |
+| user | GET | `/user` | JWT | Lista usuários com endereços |
+| user | GET | `/user/:id` | JWT | Usuário por id |
+| user | PATCH/DELETE | `/user/:id` | JWT | Atualiza / remove |
+| cursos | GET | `/cursos` | público | Lista cursos |
+| cursos | GET | `/cursos/:id` | público | Curso por id |
+| cursos | GET | `/cursos/:id/candidaturas` | JWT | Candidaturas do curso |
+| cursos | POST/PATCH/DELETE | `/cursos[/:id]` | JWT | CRUD |
+| candidaturas | GET | `/candidaturas` | JWT | Lista com usuário + curso |
+| candidaturas | GET | `/candidaturas/:id` | JWT | Detalhe com documentos, etapas, recursos |
+| candidaturas | POST | `/candidaturas` | JWT | Cria (bloqueia inscrição duplicada) |
+| documentos | GET | `/documentos?candidatura=:id` | JWT | Lista / por candidatura |
+| documentos | GET | `/documentos/:id` | JWT | Detalhe (sem binário) |
+| gestores | GET | `/gestores`, `/gestores/:id` | JWT | Gestor + usuário |
+| etapas-processo | GET | `/etapas-processo?candidatura=:id` | público | Lista / por candidatura |
+| etapas-processo | GET | `/etapas-processo/:id` | público | Detalhe com candidatura, gestor, recursos |
+| recursos | GET | `/recursos?etapa=:id` | JWT | Lista / por etapa |
+| recursos | GET | `/recursos/:id` | JWT | Detalhe com etapa e gestor |
 
 ### Autenticação
 
+- Guard global `JwtAuthGuard` + decorator `@Public()` nas rotas livres.
 - `senha` adicionada por `database/03_auth.sql` (bcrypt) — coluna `select:false`.
 - `AuthService.validateUser` compara com bcrypt; `login` assina JWT (`sub = user.id`).
+- Header: `Authorization: Bearer <access_token>` (mesmo esquema no Swagger Authorize).
+- Next.js: use `API_URL` no server e `NEXT_PUBLIC_API_URL` no browser; exemplos em `/api`.
 - Seeds de dev: `joao@teste.com` / `senha123`, `admin@teste.com` / `admin123`.
+- `JWT_SECRET_TO_SIGN` e `SECRET_OR_KEY` devem ser iguais no `.env`.
 
 ### Regras de negócio já cobertas
 

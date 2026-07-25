@@ -16,7 +16,20 @@ async function bootstrap() {
   const swaggerConfig = new DocumentBuilder()
     .setTitle('Processo Seletivo Inteligente API')
     .setDescription(
-      'API do monorepo PSI. Schema SQL em database/ e a fonte da verdade.',
+      [
+        '## Autenticação',
+        '',
+        'Rotas **públicas** (sem JWT):',
+        '- `POST /auth/login`',
+        '- `POST /user` (cadastro)',
+        '- `GET /cursos`, `GET /cursos/:id`',
+        '- `GET /etapas-processo`, `GET /etapas-processo/:id`',
+        '',
+        'Demais rotas exigem header `Authorization: Bearer <access_token>`.',
+        'Use o botão **Authorize** neste Swagger com o token retornado pelo login.',
+        
+        'Seeds de desenvolvimento: `joao@teste.com` / `senha123`, `admin@teste.com` / `admin123`.',
+      ].join('\n'),
     )
     .setVersion('0.1.0')
     .addBearerAuth()

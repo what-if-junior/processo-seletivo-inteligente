@@ -6,24 +6,34 @@ import {
   ParseIntPipe,
   Post,
 } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiTags,
+  ApiUnauthorizedResponse,
+} from '@nestjs/swagger';
 import { CandidaturasService } from './candidaturas.service';
 import { CreateCandidaturaDto } from './dto/create-candidatura.dto';
 
 @ApiTags('candidaturas')
+@ApiBearerAuth()
+@ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
 @Controller('candidaturas')
 export class CandidaturasController {
   constructor(private readonly candidaturasService: CandidaturasService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Lista candidaturas com usuário e curso' })
+  @ApiOperation({
+    summary: 'Lista candidaturas com usuário e curso (requer JWT)',
+  })
   findAll() {
     return this.candidaturasService.findAll();
   }
 
   @Get(':id')
   @ApiOperation({
-    summary: 'Detalha uma candidatura com documentos, etapas e recursos',
+    summary:
+      'Detalha uma candidatura com documentos, etapas e recursos (requer JWT)',
   })
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.candidaturasService.findOne(id);
@@ -31,7 +41,8 @@ export class CandidaturasController {
 
   @Post()
   @ApiOperation({
-    summary: 'Cria candidatura, bloqueando inscrição duplicada no mesmo curso',
+    summary:
+      'Cria candidatura, bloqueando inscrição duplicada no mesmo curso (requer JWT)',
   })
   create(@Body() createCandidaturaDto: CreateCandidaturaDto) {
     return this.candidaturasService.create(createCandidaturaDto);
