@@ -27,7 +27,7 @@ services:
     environment:
       PORT: 5005
       DATABASE_HOST: postgres
-      WEB_ORIGIN: http://localhost:3000
+      WEB_ORIGIN: http://localhost:3000,http://localhost:3001
     healthcheck:
       test:
         [
@@ -59,25 +59,23 @@ services:
       PORT: 3000
       HOSTNAME: 0.0.0.0
 
-  # candidate-app: (port 3001) — enable after Figma import into apps/candidate-app
-  # Uncomment deps COPY + build/runtime stages in root Dockerfile first.
-  # candidate-app:
-  #   build:
-  #     context: .
-  #     dockerfile: Dockerfile
-  #     target: candidate-app
-  #     args:
-  #       NEXT_PUBLIC_API_URL: http://localhost:5005
-  #   ports:
-  #     - "3001:3001"
-  #   depends_on:
-  #     backend:
-  #       condition: service_healthy
-  #   environment:
-  #     API_URL: http://backend:5005
-  #     NEXT_PUBLIC_API_URL: http://localhost:5005
-  #     PORT: 3001
-  #     HOSTNAME: 0.0.0.0
+  candidate-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: candidate-app
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:5005
+    ports:
+      - "3001:3001"
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      API_URL: http://backend:5005
+      NEXT_PUBLIC_API_URL: http://localhost:5005
+      PORT: 3001
+      HOSTNAME: 0.0.0.0
 
   pgadmin:
     profiles: ["tools"]

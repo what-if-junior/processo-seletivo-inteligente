@@ -1,8 +1,7 @@
 # syntax=docker/dockerfile:1.7
 
 # Shared monorepo Dockerfile.
-# Compose targets: backend | admin-web
-# Future: candidate-app (uncomment stages + compose service after Figma import)
+# Compose targets: backend | admin-web | candidate-app
 
 FROM node:22-alpine AS base
 WORKDIR /app
@@ -13,14 +12,14 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # ---------------------------------------------------------------------------
 FROM base AS deps
 COPY package.json package-lock.json ./
+COPY .npmrc ./
 COPY packages/types/package.json ./packages/types/
 COPY packages/ui/package.json ./packages/ui/
 COPY packages/eslint-config/package.json ./packages/eslint-config/
 COPY packages/typescript-config/package.json ./packages/typescript-config/
 COPY apps/backend/package.json ./apps/backend/
 COPY apps/admin-web/package.json ./apps/admin-web/
-# After candidate-app has a package.json:
-# COPY apps/candidate-app/package.json ./apps/candidate-app/
+COPY apps/candidate-app/package.json ./apps/candidate-app/
 RUN --mount=type=cache,target=/root/.npm \
     npm ci --no-audit --no-fund
 
@@ -49,25 +48,27 @@ COPY apps/admin-web ./apps/admin-web
 RUN npm run build -w admin-web
 
 # ---------------------------------------------------------------------------
-# candidate-app-build (enable after Figma import)
+# candidate-app-build
 # ---------------------------------------------------------------------------
-# FROM types-build AS candidate-app-build
-# ARG NEXT_PUBLIC_API_URL=http://localhost:5005
-# ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
-# ENV API_URL=http://backend:5005
-# COPY apps/candidate-app ./apps/candidate-app
-# RUN npm run build -w candidate-app
+FROM types-build AS candidate-app-build
+ARG NEXT_PUBLIC_API_URL=http://localhost:5005
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV API_URL=http://backend:5005
+COPY apps/candidate-app ./apps/candidate-app
+RUN npm run build -w candidate-app
 
 # ---------------------------------------------------------------------------
 # backend-prod-deps: production-only install for slim runtime
 # ---------------------------------------------------------------------------
 FROM base AS backend-prod-deps
 COPY package.json package-lock.json ./
+COPY .npmrc ./
 COPY packages/types/package.json ./packages/types/
 COPY apps/backend/package.json ./apps/backend/
 # Stub empty workspace package.jsons so the root workspaces glob stays valid
 # without pulling admin-web / ui / eslint into the production install filter.
 COPY apps/admin-web/package.json ./apps/admin-web/
+COPY apps/candidate-app/package.json ./apps/candidate-app/
 COPY packages/ui/package.json ./packages/ui/
 COPY packages/eslint-config/package.json ./packages/eslint-config/
 COPY packages/typescript-config/package.json ./packages/typescript-config/
@@ -106,15 +107,15 @@ EXPOSE 3000
 CMD ["node", "apps/admin-web/server.js"]
 
 # ---------------------------------------------------------------------------
-# candidate-app runtime (enable after Figma import; expected port 3001)
+# candidate-app runtime (Next standalone; port 3001)
 # ---------------------------------------------------------------------------
-# FROM base AS candidate-app
-# ENV NODE_ENV=production
-# ENV PORT=3001
-# ENV HOSTNAME=0.0.0.0
-# ENV API_URL=http://backend:5005
-# COPY --from=candidate-app-build /app/apps/candidate-app/public ./apps/candidate-app/public
-# COPY --from=candidate-app-build /app/apps/candidate-app/.next/standalone ./
-# COPY --from=candidate-app-build /app/apps/candidate-app/.next/static ./apps/candidate-app/.next/static
-# EXPOSE 3001
-# CMD ["node", "apps/candidate-app/server.js"]
+FROM base AS candidate-app
+ENV NODE_ENV=production
+ENV PORT=3001
+ENV HOSTNAME=0.0.0.0
+ENV API_URL=http://backend:5005
+COPY --from=candidate-app-build /app/apps/candidate-app/public ./apps/candidate-app/public
+COPY --from=candidate-app-build /app/apps/candidate-app/.next/standalone ./
+COPY --from=candidate-app-build /app/apps/candidate-app/.next/static ./apps/candidate-app/.next/static
+EXPOSE 3001
+CMD ["node", "apps/candidate-app/server.js"]
