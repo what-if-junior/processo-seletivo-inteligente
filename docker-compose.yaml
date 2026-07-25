@@ -1,14 +1,4 @@
 services:
-  backend:
-    build:
-      context: .
-      dockerfile: apps/backend/Dockerfile
-    ports:
-      - "5005:5005"
-    depends_on:
-      - "postgres"
-    env_file: .env
-
   postgres:
     image: postgres:16.2
     ports:
@@ -17,13 +7,64 @@ services:
       - postgres-data:/var/lib/postgresql/data/
       - ./database:/docker-entrypoint-initdb.d
     env_file: .env
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+    ports:
+      - "5005:5005"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      PORT: 5005
+      DATABASE_HOST: postgres
+      WEB_ORIGIN: http://localhost:3000
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:5005/api').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:5005
+    ports:
+      - "3000:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      API_URL: http://backend:5005
+      NEXT_PUBLIC_API_URL: http://localhost:5005
+      PORT: 3000
+      HOSTNAME: 0.0.0.0
 
   pgadmin:
+    profiles: ["tools"]
     image: dpage/pgadmin4:latest
     ports:
-      - "5050:80"  # Access pgAdmin on http://localhost:5050
+      - "5050:80"
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     env_file: .env
 
 volumes:
