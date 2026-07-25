@@ -140,10 +140,11 @@ Todos os controllers são anotados com `@ApiTags` / `@ApiOperation`; Swagger em 
 | Arquivo | Papel |
 | --- | --- |
 | `docker-compose.yaml` | Orquestra postgres, backend, admin-web e pgadmin (profile `tools`) |
-| `apps/backend/Dockerfile` | Build multi-stage do Nest no contexto do monorepo |
-| `apps/admin-web/Dockerfile` | Build multi-stage do Next em modo `standalone` |
-| `.dockerignore` | Exclui `node_modules`, `.next`, `.git`, `dist`, docs etc. |
+| `Dockerfile` | Build multi-stage compartilhado (`target: backend` / `admin-web`; stub `candidate-app`) |
+| `.dockerignore` | Exclui `**/node_modules`, `**/.next`, `**/dist`, `.git`, etc. (contexto ~2MB) |
 | `.env.sample` | Modelo de variáveis (copiar para `.env`) |
+
+`npm ci` roda **uma vez** no stage `deps` (só manifests). Edits de source em `apps/*` não invalidam a camada de instalação. O runtime do backend usa `npm ci --omit=dev` (sem jest/eslint/Nest CLI).
 
 ### Healthchecks e dependências
 
@@ -193,7 +194,7 @@ docker compose down -v               # reseta o volume (necessário ao mudar SQL
 - `apps/admin-web/app/page.tsx`: consome `Usuario` de `@repo/types`, renderiza
   `id` / `nome_completo` (antes usava `User` / `id` / `nome`, inexistentes).
 - `apps/admin-web/tsconfig.json`: `moduleResolution: "bundler"` para resolver `@repo/ui`.
-- `apps/candidate-app/`: reservado para a PWA de candidatos (porta 3001; stub no Compose).
+- `apps/candidate-app/`: reservado para a PWA de candidatos (porta 3001; stub no Compose + stages comentados no `Dockerfile` raiz).
 
 ---
 

@@ -16,7 +16,8 @@ services:
   backend:
     build:
       context: .
-      dockerfile: apps/backend/Dockerfile
+      dockerfile: Dockerfile
+      target: backend
     ports:
       - "5005:5005"
     depends_on:
@@ -43,7 +44,8 @@ services:
   admin-web:
     build:
       context: .
-      dockerfile: apps/admin-web/Dockerfile
+      dockerfile: Dockerfile
+      target: admin-web
       args:
         NEXT_PUBLIC_API_URL: http://localhost:5005
     ports:
@@ -58,10 +60,14 @@ services:
       HOSTNAME: 0.0.0.0
 
   # candidate-app: (port 3001) — enable after Figma import into apps/candidate-app
+  # Uncomment deps COPY + build/runtime stages in root Dockerfile first.
   # candidate-app:
   #   build:
   #     context: .
-  #     dockerfile: apps/candidate-app/Dockerfile
+  #     dockerfile: Dockerfile
+  #     target: candidate-app
+  #     args:
+  #       NEXT_PUBLIC_API_URL: http://localhost:5005
   #   ports:
   #     - "3001:3001"
   #   depends_on:
