@@ -1,11 +1,11 @@
 export interface Endereco {
-    id_endereco: string; 
-    id_usuario: string;
+    id: number;
+    id_usuario: number;
     estado: string;
     cidade: string;
     CEP: string;
     logradouro: string;
     bairro: string;
     numero_residencia: string;
-    complemento?: string;
+    complemento?: string | null;
 };

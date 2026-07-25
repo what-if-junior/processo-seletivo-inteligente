@@ -1,56 +1,91 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, OneToOne, JoinColumn } from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  OneToMany,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 import { Etnia } from '@repo/types';
 import { Endereco } from './endereco.entity';
+import { Candidatura } from '../../candidaturas/entities/candidatura.entity';
+import { Gestor } from '../../gestores/entities/gestor.entity';
+import { numericTransformer } from '../../common/transformers';
 
-@Entity('usuarios')
+@Entity('Usuarios')
 export class User {
-  @PrimaryGeneratedColumn('uuid')
-  id_usuario: string;
+  @PrimaryGeneratedColumn({ type: 'int' })
+  id: number;
 
-  @Column()
+  @Column({ length: 255 })
   nome_completo: string;
 
-  @Column({ unique: true })
+  @Column({ length: 255 })
   email: string;
 
-  @Column()
+  @Column({ length: 255, select: false })
   senha: string;
 
-  @Column({ nullable: true })
-  CPF?: string;
+  @Column({ length: 255 })
+  CPF: string;
 
-  @Column({ type: 'date', nullable: true })
-  data_nascimento?: Date;
+  @Column({ type: 'date' })
+  data_nascimento: string;
 
-  @Column({ nullable: true })
-  telefone?: string;
+  @Column({ length: 255 })
+  telefone: string;
 
-  // Você pode salvar os arquivos como string (ex: caminho no S3, base64, etc.)
-  @Column({ nullable: true })
-  RG?: string;
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  nome_RG?: string | null;
 
-  @Column({ nullable: true })
-  historico_escolar?: string;
+  @Column({ type: 'bytea', nullable: true, select: false })
+  RG?: Buffer | null;
 
-  @Column({ type: 'float', nullable: true })
-  renda_familiar?: number;
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  nome_historico_escolar?: string | null;
 
-  @Column({ nullable: true })
-  foto?: string;
+  @Column({ type: 'bytea', nullable: true, select: false })
+  historico_escolar?: Buffer | null;
 
-  @Column({ type: 'enum', enum: Etnia, nullable: true })
-  etnia?: Etnia;
+  @Column({
+    type: 'decimal',
+    precision: 8,
+    scale: 2,
+    nullable: true,
+    transformer: numericTransformer,
+  })
+  renda_familiar?: number | null;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  foto_alt?: string | null;
+
+  @Column({ type: 'bytea', nullable: true, select: false })
+  foto?: Buffer | null;
+
+  /** Coluna "ppi" (VARCHAR) guarda a autodeclaracao etnica. */
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  ppi?: Etnia | null;
 
   @Column({ type: 'boolean', default: false })
-  pcd?: boolean;
+  pcd: boolean;
 
-  @CreateDateColumn()
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  token?: string | null;
+
+  @CreateDateColumn({ type: 'timestamp' })
   criado_em: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ type: 'timestamp' })
   atualizado_em: Date;
 
-  @OneToOne(() => Endereco, endereco => endereco.usuario, { cascade: true, eager: true })
-  @JoinColumn({ name: 'id_endereco' })
-  endereco?: Endereco;
+  @OneToMany(() => Endereco, (endereco) => endereco.usuario, {
+    cascade: ['insert', 'update'],
+  })
+  enderecos?: Endereco[];
+
+  @OneToMany(() => Candidatura, (candidatura) => candidatura.usuario)
+  candidaturas?: Candidatura[];
+
+  @OneToMany(() => Gestor, (gestor) => gestor.usuario)
+  gestores?: Gestor[];
 }

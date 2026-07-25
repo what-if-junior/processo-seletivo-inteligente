@@ -1,5 +1,6 @@
 import { Endereco } from './address';
 
+/** Valores aceitos pela coluna "ppi" da tabela "Usuarios". */
 export enum Etnia {
   BRANCO = 'branco',
   PRETO = 'preto',
@@ -8,21 +9,24 @@ export enum Etnia {
   AMARELO = 'amarelo'
 }
 
+/**
+ * Usuario como a API o expoe: sem senha e sem os binarios (BYTEA) dos
+ * documentos, que sao servidos por endpoints dedicados.
+ */
 export interface Usuario {
-  id_usuario: string;
+  id: number;
   nome_completo: string;
   email: string;
-  senha: string;
-  CPF?: string;
-  data_nascimento?: Date;
-  telefone?: string;
-  RG?: string;
-  historico_escolar?: string;
-  renda_familiar?: number;
-  foto?: string;
-  etnia?: Etnia;
-  pcd?: boolean;
+  CPF: string;
+  data_nascimento: string;
+  telefone: string;
+  nome_RG?: string | null;
+  nome_historico_escolar?: string | null;
+  renda_familiar?: number | null;
+  foto_alt?: string | null;
+  ppi?: Etnia | null;
+  pcd: boolean;
   criado_em?: Date;
   atualizado_em?: Date;
-  endereco?: Endereco;
+  enderecos?: Endereco[];
 }

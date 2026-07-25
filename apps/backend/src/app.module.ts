@@ -1,9 +1,12 @@
 import { Module } from '@nestjs/common';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
 import { UserModule } from './user/user.module';
 import { CursosModule } from './cursos/cursos.module';
 import { AuthModule } from './auth/auth.module';
+import { CandidaturasModule } from './candidaturas/candidaturas.module';
+import { DocumentosModule } from './documentos/documentos.module';
+import { GestoresModule } from './gestores/gestores.module';
+import { EtapasProcessoModule } from './etapas-processo/etapas-processo.module';
+import { RecursosModule } from './recursos/recursos.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
@@ -25,12 +28,18 @@ import { TypeOrmModule } from '@nestjs/typeorm';
         password: configService.get('DATABASE_PASS'),
         database: configService.get('DATABASE_NAME'),
         autoLoadEntities: true,
-        synchronize: true,
+        // SQL em database/ e a fonte da verdade; nao reescrever o schema.
+        synchronize: false,
       }),
     }),
-	CursosModule, UserModule, AuthModule
+    CursosModule,
+    UserModule,
+    AuthModule,
+    CandidaturasModule,
+    DocumentosModule,
+    GestoresModule,
+    EtapasProcessoModule,
+    RecursosModule,
   ],
-  controllers: [AppController],
-  providers: [AppService],
 })
 export class AppModule {}

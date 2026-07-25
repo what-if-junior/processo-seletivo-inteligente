@@ -1,32 +1,52 @@
-import { Entity, Column, PrimaryGeneratedColumn, OneToOne } from 'typeorm';
+import {
+  Column,
+  Entity,
+  JoinColumn,
+  ManyToOne,
+  PrimaryGeneratedColumn,
+} from 'typeorm';
 import { User } from './user.entity';
+import { numericTransformer } from '../../common/transformers';
 
-@Entity('enderecos')
+@Entity('Enderecos')
 export class Endereco {
-  @PrimaryGeneratedColumn('uuid')
-  id_endereco: string;
+  @PrimaryGeneratedColumn({ type: 'int' })
+  id: number;
 
-  @Column()
+  /**
+   * As chaves estrangeiras sao expostas apenas para leitura: quem escreve a
+   * coluna e a relacao correspondente.
+   */
+  @Column({
+    type: 'bigint',
+    insert: false,
+    update: false,
+    transformer: numericTransformer,
+  })
+  id_usuario: number;
+
+  @Column({ length: 255 })
   estado: string;
 
-  @Column()
+  @Column({ length: 255 })
   cidade: string;
 
-  @Column()
+  @Column({ length: 255 })
   CEP: string;
 
-  @Column()
+  @Column({ length: 255 })
   logradouro: string;
 
-  @Column()
+  @Column({ length: 255 })
   bairro: string;
 
-  @Column()
+  @Column({ length: 255 })
   numero_residencia: string;
 
-  @Column({ nullable: true })
-  complemento?: string;
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  complemento?: string | null;
 
-  @OneToOne(() => User, user => user.endereco)
-  usuario: User;
+  @ManyToOne(() => User, (user) => user.enderecos, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'id_usuario' })
+  usuario?: User;
 }

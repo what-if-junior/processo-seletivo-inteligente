@@ -1,7 +1,6 @@
 import {
   Injectable,
   UnauthorizedException,
-  NotFoundException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UserService } from '../user/user.service';
@@ -16,22 +15,19 @@ export class AuthService {
   ) {}
 
   async validateUser(email: string, senha: string) {
-    const user = (await this.userService.findAll()).find((u) => u.email === email);
-    if (!user) {
-      throw new NotFoundException('Usuário não encontrado');
-    }
+    const user = await this.userService.findByEmail(email);
 
     const passwordMatch = await bcrypt.compare(senha, user.senha);
     if (!passwordMatch) {
       throw new UnauthorizedException('Credenciais inválidas');
     }
 
-    const { senha: _, ...result } = user; 
+    const { senha: _, ...result } = user;
     return result;
   }
 
-  async login(user: { id_usuario: string; email: string }) {
-    const payload: AuthPayloadDto = { sub: user.id_usuario, email: user.email };
+  async login(user: { id: number; email: string }) {
+    const payload: AuthPayloadDto = { sub: user.id, email: user.email };
     const access_token = this.jwtService.sign(payload);
 
     return { access_token };

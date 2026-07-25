@@ -1,50 +1,46 @@
-import { Entity, Column, PrimaryGeneratedColumn } from 'typeorm';
-import { Modalidade, Status_Curso, Turno } from '@repo/types';
+import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
+import { Modalidade, Turno } from '@repo/types';
+import { Candidatura } from '../../candidaturas/entities/candidatura.entity';
 
-@Entity('cursos')
+@Entity('Cursos')
 export class Curso {
-  @PrimaryGeneratedColumn('uuid')
-  id_curso: string;
+  @PrimaryGeneratedColumn({ type: 'int' })
+  id: number;
 
-  @Column()
-  nome_curso: string;
+  @Column({ length: 255 })
+  nome: string;
 
-  @Column()
+  @Column({ length: 255 })
   duracao_semestres: string;
 
-  @Column()
+  /** VARCHAR livre no banco; os seeds usam o prefixo "Campus ...". */
+  @Column({ length: 255 })
   campus: string;
 
-  @Column({
-    type: 'enum',
-    enum: Modalidade,
-  })
+  @Column({ type: 'varchar', length: 255 })
   modalidade: Modalidade;
 
-  @Column({
-    type: 'enum',
-    enum: Turno,
-  })
+  @Column({ type: 'varchar', length: 255 })
   turno: Turno;
 
-  @Column()
+  @Column({ type: 'smallint' })
   vagas_totais: number;
 
-  @Column()
-  vagas_cotas_etnia: number;
+  @Column({ type: 'smallint', nullable: true })
+  vagas_cotas_pii?: number | null;
 
-  @Column()
-  vagas_pcd: number;
+  @Column({ type: 'smallint', nullable: true })
+  vagas_pcd?: number | null;
 
-  @Column({ type: 'timestamp' })
-  data_inicio_inscricao: Date;
+  @Column({ type: 'date' })
+  data_inicio_inscricao: string;
 
-  @Column({ type: 'timestamp' })
-  data_fim_inscricao: Date;
+  @Column({ type: 'date' })
+  data_fim_inscricao: string;
 
-  @Column({
-    type: 'enum',
-    enum: Status_Curso,
-  })
-  status_curso: Status_Curso;
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  area_conhecimento?: string | null;
+
+  @OneToMany(() => Candidatura, (candidatura) => candidatura.curso)
+  candidaturas?: Candidatura[];
 }

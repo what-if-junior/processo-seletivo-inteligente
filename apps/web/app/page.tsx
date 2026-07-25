@@ -28,7 +28,7 @@ function CourseButton({ nome, href }: CourseButtonProps) {
 }
 
 export default function Home() {
-  const userName = "Usuário";// trazer de autenticacao no futuro
+  const userName = "Usuário"; // trazer de autenticacao no futuro
 
   return (
     <div className="mx-auto max-w-md px-6 py-8">
@@ -45,18 +45,24 @@ export default function Home() {
           <span className="text-gray-500">Destaques do Carrossel</span>
         </div>
         <div className="mt-4 flex justify-center items-center gap-2">
-            <div className="h-2 w-2 rounded-full bg-gray-300"></div>
-            <div className="h-2 w-2 rounded-full bg-gray-500"></div>
-            <div className="h-2 w-2 rounded-full bg-gray-300"></div>
+          <div className="h-2 w-2 rounded-full bg-gray-300"></div>
+          <div className="h-2 w-2 rounded-full bg-gray-500"></div>
+          <div className="h-2 w-2 rounded-full bg-gray-300"></div>
         </div>
       </section>
 
       {/* Seção de Cursos Disponíveis */}
       <section>
-        <h2 className="mb-4 text-2xl font-bold text-gray-800">Cursos Disponíveis</h2>
+        <h2 className="mb-4 text-2xl font-bold text-gray-800">
+          Cursos Disponíveis
+        </h2>
         <div className="grid grid-cols-2 gap-4">
           {DADOS_CURSOS.map((curso) => (
-            <CourseButton key={curso.id} nome={curso.nome} href={`/cursos/${curso.slug}`} />
+            <CourseButton
+              key={curso.id}
+              nome={curso.nome}
+              href={`/cursos/${curso.slug}`}
+            />
           ))}
         </div>
       </section>
