@@ -1,5 +1,5 @@
 export class AuthPayloadDto {
-  sub: string; 
+  sub: number;
   email: string;
 }
 

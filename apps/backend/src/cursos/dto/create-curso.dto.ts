@@ -1,16 +1,17 @@
-import { Turno, Modalidade, Status_Curso, Campus } from "@repo/types";
+import { Modalidade, Turno } from '@repo/types';
 
 export class CreateCursoDto {
-  id_curso: string;
-  nome_curso: string;
+  nome: string;
   duracao_semestres: string;
-  campus: Campus;
+  campus: string;
   modalidade: Modalidade;
   turno: Turno;
   vagas_totais: number;
-  vagas_cotas_etnia: number;
-  vagas_pcd: number;
-  data_inicio_inscricao: Date;
-  data_fim_inscricao: Date;
-  status_curso: Status_Curso;
+  vagas_cotas_pii?: number;
+  vagas_pcd?: number;
+  /** Formato YYYY-MM-DD. */
+  data_inicio_inscricao: string;
+  /** Formato YYYY-MM-DD. */
+  data_fim_inscricao: string;
+  area_conhecimento?: string;
 }

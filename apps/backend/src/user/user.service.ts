@@ -24,45 +24,74 @@ export class UserService {
       data_nascimento: createUserDto.data_nascimento,
       telefone: createUserDto.telefone,
       renda_familiar: createUserDto.renda_familiar,
-      etnia: createUserDto.etnia,
+      ppi: createUserDto.ppi,
       pcd: createUserDto.pcd ?? false,
-      RG: createUserDto.RG,
-      historico_escolar: createUserDto.historico_escolar,
-      foto: createUserDto.foto,
-      endereco: createUserDto.endereco,
+      nome_RG: createUserDto.nome_RG,
+      nome_historico_escolar: createUserDto.nome_historico_escolar,
+      foto_alt: createUserDto.foto_alt,
+      enderecos: createUserDto.endereco
+        ? [createUserDto.endereco]
+        : undefined,
     });
 
-    return this.userRepository.save(user);
+    const saved = await this.userRepository.save(user);
+    return this.findById(saved.id);
   }
 
   async findAll(): Promise<User[]> {
-    return this.userRepository.find();
+    return this.userRepository.find({
+      relations: { enderecos: true },
+      order: { id: 'ASC' },
+    });
   }
 
   async findByEmail(email: string): Promise<User> {
-    const user = await this.userRepository.findOne({ where: { email } });
-    if (!user)
+    const user = await this.userRepository
+      .createQueryBuilder('usuario')
+      .addSelect('usuario.senha')
+      .leftJoinAndSelect('usuario.enderecos', 'enderecos')
+      .where('usuario.email = :email', { email })
+      .getOne();
+
+    if (!user) {
       throw new NotFoundException(
         `Usuário com email: '${email}' não encontrado`,
       );
+    }
     return user;
   }
 
-  async findById(id: string): Promise<User> {
+  async findById(id: number): Promise<User> {
     const user = await this.userRepository.findOne({
-      where: { id_usuario: id },
+      where: { id },
+      relations: { enderecos: true },
     });
     if (!user) throw new NotFoundException(`Usuário ${id} não encontrado`);
     return user;
   }
 
-  async update(id: string, dto: UpdateUserDto): Promise<User> {
+  async update(id: number, dto: UpdateUserDto): Promise<User> {
     const user = await this.findById(id);
-    Object.assign(user, dto, { atualizado_em: new Date() });
-    return this.userRepository.save(user);
+    const { endereco, senha, ...rest } = dto as UpdateUserDto & {
+      endereco?: CreateUserDto['endereco'];
+      senha?: string;
+    };
+
+    Object.assign(user, rest);
+
+    if (senha) {
+      user.senha = await bcrypt.hash(senha, 10);
+    }
+
+    if (endereco) {
+      user.enderecos = [endereco as never];
+    }
+
+    await this.userRepository.save(user);
+    return this.findById(id);
   }
 
-  async remove(id: string): Promise<void> {
+  async remove(id: number): Promise<void> {
     const user = await this.findById(id);
     await this.userRepository.remove(user);
   }
