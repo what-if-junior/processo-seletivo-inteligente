@@ -1,4 +1,6 @@
-import { useState, useRef } from "react"
+"use client"
+
+import { useState, useRef, type ReactNode, type ElementType } from "react"
 import {
   Home, FileText, Bell, User, Search, ArrowLeft, Camera,
   Upload, MessageCircle, CheckCircle, Clock, AlertCircle,
@@ -115,7 +117,7 @@ function IFBLogo({ inv = false }: { inv?: boolean }) {
 function Btn({
   children, v = "primary", cls = "", onClick, disabled = false,
 }: {
-  children: React.ReactNode
+  children: ReactNode
   v?: "primary" | "secondary" | "outline" | "ghost" | "danger"
   cls?: string
   onClick?: () => void
@@ -210,7 +212,7 @@ function MainHeader({ onSearch, onProfile }: { onSearch?: () => void; onProfile?
   )
 }
 
-function BackHeader({ title, onBack, right }: { title: string; onBack: () => void; right?: React.ReactNode }) {
+function BackHeader({ title, onBack, right }: { title: string; onBack: () => void; right?: ReactNode }) {
   return (
     <header className="bg-[#2A7B3E] px-4 pt-10 pb-4">
       <div className="flex items-center gap-3">
@@ -226,7 +228,7 @@ function BackHeader({ title, onBack, right }: { title: string; onBack: () => voi
 
 // ─── Bottom Nav ───────────────────────────────────────────────────────────────
 function BottomNav({ active, onChange }: { active: NavTab; onChange: (t: NavTab) => void }) {
-  const tabs: { id: NavTab; label: string; Icon: React.ElementType; badge?: number }[] = [
+  const tabs: { id: NavTab; label: string; Icon: ElementType; badge?: number }[] = [
     { id: "home", label: "Início", Icon: Home },
     { id: "inscricoes", label: "Inscrições", Icon: FileText },
     { id: "notificacoes", label: "Avisos", Icon: Bell, badge: 2 },
@@ -625,7 +627,7 @@ function WizardScreen({ goto, onBack }: { goto: (s: Screen) => void; onBack: () 
 
   const STEPS = ["Dados Pessoais", "Cotas", "Socioeconômico", "Revisão"]
 
-  const stepContent: Record<WizardStep, React.ReactNode> = {
+  const stepContent: Record<WizardStep, ReactNode> = {
     1: (
       <div className="flex flex-col gap-4">
         <Field label="Nome Completo" placeholder="Ex: João da Silva" required />
@@ -729,7 +731,7 @@ function WizardScreen({ goto, onBack }: { goto: (s: Screen) => void; onBack: () 
   return (
     <div>
       <BackHeader
-        title={STEPS[step - 1]}
+        title={STEPS[step - 1] ?? "Inscrição"}
         onBack={step === 1 ? onBack : () => setStep((step - 1) as WizardStep)}
         right={
           <span className="font-mono text-white/70 text-sm">{step}/4</span>
@@ -1118,7 +1120,7 @@ function InscricoesScreen({ goto }: { goto: (s: Screen) => void }) {
 
 // ─── NOTIFICAÇÕES SCREEN ──────────────────────────────────────────────────────
 function NotifScreen() {
-  const iconMap: Record<string, { icon: React.ElementType; cls: string; bg: string }> = {
+  const iconMap: Record<string, { icon: ElementType; cls: string; bg: string }> = {
     erro: { icon: AlertCircle, cls: "text-red-600", bg: "bg-red-100" },
     info: { icon: Info, cls: "text-blue-600", bg: "bg-blue-100" },
     sucesso: { icon: CheckCircle, cls: "text-emerald-600", bg: "bg-emerald-100" },
@@ -1145,7 +1147,7 @@ function NotifScreen() {
 
       <div className="px-4 pt-4 flex flex-col gap-2 pb-4">
         {NOTIFS.map(n => {
-          const cfg = iconMap[n.tipo]
+          const cfg = iconMap[n.tipo] ?? iconMap.info!
           const Icon = cfg.icon
           return (
             <div key={n.id}
@@ -1246,7 +1248,7 @@ export default function App() {
     else if (t === "perfil") goto("perfil")
   }
 
-  const screenEl: Record<Screen, React.ReactNode> = {
+  const screenEl: Record<Screen, ReactNode> = {
     home: <HomeScreen goto={goto} setNav={setNav} />,
     processos: <ProcessosScreen goto={goto} onBack={() => goto("home")} />,
     edital: <EditalScreen goto={goto} onBack={() => goto(nav === "inscricoes" ? "inscricoes" : "home")} />,

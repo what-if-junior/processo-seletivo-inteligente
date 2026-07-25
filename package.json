@@ -2,8 +2,8 @@
   "name": "processo_seletivo_inteligente",
   "private": true,
   "scripts": {
-    "build": "npm run build -w @repo/types && npm run build -w backend && npm run build -w admin-web",
-    "dev": "npm run start:dev -w backend & npm run dev -w admin-web",
+    "build": "npm run build -w @repo/types && npm run build -w backend && npm run build -w admin-web && npm run build -w candidate-app",
+    "dev": "npm run start:dev -w backend & npm run dev -w admin-web & npm run dev -w candidate-app",
     "lint": "npm run lint --workspaces --if-present",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "check-types": "npm run check-types --workspaces --if-present"
