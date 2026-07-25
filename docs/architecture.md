@@ -1,10 +1,10 @@
 # Arquitetura e Implementação — Docker + Modelo ER no Backend
 
-Documenta o estado do monorepo após a integração do stack Docker (db + backend + web),
+Documenta o estado do monorepo após a integração do stack Docker (db + backend + admin-web),
 o alinhamento das entidades TypeORM ao schema SQL de `database/` e a configuração do Swagger.
 
 - **Fonte da verdade do schema:** scripts SQL em `database/` (`synchronize: false`).
-- **Objetivo operacional:** `docker compose up --build` sobe Postgres + backend + web.
+- **Objetivo operacional:** `docker compose up --build` sobe Postgres + backend + admin-web.
 - **Documentação relacionada:** [er-model.md](er-model.md) (diagrama ER + mapeamento de colunas).
 
 ---
@@ -17,22 +17,27 @@ flowchart LR
     B[Navegador]
   end
   subgraph Docker[Docker Compose]
-    W[web / Next.js :3000]
+    W[admin-web / Next.js :3000]
     A[backend / NestJS :5005]
     P[(postgres :5432)]
     G[pgadmin :5050\nprofile tools]
+  end
+  subgraph Reserved
+    C[candidate-app :3001\nstub]
   end
 
   B -->|http localhost:3000| W
   B -->|NEXT_PUBLIC_API_URL\nhttp localhost:5005| A
   W -->|API_URL\nhttp backend:5005| A
+  C -.->|futuro| A
   A -->|TypeORM / pg| P
   G -.-> P
 ```
 
 | Camada | Tecnologia | Porta | Origem |
 | --- | --- | --- | --- |
-| Frontend | Next.js 15 (standalone) | 3000 | `apps/web` |
+| Admin web | Next.js 15 (standalone) | 3000 | `apps/admin-web` |
+| Candidate PWA | (reservado) | 3001 | `apps/candidate-app` |
 | Backend | NestJS 11 + TypeORM | 5005 | `apps/backend` |
 | Banco | Postgres 16.2 | 5432 | `database/*.sql` |
 | Admin DB | pgAdmin 4 (profile `tools`) | 5050 | imagem oficial |
@@ -40,9 +45,9 @@ flowchart LR
 
 ### Regra de rede (importante)
 
-- **Server-side dentro do container web** usa `API_URL=http://backend:5005` (nome do serviço na rede Docker).
+- **Server-side dentro do container admin-web** usa `API_URL=http://backend:5005` (nome do serviço na rede Docker).
 - **Browser** usa `NEXT_PUBLIC_API_URL=http://localhost:5005`.
-- `localhost` dentro do container web apontaria para o próprio web — por isso a distinção.
+- `localhost` dentro do container admin-web apontaria para o próprio container — por isso a distinção.
 
 ---
 
@@ -134,9 +139,9 @@ Todos os controllers são anotados com `@ApiTags` / `@ApiOperation`; Swagger em 
 
 | Arquivo | Papel |
 | --- | --- |
-| `docker-compose.yaml` | Orquestra postgres, backend, web e pgadmin (profile `tools`) |
+| `docker-compose.yaml` | Orquestra postgres, backend, admin-web e pgadmin (profile `tools`) |
 | `apps/backend/Dockerfile` | Build multi-stage do Nest no contexto do monorepo |
-| `apps/web/Dockerfile` | Build multi-stage do Next em modo `standalone` |
+| `apps/admin-web/Dockerfile` | Build multi-stage do Next em modo `standalone` |
 | `.dockerignore` | Exclui `node_modules`, `.next`, `.git`, `dist`, docs etc. |
 | `.env.sample` | Modelo de variáveis (copiar para `.env`) |
 
@@ -145,12 +150,12 @@ Todos os controllers são anotados com `@ApiTags` / `@ApiOperation`; Swagger em 
 ```mermaid
 flowchart TB
   P[postgres\npg_isready] -->|service_healthy| A[backend\nGET /api]
-  A -->|service_healthy| W[web]
+  A -->|service_healthy| W[admin-web]
 ```
 
 - Postgres: `pg_isready` a cada 5s.
 - Backend: `GET /api` (Swagger) como sinal de saúde.
-- Web sobe só após backend saudável.
+- Admin-web sobe só após backend saudável.
 
 ### Variáveis de ambiente
 
@@ -160,15 +165,15 @@ flowchart TB
 | `DATABASE_PORT/USER/PASS/NAME` | conexão TypeORM |
 | `PORT` | porta do Nest (5005) |
 | `JWT_SECRET_TO_SIGN` / `SECRET_OR_KEY` | assinatura / validação JWT |
-| `WEB_ORIGIN` | origem liberada no CORS |
-| `API_URL` | base usada pelo web server-side (`http://backend:5005`) |
+| `WEB_ORIGIN` | origens CORS (lista separada por vírgula; ex: `http://localhost:3000,http://localhost:3001`) |
+| `API_URL` | base usada pelo admin-web server-side (`http://backend:5005`) |
 | `NEXT_PUBLIC_API_URL` | base usada pelo browser (`http://localhost:5005`) |
 
 ### Como subir
 
 ```bash
 cp .env.sample .env
-docker compose up --build            # db + backend + web
+docker compose up --build            # db + backend + admin-web
 docker compose --profile tools up    # inclui pgAdmin
 docker compose down -v               # reseta o volume (necessário ao mudar SQL)
 ```
@@ -184,10 +189,11 @@ docker compose down -v               # reseta o volume (necessário ao mudar SQL
 ## 5. Frontend
 
 - `next.config.js`: `output: 'standalone'` (imagem de produção enxuta).
-- `apps/web/server/user.ts`: usa `API_URL` / `NEXT_PUBLIC_API_URL` e trata `!response.ok`.
-- `apps/web/app/page.tsx`: consome `Usuario` de `@repo/types`, renderiza
+- `apps/admin-web/server/user.ts`: usa `API_URL` / `NEXT_PUBLIC_API_URL` e trata `!response.ok`.
+- `apps/admin-web/app/page.tsx`: consome `Usuario` de `@repo/types`, renderiza
   `id` / `nome_completo` (antes usava `User` / `id` / `nome`, inexistentes).
-- `apps/web/tsconfig.json`: `moduleResolution: "bundler"` para resolver `@repo/ui`.
+- `apps/admin-web/tsconfig.json`: `moduleResolution: "bundler"` para resolver `@repo/ui`.
+- `apps/candidate-app/`: reservado para a PWA de candidatos (porta 3001; stub no Compose).
 
 ---
 
@@ -216,9 +222,9 @@ git push -u origin feat/docker-sql-er-stack
 
 | Item | Como | Status |
 | --- | --- | --- |
-| Build `@repo/types` | `turbo run build --filter=@repo/types` | ✅ |
-| Build backend | `turbo run build --filter=backend` | ✅ |
-| Build web | `turbo run build --filter=web` | ✅ |
+| Build `@repo/types` | `npm run build -w @repo/types` | ✅ |
+| Build backend | `npm run build -w backend` | ✅ |
+| Build admin-web | `npm run build -w admin-web` | ✅ |
 | `docker compose up --build` | requer Docker Desktop WSL | ⏳ pendente (Docker indisponível aqui) |
 | `GET /api` (Swagger) | após subir backend | ⏳ |
 | `POST /auth/login` (seed) | após subir stack | ⏳ |

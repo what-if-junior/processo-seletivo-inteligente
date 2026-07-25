@@ -1,6 +1,5 @@
 node_modules
 .next
-.turbo
 dist
 build
 coverage
@@ -11,7 +10,6 @@ coverage
 !.env.sample
 *.md
 !.dockerignore
-apps/docs
 **/*.spec.ts
 **/test
 .DS_Store

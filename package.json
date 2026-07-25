@@ -2,15 +2,14 @@
   "name": "processo_seletivo_inteligente",
   "private": true,
   "scripts": {
-    "build": "turbo run build",
-    "dev": "turbo run dev",
-    "lint": "turbo run lint",
+    "build": "npm run build -w @repo/types && npm run build -w backend && npm run build -w admin-web",
+    "dev": "npm run start:dev -w backend & npm run dev -w admin-web",
+    "lint": "npm run lint --workspaces --if-present",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
-    "check-types": "turbo run check-types"
+    "check-types": "npm run check-types --workspaces --if-present"
   },
   "devDependencies": {
     "prettier": "^3.6.2",
-    "turbo": "^2.5.6",
     "typescript": "5.9.2"
   },
   "engines": {

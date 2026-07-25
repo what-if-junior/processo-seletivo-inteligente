@@ -1,8 +1,8 @@
 # Processo Seletivo Inteligente
 
-Monorepo Turborepo com NestJS (`apps/backend`), Next.js (`apps/web`) e schema Postgres em `database/`.
+Monorepo npm workspaces com NestJS (`apps/backend`), painel admin Next.js (`apps/admin-web`), schema Postgres em `database/` e PWA de candidatos reservado em `apps/candidate-app`.
 
-## Docker (db + backend + web)
+## Docker (db + backend + admin-web)
 
 ```bash
 cp .env.sample .env
@@ -11,11 +11,12 @@ docker compose up --build
 
 | Serviço | URL |
 | --- | --- |
-| Web | http://localhost:3000 |
+| Admin web | http://localhost:3000 |
 | Backend API | http://localhost:5005 |
 | Swagger | http://localhost:5005/api |
 | Postgres | localhost:5432 |
 | pgAdmin | `docker compose --profile tools up` → http://localhost:5050 |
+| Candidate app | porta `3001` (stub; habilitar após import Figma) |
 
 Seed logins (dev):
 

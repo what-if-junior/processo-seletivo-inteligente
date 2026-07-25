@@ -1,13 +1,13 @@
 FROM node:22-alpine AS builder
 WORKDIR /app
 
-COPY package.json package-lock.json turbo.json ./
+COPY package.json package-lock.json ./
 COPY packages ./packages
 COPY apps/backend ./apps/backend
-COPY apps/web/package.json ./apps/web/package.json
+COPY apps/admin-web/package.json ./apps/admin-web/package.json
 
 RUN npm ci
-RUN npx turbo run build --filter=backend
+RUN npm run build -w @repo/types && npm run build -w backend
 
 FROM node:22-alpine AS runner
 ENV NODE_ENV=production
