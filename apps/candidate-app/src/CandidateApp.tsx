@@ -196,7 +196,7 @@ function RadioOpt({ label, sub, checked, onClick }: {
 // ─── Headers ──────────────────────────────────────────────────────────────────
 function MainHeader({ onSearch, onProfile }: { onSearch?: () => void; onProfile?: () => void }) {
   return (
-    <header className="bg-[#2A7B3E] px-4 pt-10 pb-4">
+    <header className="bg-[#2A7B3E] px-4 pt-10 pb-4" style={{ paddingTop: "max(2.5rem, env(safe-area-inset-top))" }}>
       <div className="flex items-center justify-between">
         <IFBLogo inv />
         <div className="flex items-center gap-2">
@@ -214,7 +214,7 @@ function MainHeader({ onSearch, onProfile }: { onSearch?: () => void; onProfile?
 
 function BackHeader({ title, onBack, right }: { title: string; onBack: () => void; right?: ReactNode }) {
   return (
-    <header className="bg-[#2A7B3E] px-4 pt-10 pb-4">
+    <header className="bg-[#2A7B3E] px-4 pt-10 pb-4" style={{ paddingTop: "max(2.5rem, env(safe-area-inset-top))" }}>
       <div className="flex items-center gap-3">
         <button onClick={onBack} aria-label="Voltar" className="w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25 focus-visible:outline-2 focus-visible:outline-white transition-colors">
           <ArrowLeft className="w-5 h-5" />
@@ -235,7 +235,7 @@ function BottomNav({ active, onChange }: { active: NavTab; onChange: (t: NavTab)
     { id: "perfil", label: "Perfil", Icon: User },
   ]
   return (
-    <div className="bg-white border-t border-[#D1E8D7] px-1 pt-2 pb-6">
+    <div className="bg-white border-t border-[#D1E8D7] px-1 pt-2 pb-6" style={{ paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }}>
       <div className="flex">
         {tabs.map(({ id, label, Icon, badge }) => {
           const on = active === id
@@ -330,7 +330,7 @@ function ChatModal({ onClose }: { onClose: () => void }) {
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => e.key === "Enter" && send(input)}
             placeholder="Digite sua dúvida…"
-            className="flex-1 h-10 px-3.5 rounded-xl bg-[#F0F6F2] border-2 border-transparent focus:border-[#2A7B3E] focus:ring-4 focus:ring-[#2A7B3E]/10 text-sm text-[#0D1E12] placeholder:text-[#A8C4B0] focus:outline-none transition-all"
+            className="flex-1 h-10 px-3.5 rounded-xl bg-[#F0F6F2] border-2 border-transparent focus:border-[#2A7B3E] focus:ring-4 focus:ring-[#2A7B3E]/10 text-base text-[#0D1E12] placeholder:text-[#A8C4B0] focus:outline-none transition-all"
           />
           <button onClick={() => send(input)}
             className="w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-full bg-[#2A7B3E] text-white focus-visible:outline-2 focus-visible:outline-[#2A7B3E] active:scale-95 transition-transform">
