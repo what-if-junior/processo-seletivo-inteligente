@@ -2,7 +2,7 @@ import Image, { type ImageProps } from "next/image";
 import { Button } from "@repo/ui/button";
 import styles from "./page.module.css";
 
-import { User } from "@repo/types";
+import { Usuario } from "@repo/types";
 import { getUsers } from "../server/user";
 
 type Props = Omit<ImageProps, "src"> & {
@@ -22,7 +22,15 @@ const ThemeImage = (props: Props) => {
 };
 
 export default async function Home() {
-  const users: User[] = await getUsers();
+  let users: Usuario[] = [];
+  let errorMessage: string | null = null;
+
+  try {
+    users = await getUsers();
+  } catch (error) {
+    errorMessage =
+      error instanceof Error ? error.message : "Erro ao carregar usuários";
+  }
 
   return (
     <div className={styles.page}>
@@ -40,10 +48,12 @@ export default async function Home() {
         <li>
           <div className="text-white text-xl">Informações de usuário.</div>
 
-          {users.length > 0 ? (
+          {errorMessage ? (
+            <div>{errorMessage}</div>
+          ) : users.length > 0 ? (
             users.map((user) => (
               <div key={user.id}>
-                {user.id} - {user.nome}
+                {user.id} - {user.nome_completo}
               </div>
             ))
           ) : (
