@@ -12,7 +12,12 @@ Mobile-first Next.js app for candidate inscription, documents, and status tracki
 npm run dev -w candidate-app
 npm run build -w candidate-app
 npm run test -w candidate-app
+npm run test:e2e -w candidate-app
 ```
+
+Build is not required for e2e locally — Playwright starts `next dev` on port 3001.
+On Linux, run `npx playwright install chromium && npx playwright install-deps chromium` once (needs sudo for shared libraries).
+
 
 ## Docker
 
