@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" role="img" aria-label="PSI IFB">
+  <rect width="192" height="192" rx="40" fill="#2A7B3E"/>
+  <rect x="36" y="36" width="120" height="120" rx="24" fill="#1D5C2E"/>
+  <text x="96" y="112" text-anchor="middle" font-family="Arial, sans-serif" font-size="48" font-weight="700" fill="#FFFFFF">IFB</text>
+</svg>
