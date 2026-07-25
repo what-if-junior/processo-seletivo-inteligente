@@ -43,7 +43,7 @@ export class Endereco {
   @Column({ length: 255 })
   numero_residencia: string;
 
-  @Column({ length: 255, nullable: true })
+  @Column({ type: 'varchar', length: 255, nullable: true })
   complemento?: string | null;
 
   @ManyToOne(() => User, (user) => user.enderecos, { onDelete: 'CASCADE' })

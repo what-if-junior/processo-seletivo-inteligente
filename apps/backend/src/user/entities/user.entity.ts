@@ -35,13 +35,13 @@ export class User {
   @Column({ length: 255 })
   telefone: string;
 
-  @Column({ length: 255, nullable: true })
+  @Column({ type: 'varchar', length: 255, nullable: true })
   nome_RG?: string | null;
 
   @Column({ type: 'bytea', nullable: true, select: false })
   RG?: Buffer | null;
 
-  @Column({ length: 255, nullable: true })
+  @Column({ type: 'varchar', length: 255, nullable: true })
   nome_historico_escolar?: string | null;
 
   @Column({ type: 'bytea', nullable: true, select: false })
@@ -56,7 +56,7 @@ export class User {
   })
   renda_familiar?: number | null;
 
-  @Column({ length: 255, nullable: true })
+  @Column({ type: 'varchar', length: 255, nullable: true })
   foto_alt?: string | null;
 
   @Column({ type: 'bytea', nullable: true, select: false })
@@ -69,7 +69,7 @@ export class User {
   @Column({ type: 'boolean', default: false })
   pcd: boolean;
 
-  @Column({ length: 255, nullable: true })
+  @Column({ type: 'varchar', length: 255, nullable: true })
   token?: string | null;
 
   @CreateDateColumn({ type: 'timestamp' })

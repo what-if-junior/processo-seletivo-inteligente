@@ -38,7 +38,7 @@ export class Curso {
   @Column({ type: 'date' })
   data_fim_inscricao: string;
 
-  @Column({ length: 255, nullable: true })
+  @Column({ type: 'varchar', length: 255, nullable: true })
   area_conhecimento?: string | null;
 
   @OneToMany(() => Candidatura, (candidatura) => candidatura.curso)

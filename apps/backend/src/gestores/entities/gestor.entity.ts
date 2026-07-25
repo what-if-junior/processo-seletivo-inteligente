@@ -24,7 +24,7 @@ export class Gestor {
   })
   id_usuario: number;
 
-  @Column({ length: 255, nullable: true })
+  @Column({ type: 'varchar', length: 255, nullable: true })
   funcao?: string | null;
 
   @ManyToOne(() => User, (user) => user.gestores)
