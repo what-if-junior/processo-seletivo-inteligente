@@ -22,7 +22,10 @@ Seed logins (dev):
 - `joao@teste.com` / `senha123`
 - `admin@teste.com` / `admin123`
 
-Modelo ER e mapeamento SQL ↔ entities: [docs/er-model.md](docs/er-model.md).
+Documentação:
+
+- [docs/architecture.md](docs/architecture.md) — arquitetura, API, Docker, verificação e requisitos
+- [docs/er-model.md](docs/er-model.md) — diagrama ER e mapeamento SQL ↔ entities
 
 > Scripts em `database/` só rodam em volume vazio. Após mudar SQL: `docker compose down -v`.
 

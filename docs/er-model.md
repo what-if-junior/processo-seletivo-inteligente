@@ -2,6 +2,8 @@
 
 Fonte da verdade: scripts em `database/` montados em `/docker-entrypoint-initdb.d`.
 
+> Visão geral de arquitetura, API e Docker: [architecture.md](architecture.md).
+
 ```mermaid
 erDiagram
   Usuarios ||--o{ Enderecos : possui
