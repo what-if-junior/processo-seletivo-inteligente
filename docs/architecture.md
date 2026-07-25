@@ -1,10 +1,10 @@
 # Arquitetura e Implementação — Docker + Modelo ER no Backend
 
-Documenta o estado do monorepo após a integração do stack Docker (db + backend + admin-web),
+Documenta o estado do monorepo após a integração do stack Docker (db + backend + admin-web + candidate-app),
 o alinhamento das entidades TypeORM ao schema SQL de `database/` e a configuração do Swagger.
 
 - **Fonte da verdade do schema:** scripts SQL em `database/` (`synchronize: false`).
-- **Objetivo operacional:** `docker compose up --build` sobe Postgres + backend + admin-web.
+- **Objetivo operacional:** `docker compose up --build` sobe Postgres + backend + admin-web + candidate-app.
 - **Documentação relacionada:** [er-model.md](er-model.md) (diagrama ER + mapeamento de colunas).
 
 ---
@@ -18,18 +18,17 @@ flowchart LR
   end
   subgraph Docker[Docker Compose]
     W[admin-web / Next.js :3000]
+    C[candidate-app / Next PWA :3001]
     A[backend / NestJS :5005]
     P[(postgres :5432)]
     G[pgadmin :5050\nprofile tools]
   end
-  subgraph Reserved
-    C[candidate-app :3001\nstub]
-  end
 
   B -->|http localhost:3000| W
+  B -->|http localhost:3001| C
   B -->|NEXT_PUBLIC_API_URL\nhttp localhost:5005| A
   W -->|API_URL\nhttp backend:5005| A
-  C -.->|futuro| A
+  C -->|API_URL\nhttp backend:5005| A
   A -->|TypeORM / pg| P
   G -.-> P
 ```
@@ -37,7 +36,7 @@ flowchart LR
 | Camada | Tecnologia | Porta | Origem |
 | --- | --- | --- | --- |
 | Admin web | Next.js 15 (standalone) | 3000 | `apps/admin-web` |
-| Candidate PWA | (reservado) | 3001 | `apps/candidate-app` |
+| Candidate PWA | Next.js 15 (standalone) + next-pwa | 3001 | `apps/candidate-app` |
 | Backend | NestJS 11 + TypeORM | 5005 | `apps/backend` |
 | Banco | Postgres 16.2 | 5432 | `database/*.sql` |
 | Admin DB | pgAdmin 4 (profile `tools`) | 5050 | imagem oficial |
@@ -45,9 +44,10 @@ flowchart LR
 
 ### Regra de rede (importante)
 
-- **Server-side dentro do container admin-web** usa `API_URL=http://backend:5005` (nome do serviço na rede Docker).
+- **Server-side dentro dos containers** admin-web / candidate-app usa `API_URL=http://backend:5005` (nome do serviço na rede Docker).
 - **Browser** usa `NEXT_PUBLIC_API_URL=http://localhost:5005`.
-- `localhost` dentro do container admin-web apontaria para o próprio container — por isso a distinção.
+- `localhost` dentro do container apontaria para o próprio container — por isso a distinção.
+- Backend `WEB_ORIGIN` deve incluir `http://localhost:3000,http://localhost:3001`.
 
 ---
 
@@ -140,7 +140,7 @@ Todos os controllers são anotados com `@ApiTags` / `@ApiOperation`; Swagger em 
 | Arquivo | Papel |
 | --- | --- |
 | `docker-compose.yaml` | Orquestra postgres, backend, admin-web e pgadmin (profile `tools`) |
-| `Dockerfile` | Build multi-stage compartilhado (`target: backend` / `admin-web`; stub `candidate-app`) |
+| `Dockerfile` | Build multi-stage compartilhado (`target: backend` / `admin-web` / `candidate-app`) |
 | `.dockerignore` | Exclui `**/node_modules`, `**/.next`, `**/dist`, `.git`, etc. (contexto ~2MB) |
 | `.env.sample` | Modelo de variáveis (copiar para `.env`) |
 
@@ -194,7 +194,7 @@ docker compose down -v               # reseta o volume (necessário ao mudar SQL
 - `apps/admin-web/app/page.tsx`: consome `Usuario` de `@repo/types`, renderiza
   `id` / `nome_completo` (antes usava `User` / `id` / `nome`, inexistentes).
 - `apps/admin-web/tsconfig.json`: `moduleResolution: "bundler"` para resolver `@repo/ui`.
-- `apps/candidate-app/`: reservado para a PWA de candidatos (porta 3001; stub no Compose + stages comentados no `Dockerfile` raiz).
+- `apps/candidate-app/`: PWA de candidatos (Next 15 standalone + next-pwa, porta 3001; Compose service `candidate-app`).
 
 ---
 
