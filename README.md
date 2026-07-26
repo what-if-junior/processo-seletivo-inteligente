@@ -41,7 +41,6 @@ Candidate app tests:
 
 ```bash
 npm run test -w candidate-app
-npm run test:e2e -w candidate-app   # requires Playwright browser deps
 ```
 
 Requer Postgres acessível com as variáveis de `.env` (`DATABASE_HOST=localhost` se o banco estiver no host).
