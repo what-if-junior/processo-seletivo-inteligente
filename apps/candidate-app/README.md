@@ -9,15 +9,13 @@ Mobile-first Next.js app for candidate inscription, documents, and status tracki
 ## Scripts
 
 ```bash
-npm run dev -w candidate-app
-npm run build -w candidate-app
-npm run test -w candidate-app
-npm run test:e2e -w candidate-app
+npm run dev -w candidate-app          # Turbopack on :3001
+npm run build -w candidate-app        # required before start
+npm run start -w candidate-app        # standalone server on :3001
+npm run test -w candidate-app         # Vitest + RTL
 ```
 
-Build is not required for e2e locally — Playwright starts `next dev` on port 3001.
-On Linux, run `npx playwright install chromium && npx playwright install-deps chromium` once (needs sudo for shared libraries).
-
+`start` runs the Next standalone server (same shape as Docker), after copying `.next/static` and `public` into the standalone tree. Do not use `next start` with this app.
 
 ## Docker
 
