@@ -17,6 +17,8 @@ import {
   tipoVagaFromWizard,
   type DocUiRow,
   type EditalCard as EditalCardData,
+  AVISO_UM_CURSO_POR_EDITAL,
+  messageFromInscricaoApiError,
 } from "./lib/mappers"
 import {
   MOCK_PROFILE,
@@ -635,9 +637,15 @@ function EditalScreen({
       {/* CTA */}
       <div className="px-4 py-5">
         {view === "aberto" && (
-          <Btn v="primary" cls="w-full text-lg font-black h-14" onClick={() => goto("wizard")}>
-            INSCREVER-SE
-          </Btn>
+          <>
+            <div className="mb-3 bg-amber-50 border border-amber-200 rounded-xl p-3.5 flex gap-2.5">
+              <Info className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+              <p className="text-amber-800 text-xs leading-relaxed">{AVISO_UM_CURSO_POR_EDITAL}</p>
+            </div>
+            <Btn v="primary" cls="w-full text-lg font-black h-14" onClick={() => goto("wizard")}>
+              INSCREVER-SE
+            </Btn>
+          </>
         )}
         {view === "andamento" && (
           <Btn v="secondary" cls="w-full h-14" onClick={() => goto("inscricoes")}>
@@ -688,7 +696,7 @@ function WizardScreen({
     if (userId != null && Number.isFinite(cursoId)) {
       try {
         // Card ids still come from GET /cursos (catalog). Create needs
-        // id_oferta + id_edital (W1); this best-effort POST fails soft → demo.
+        // id_oferta + id_edital (W1). M-06: until home uses ofertas, POST may 404.
         const created = await apiFetch<{ id: number }>("/candidaturas", {
           method: "POST",
           body: JSON.stringify({
@@ -699,8 +707,13 @@ function WizardScreen({
           }),
         })
         onCandidaturaCreated(created.id)
-      } catch {
-        setSubmitError("Não foi possível enviar a inscrição. Continuando em modo demonstração.")
+        setSubmitting(false)
+        goto("docs")
+        return
+      } catch (err) {
+        setSubmitError(messageFromInscricaoApiError(err))
+        setSubmitting(false)
+        return
       }
     }
     setSubmitting(false)
@@ -788,6 +801,11 @@ function WizardScreen({
           ))}
         </div>
 
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 flex gap-2.5">
+          <Info className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+          <p className="text-amber-800 text-xs leading-relaxed">{AVISO_UM_CURSO_POR_EDITAL}</p>
+        </div>
+
         {/* LGPD & Terms */}
         <div className="bg-gray-50 border border-[#D1E8D7] rounded-xl p-4">
           <p className="text-[11px] text-[#4E6859] leading-relaxed">
@@ -862,7 +880,7 @@ function WizardScreen({
           )}
         </div>
         {submitError && (
-          <p className="mt-3 text-xs text-amber-700 text-center">{submitError}</p>
+          <p className="mt-3 text-xs text-red-700 text-center leading-relaxed">{submitError}</p>
         )}
       </div>
     </div>
@@ -1135,7 +1153,22 @@ function InscricoesScreen({
   onOpenDocs: (candidaturaId: number) => void
 }) {
   const currentStep = 1 // visual stepper stays mock until status model freezes
-  const { active, past } = useInscricoes()
+  const { active, past, cancelActive, source } = useInscricoes()
+  const [cancelError, setCancelError] = useState<string | null>(null)
+  const [cancelling, setCancelling] = useState(false)
+
+  async function handleCancel() {
+    if (cancelling) return
+    setCancelling(true)
+    setCancelError(null)
+    try {
+      await cancelActive()
+    } catch (err) {
+      setCancelError(messageFromInscricaoApiError(err))
+    } finally {
+      setCancelling(false)
+    }
+  }
 
   return (
     <div>
@@ -1217,11 +1250,24 @@ function InscricoesScreen({
               </div>
             </div>
 
-            <div className="px-4 pb-4">
+            <div className="px-4 pb-4 flex flex-col gap-2">
               <button onClick={() => goto("edital")}
                 className="w-full flex items-center justify-center gap-2 h-10 rounded-xl border-2 border-[#D1E8D7] text-[#2A7B3E] text-sm font-semibold hover:bg-[#E7F4EA] transition-colors focus-visible:outline-2 focus-visible:outline-[#2A7B3E]">
                 Ver detalhes do edital <ChevronRight className="w-4 h-4" />
               </button>
+              {source === "api" && active.id > 0 && (
+                <button
+                  type="button"
+                  disabled={cancelling}
+                  onClick={() => { void handleCancel() }}
+                  className="w-full flex items-center justify-center gap-2 h-10 rounded-xl border-2 border-red-200 text-red-700 text-sm font-semibold hover:bg-red-50 transition-colors focus-visible:outline-2 focus-visible:outline-red-600 disabled:opacity-60"
+                >
+                  {cancelling ? "Cancelando…" : "Cancelar inscrição"}
+                </button>
+              )}
+              {cancelError && (
+                <p className="text-xs text-red-700 text-center leading-relaxed">{cancelError}</p>
+              )}
             </div>
           </div>
         )}

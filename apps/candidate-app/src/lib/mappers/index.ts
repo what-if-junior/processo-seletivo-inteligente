@@ -16,3 +16,7 @@ export {
   etapasToCronograma,
 } from "./etapa";
 export { documentoToDocUiRow } from "./documento";
+export {
+  messageFromInscricaoApiError,
+  AVISO_UM_CURSO_POR_EDITAL,
+} from "./inscricao-error";

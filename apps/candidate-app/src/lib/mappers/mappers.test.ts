@@ -21,7 +21,10 @@ import {
   etapaProcessoToCronogramaRow,
   etapasToCronograma,
   documentoToDocUiRow,
+  messageFromInscricaoApiError,
+  AVISO_UM_CURSO_POR_EDITAL,
 } from "./index";
+import { ApiError } from "../api";
 
 const baseCurso: Cursos = {
   id: 7,
@@ -52,6 +55,12 @@ describe("statusCandidaturaToBadge", () => {
     expect(statusCandidaturaToBadge(StatusCandidatura.REPROVADO)).toBe(
       "reprovado",
     );
+    expect(statusCandidaturaToBadge(StatusCandidatura.CANCELADA)).toBe(
+      "encerrado",
+    );
+    expect(statusCandidaturaToBadge(StatusCandidatura.DESCLASSIFICADA)).toBe(
+      "reprovado",
+    );
   });
 
   it("detects terminal statuses", () => {
@@ -61,6 +70,31 @@ describe("statusCandidaturaToBadge", () => {
     expect(
       isTerminalCandidaturaStatus(StatusCandidatura.ANALISE_DOCUMENTAL),
     ).toBe(false);
+  });
+});
+
+describe("messageFromInscricaoApiError", () => {
+  it("prefers Nest message from ApiError body", () => {
+    const err = new ApiError(409, "API 409", {
+      message: "Já existe inscrição ativa neste edital.",
+      statusCode: 409,
+    });
+    expect(messageFromInscricaoApiError(err)).toBe(
+      "Já existe inscrição ativa neste edital.",
+    );
+  });
+
+  it("falls back by status when body has no message", () => {
+    expect(messageFromInscricaoApiError(new ApiError(409, "x"))).toMatch(
+      /inscrição ativa/i,
+    );
+    expect(messageFromInscricaoApiError(new ApiError(403, "x"))).toMatch(
+      /janela efetiva/i,
+    );
+  });
+
+  it("exposes one-course-per-edital warning copy", () => {
+    expect(AVISO_UM_CURSO_POR_EDITAL).toMatch(/uma inscrição ativa por edital/i);
   });
 });
 
