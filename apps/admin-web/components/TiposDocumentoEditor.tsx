@@ -217,14 +217,17 @@ export function TiposDocumentoEditor({ editalId }: { editalId: number }) {
     }
   }
 
-  async function onDelete(id: number) {
-    if (!window.confirm("Remover este tipo de documento?")) return;
+  async function onDelete(id: number, herdado: boolean) {
+    const msg = herdado
+      ? "Desvincular este tipo herdado do processo? O tipo base da conta permanece; só remove a cópia neste edital."
+      : "Remover este tipo extra do processo?";
+    if (!window.confirm(msg)) return;
     setBusy(true);
     try {
       const deleted = await deleteTipoDocumento(editalId, id);
       if (deleted.warnings?.length) setWarnings(deleted.warnings);
       if (editId === id) resetForm();
-      push("Tipo removido.");
+      push(herdado ? "Tipo desvinculado do processo." : "Tipo removido.");
       await reload();
     } catch (err) {
       push(
@@ -248,6 +251,68 @@ export function TiposDocumentoEditor({ editalId }: { editalId: number }) {
     );
   }
 
+  const herdados = tipos.filter((t) => t.herdado);
+  const extras = tipos.filter((t) => !t.herdado);
+
+  function renderTipoRow(tipo: TipoDocumento) {
+    const isHerdado = Boolean(tipo.herdado);
+    return (
+      <li
+        key={tipo.id}
+        className="flex flex-wrap items-start justify-between gap-3 rounded-lg border border-slate-200 bg-white p-3"
+      >
+        <div>
+          <p className="font-medium text-slate-900">
+            {tipo.ordem}. {tipo.nome}{" "}
+            <span className="text-xs font-normal text-slate-500">
+              ({tipo.fase})
+            </span>
+          </p>
+          <p className="text-xs text-slate-500">
+            {tipo.obrigatorio ? "Obrigatório" : "Opcional"} ·{" "}
+            {tipo.formatos.join(", ")} · max {tipo.tamanho_max_bytes} B
+            {tipo.tipo_cota ? ` · cota ${tipo.tipo_cota}` : " · edital"}
+            {tipo.campos.length ? ` · ${tipo.campos.length} campo(s)` : ""}
+            {tipo.id_tipo_base != null
+              ? ` · base #${tipo.id_tipo_base}`
+              : ""}
+          </p>
+          <div className="mt-1 flex flex-wrap gap-1">
+            {isHerdado ? (
+              <StatusBadge label="Herdado" tone="blue" />
+            ) : (
+              <StatusBadge label="Extra" tone="gray" />
+            )}
+            {tipo.template_nome ? (
+              <StatusBadge label="Template" tone="green" />
+            ) : null}
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-1">
+          <button
+            type="button"
+            className="rounded border border-slate-300 px-2 py-1 text-xs"
+            onClick={() => loadTipo(tipo)}
+          >
+            Editar
+          </button>
+          <button
+            type="button"
+            className="rounded border border-red-200 px-2 py-1 text-xs text-red-700"
+            title={
+              isHerdado
+                ? "Desvincula do edital; o tipo base da conta permanece"
+                : "Remove o tipo extra deste edital"
+            }
+            onClick={() => void onDelete(tipo.id, isHerdado)}
+          >
+            {isHerdado ? "Desvincular" : "Remover"}
+          </button>
+        </div>
+      </li>
+    );
+  }
+
   return (
     <section className="space-y-4">
       <div>
@@ -255,9 +320,9 @@ export function TiposDocumentoEditor({ editalId }: { editalId: number }) {
           Tipos de documento
         </h2>
         <p className="text-sm text-slate-500">
-          Associação ao edital (e opcionalmente à cota), fase e construtor de
-          campos. Alterar o catálogo com inscrições existentes gera aviso (não
-          bloqueia).
+          Herdados da conta vs extras deste edital. Desvincular remove só a
+          cópia no processo (REQ-1.5). Alterar o catálogo com inscrições gera
+          aviso (não bloqueia).
         </p>
       </div>
 
@@ -283,67 +348,41 @@ export function TiposDocumentoEditor({ editalId }: { editalId: number }) {
         </div>
       ) : null}
 
-      <ul className="space-y-2">
-        {tipos.map((tipo) => (
-          <li
-            key={tipo.id}
-            className="flex flex-wrap items-start justify-between gap-3 rounded-lg border border-slate-200 bg-white p-3"
-          >
-            <div>
-              <p className="font-medium text-slate-900">
-                {tipo.ordem}. {tipo.nome}{" "}
-                <span className="text-xs font-normal text-slate-500">
-                  ({tipo.fase})
-                </span>
-              </p>
-              <p className="text-xs text-slate-500">
-                {tipo.obrigatorio ? "Obrigatório" : "Opcional"} ·{" "}
-                {tipo.formatos.join(", ")} · max {tipo.tamanho_max_bytes} B
-                {tipo.tipo_cota ? ` · cota ${tipo.tipo_cota}` : " · edital"}
-                {tipo.campos.length
-                  ? ` · ${tipo.campos.length} campo(s)`
-                  : ""}
-              </p>
-              <div className="mt-1 flex flex-wrap gap-1">
-                {tipo.herdado ? (
-                  <StatusBadge label="Herdado" tone="blue" />
-                ) : null}
-                {tipo.template_nome ? (
-                  <StatusBadge label="Template" tone="green" />
-                ) : null}
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-1">
-              <button
-                type="button"
-                className="rounded border border-slate-300 px-2 py-1 text-xs"
-                onClick={() => loadTipo(tipo)}
-              >
-                Editar
-              </button>
-              <button
-                type="button"
-                className="rounded border border-red-200 px-2 py-1 text-xs text-red-700"
-                onClick={() => void onDelete(tipo.id)}
-              >
-                Remover
-              </button>
-            </div>
-          </li>
-        ))}
-        {tipos.length === 0 ? (
-          <li className="text-sm text-slate-500">
-            Nenhum tipo de documento cadastrado.
-          </li>
-        ) : null}
-      </ul>
+      <div className="space-y-3">
+        <div>
+          <h3 className="mb-2 text-sm font-semibold text-slate-800">
+            Herdados da conta ({herdados.length})
+          </h3>
+          <ul className="space-y-2">
+            {herdados.map(renderTipoRow)}
+            {herdados.length === 0 ? (
+              <li className="text-sm text-slate-500">
+                Nenhum tipo herdado neste processo.
+              </li>
+            ) : null}
+          </ul>
+        </div>
+        <div>
+          <h3 className="mb-2 text-sm font-semibold text-slate-800">
+            Extras do edital ({extras.length})
+          </h3>
+          <ul className="space-y-2">
+            {extras.map(renderTipoRow)}
+            {extras.length === 0 ? (
+              <li className="text-sm text-slate-500">
+                Nenhum tipo extra — use o formulário abaixo para adicionar.
+              </li>
+            ) : null}
+          </ul>
+        </div>
+      </div>
 
       <form
         onSubmit={onSubmit}
         className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-4"
       >
         <h3 className="text-sm font-semibold text-slate-900">
-          {editId != null ? `Editar tipo #${editId}` : "Novo tipo"}
+          {editId != null ? `Editar tipo #${editId}` : "Novo tipo (extra)"}
         </h3>
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Nome">

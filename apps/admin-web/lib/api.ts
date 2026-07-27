@@ -45,9 +45,25 @@ export class ApiError extends Error {
 
 function apiMessageFromBody(body: unknown): string | null {
   if (!body || typeof body !== "object") return null;
-  const msg = (body as { message?: unknown }).message;
-  if (typeof msg === "string") return msg;
+  const top = body as { code?: unknown; message?: unknown };
+  const msg = top.message;
+  if (typeof msg === "string") {
+    return typeof top.code === "string" ? `${top.code}: ${msg}` : msg;
+  }
   if (Array.isArray(msg)) return msg.map(String).join("; ");
+  // Nest ConflictException({ code, message }) → message is a nested object
+  if (msg && typeof msg === "object" && !Array.isArray(msg)) {
+    const nested = msg as { code?: unknown; message?: unknown };
+    if (typeof nested.message === "string") {
+      const code =
+        typeof nested.code === "string"
+          ? nested.code
+          : typeof top.code === "string"
+            ? top.code
+            : null;
+      return code ? `${code}: ${nested.message}` : nested.message;
+    }
+  }
   return null;
 }
 
