@@ -28,6 +28,14 @@ import {
   shouldUseMocks,
   updateCurrentUser,
 } from "./lib/session"
+import {
+  deleteDocumentoConta,
+  fetchDocumentosConta,
+  fetchTiposBaseAtivos,
+  mergeDocumentoContaSlots,
+  upsertDocumentoConta,
+  type TipoBaseSlot,
+} from "./lib/documentos-conta"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Screen =
@@ -1369,6 +1377,11 @@ function MeusDadosScreen({ onBack }: { onBack: () => void }) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [savedOk, setSavedOk] = useState(false)
+  const [docSlots, setDocSlots] = useState<TipoBaseSlot[]>([])
+  const [docsLoading, setDocsLoading] = useState(false)
+  const [docsError, setDocsError] = useState<string | null>(null)
+  const [docsBusyId, setDocsBusyId] = useState<number | null>(null)
+  const fileInputRefs = useRef<Record<number, HTMLInputElement | null>>({})
 
   useEffect(() => {
     if (!user) return
@@ -1384,6 +1397,59 @@ function MeusDadosScreen({ onBack }: { onBack: () => void }) {
     setNumero(end0?.numero_residencia ?? "")
     setComplemento(end0?.complemento ?? "")
   }, [user])
+
+  async function refreshDocs() {
+    if (!authed || shouldUseMocks()) {
+      setDocSlots([])
+      return
+    }
+    setDocsLoading(true)
+    setDocsError(null)
+    try {
+      const [tipos, docs] = await Promise.all([
+        fetchTiposBaseAtivos(),
+        fetchDocumentosConta(),
+      ])
+      setDocSlots(mergeDocumentoContaSlots(tipos, docs))
+    } catch {
+      setDocsError("Não foi possível carregar documentos da conta.")
+      setDocSlots([])
+    } finally {
+      setDocsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    void refreshDocs()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refresh when auth flips
+  }, [authed])
+
+  async function handleUpload(tipoId: number, file: File | undefined) {
+    if (!file) return
+    setDocsBusyId(tipoId)
+    setDocsError(null)
+    try {
+      await upsertDocumentoConta(tipoId, file)
+      await refreshDocs()
+    } catch {
+      setDocsError("Falha no envio do documento. Verifique o formato/tamanho.")
+    } finally {
+      setDocsBusyId(null)
+    }
+  }
+
+  async function handleRemoveDoc(tipoId: number) {
+    setDocsBusyId(tipoId)
+    setDocsError(null)
+    try {
+      await deleteDocumentoConta(tipoId)
+      await refreshDocs()
+    } catch {
+      setDocsError("Não foi possível remover o documento.")
+    } finally {
+      setDocsBusyId(null)
+    }
+  }
 
   async function handleSave() {
     if (!authed || !user) {
@@ -1510,6 +1576,67 @@ function MeusDadosScreen({ onBack }: { onBack: () => void }) {
         <Btn v="primary" cls="w-full h-12" disabled={!authed || saving} onClick={() => { void handleSave() }}>
           {saving ? "Salvando…" : "Salvar Meus Dados"}
         </Btn>
+
+        <section className="bg-white rounded-2xl border border-[#D1E8D7] p-4 flex flex-col gap-3">
+          <div>
+            <p className="text-sm font-bold text-[#0D1E12]">Documentos da conta</p>
+            <p className="text-xs text-[#4E6859] mt-0.5">Um ficheiro atual por tipo (substitui ao enviar de novo). Reutilização em inscrições: REQ-2.6.</p>
+          </div>
+          {docsLoading && <p className="text-xs text-[#4E6859]">A carregar documentos…</p>}
+          {docsError && <p className="text-xs text-red-600">{docsError}</p>}
+          {!docsLoading && authed && docSlots.length === 0 && !docsError && (
+            <p className="text-xs text-[#4E6859]">Nenhum tipo base ativo configurado.</p>
+          )}
+          {docSlots.map((slot) => (
+            <div key={slot.id} className="flex items-start gap-3 border border-[#E4EBE6] rounded-xl p-3">
+              <div className="w-9 h-9 rounded-xl bg-[#E7F4EA] flex items-center justify-center flex-shrink-0">
+                <FileText className="w-4 h-4 text-[#2A7B3E]" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-[#0D1E12]">{slot.nome}</p>
+                <p className="text-xs text-[#4E6859] truncate">
+                  {slot.current
+                    ? `Atual: ${slot.current.nome_arquivo}`
+                    : "Nenhum ficheiro enviado"}
+                </p>
+                {slot.formatos.length > 0 && (
+                  <p className="text-[10px] text-[#A8C4B0] mt-0.5">Formatos: {slot.formatos.join(", ")}</p>
+                )}
+                <div className="flex flex-wrap gap-2 mt-2">
+                  <input
+                    ref={(el) => { fileInputRefs.current[slot.id] = el }}
+                    type="file"
+                    className="hidden"
+                    aria-label={`Enviar ${slot.nome}`}
+                    onChange={(e) => {
+                      const f = e.target.files?.[0]
+                      void handleUpload(slot.id, f)
+                      e.target.value = ""
+                    }}
+                  />
+                  <Btn
+                    v="secondary"
+                    cls="h-10 px-3 text-sm"
+                    disabled={docsBusyId === slot.id}
+                    onClick={() => fileInputRefs.current[slot.id]?.click()}
+                  >
+                    {docsBusyId === slot.id ? "…" : slot.current ? "Substituir" : "Enviar"}
+                  </Btn>
+                  {slot.current && (
+                    <Btn
+                      v="ghost"
+                      cls="h-10 px-3 text-sm text-red-600"
+                      disabled={docsBusyId === slot.id}
+                      onClick={() => { void handleRemoveDoc(slot.id) }}
+                    >
+                      Remover
+                    </Btn>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </section>
       </div>
     </div>
   )
