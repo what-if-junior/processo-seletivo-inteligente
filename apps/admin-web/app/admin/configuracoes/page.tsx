@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Tabs } from "../../../components/Tabs";
 import { useToast } from "../../../components/ToastProvider";
+import { FaixasSmEditor } from "../../../components/FaixasSmEditor";
 import {
   DEFAULT_SETTINGS,
   loadSettings,
@@ -11,6 +12,7 @@ import {
 } from "../../../lib/settings";
 
 const TAB_ITEMS = [
+  { id: "faixas", label: "Faixas SM" },
   { id: "geral", label: "Geral" },
   { id: "notificacoes", label: "Notificações" },
   { id: "seguranca", label: "Segurança" },
@@ -19,7 +21,7 @@ const TAB_ITEMS = [
 
 export default function ConfiguracoesPage() {
   const { push } = useToast();
-  const [tab, setTab] = useState("geral");
+  const [tab, setTab] = useState("faixas");
   const [settings, setSettings] = useState<AdminSettings>(DEFAULT_SETTINGS);
 
   useEffect(() => {
@@ -36,7 +38,8 @@ export default function ConfiguracoesPage() {
       <div>
         <h1 className="text-2xl font-semibold text-slate-900">Configurações</h1>
         <p className="text-sm text-slate-500">
-          Preferências do console (persistência temporária em localStorage)
+          Preferências globais — faixas SM via API; demais abas ainda em
+          localStorage.
         </p>
       </div>
 
@@ -44,6 +47,8 @@ export default function ConfiguracoesPage() {
         <Tabs tabs={TAB_ITEMS} active={tab} onChange={setTab} />
 
         <div className="mt-6 space-y-4">
+          {tab === "faixas" ? <FaixasSmEditor /> : null}
+
           {tab === "geral" ? (
             <>
               <Field label="Nome do Site">
@@ -153,7 +158,8 @@ export default function ConfiguracoesPage() {
                       ...settings,
                       seguranca: {
                         ...settings.seguranca,
-                        max_inscricoes_por_candidato: Number(e.target.value) || 1,
+                        max_inscricoes_por_candidato:
+                          Number(e.target.value) || 1,
                       },
                     })
                   }
@@ -186,7 +192,8 @@ export default function ConfiguracoesPage() {
                       ...settings,
                       sistema: {
                         ...settings.sistema,
-                        ambiente: e.target.value as AdminSettings["sistema"]["ambiente"],
+                        ambiente: e.target
+                          .value as AdminSettings["sistema"]["ambiente"],
                       },
                     })
                   }
@@ -200,7 +207,10 @@ export default function ConfiguracoesPage() {
                 <button
                   type="button"
                   onClick={() =>
-                    push("Exportar Backup ainda não conectado ao backend.", "info")
+                    push(
+                      "Exportar Backup ainda não conectado ao backend.",
+                      "info",
+                    )
                   }
                   className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50"
                 >
@@ -218,15 +228,17 @@ export default function ConfiguracoesPage() {
           ) : null}
         </div>
 
-        <div className="mt-6 flex justify-end">
-          <button
-            type="button"
-            onClick={persist}
-            className="rounded-lg bg-[#2563eb] px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700"
-          >
-            Salvar Configurações
-          </button>
-        </div>
+        {tab !== "faixas" ? (
+          <div className="mt-6 flex justify-end">
+            <button
+              type="button"
+              onClick={persist}
+              className="rounded-lg bg-[#2563eb] px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700"
+            >
+              Salvar Configurações
+            </button>
+          </div>
+        ) : null}
       </div>
     </div>
   );
