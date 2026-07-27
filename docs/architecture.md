@@ -76,9 +76,13 @@ Definidos em `packages/types/src/db-enums.ts` com valores **idênticos** ao SQL:
 
 | Enum TS | Tipo Postgres | Valores |
 | --- | --- | --- |
-| `StatusCandidatura` | `status_candidatura` | inscricao_recebida, pre_selecionado, analise_documental, aprovado, reprovado |
+| `MetodoSelecao` | `metodo_selecao` | ALEATORIO, MERITO, HIBRIDO |
+| `MeritoTipo` | `merito_tipo` | HISTORICO_ESCOLAR, NOTA_ENEM, PROVA_ESPECIFICA |
+| `TermosModo` | `termos_modo` | PDF, URL, TEXTO |
+| `TurnoOferta` | `turno` | MATUTINO, VESPERTINO, NOTURNO, INTEGRAL |
+| `StatusCandidatura` | `status_candidatura` | inscricao_recebida, pre_selecionado, analise_documental, aprovado, reprovado, cancelada, desclassificada |
 | `TipoIngresso` | `tipo_ingresso` | sisu, sorteio, ordem_chegada, analise_curricular, transferencia |
-| `TipoVagaCandidatura` | `tipo_vaga` | AC, PCD, PII, escola_publica |
+| `TipoVagaCandidatura` | `tipo_vaga` | AC, PPI, PCD, ESCOLA_PUBLICA, BAIXA_RENDA |
 | `TipoEtapaProcesso` | `etapa_processo` | periodo_inscricoes … encerrado |
 | `ResultadoEtapa` | `resultado_etapa` | aprovado, reprovado, pendente |
 | `StatusRecurso` | `status_recurso` | aberto, em_analise, deferido, indeferido |
@@ -104,9 +108,9 @@ Todos os controllers são anotados com `@ApiTags` / `@ApiOperation`; Swagger em 
 | cursos | GET | `/cursos/:id` | público | Curso por id |
 | cursos | GET | `/cursos/:id/candidaturas` | JWT | Candidaturas do curso |
 | cursos | POST/PATCH/DELETE | `/cursos[/:id]` | JWT | CRUD |
-| candidaturas | GET | `/candidaturas` | JWT | Lista com usuário + curso |
+| candidaturas | GET | `/candidaturas` | JWT | Lista com usuário + oferta (curso/campus) |
 | candidaturas | GET | `/candidaturas/:id` | JWT | Detalhe com documentos, etapas, recursos |
-| candidaturas | POST | `/candidaturas` | JWT | Cria (bloqueia inscrição duplicada) |
+| candidaturas | POST | `/candidaturas` | JWT | Cria (bloqueia inscrição ativa duplicada por edital) |
 | documentos | GET | `/documentos?candidatura=:id` | JWT | Lista / por candidatura |
 | documentos | GET | `/documentos/:id` | JWT | Detalhe (sem binário) |
 | gestores | GET | `/gestores`, `/gestores/:id` | JWT | Gestor + usuário |
@@ -127,8 +131,9 @@ Todos os controllers são anotados com `@ApiTags` / `@ApiOperation`; Swagger em 
 
 ### Regras de negócio já cobertas
 
-- **RS02 — inscrição única:** índice único `(id_usuario, id_curso)` +
-  verificação em `CandidaturasService.create` (trata violação `23505`).
+- **RS02 — inscrição única:** partial unique `(id_usuario, id_edital)` onde status
+  ativo + verificação em `CandidaturasService.create` (trata violação `23505`).
+  CRUD de Editais/Ofertas ainda não existe (W3–W4); `/cursos` lista o catálogo slim.
 - **CPF único / email único:** índices em `03_auth.sql`.
 
 ---
