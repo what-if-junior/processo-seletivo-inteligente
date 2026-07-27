@@ -43,12 +43,22 @@ export class ApiError extends Error {
   }
 }
 
+function apiMessageFromBody(body: unknown): string | null {
+  if (!body || typeof body !== "object") return null;
+  const msg = (body as { message?: unknown }).message;
+  if (typeof msg === "string") return msg;
+  if (Array.isArray(msg)) return msg.map(String).join("; ");
+  return null;
+}
+
 export async function apiFetch<T>(
   path: string,
   init: RequestInit = {},
 ): Promise<T> {
   const headers = new Headers(init.headers);
-  if (!headers.has("Content-Type") && init.body) {
+  const isFormData =
+    typeof FormData !== "undefined" && init.body instanceof FormData;
+  if (!headers.has("Content-Type") && init.body && !isFormData) {
     headers.set("Content-Type", "application/json");
   }
   const token = getAccessToken();
@@ -66,9 +76,22 @@ export async function apiFetch<T>(
     } catch {
       body = await res.text();
     }
-    throw new ApiError(res.status, `API ${res.status} ${path}`, body);
+    const detail = apiMessageFromBody(body);
+    throw new ApiError(
+      res.status,
+      detail ?? `API ${res.status} ${path}`,
+      body,
+    );
   }
 
   if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
+}
+
+/** Multipart upload (do not set JSON Content-Type). */
+export async function apiUpload<T>(
+  path: string,
+  formData: FormData,
+): Promise<T> {
+  return apiFetch<T>(path, { method: "POST", body: formData });
 }
