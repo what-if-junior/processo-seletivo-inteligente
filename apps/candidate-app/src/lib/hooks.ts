@@ -137,8 +137,8 @@ export function useInscricoes() {
     }
     const userId = getSessionUserId();
     if (userId == null) {
-      setActive(MOCK_ACTIVE);
-      setPast(MOCK_PAST);
+      setActive(null);
+      setPast([]);
       setSource("mock");
       setLoading(false);
       return;

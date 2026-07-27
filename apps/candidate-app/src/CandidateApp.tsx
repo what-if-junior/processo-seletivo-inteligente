@@ -23,8 +23,10 @@ import {
 import {
   MOCK_PROFILE,
   firstNameFrom,
+  fetchCurrentUser,
   getSessionUserId,
   maskCpf,
+  profileMinimumIssues,
   shouldUseMocks,
   updateCurrentUser,
 } from "./lib/session"
@@ -479,7 +481,12 @@ function HomeScreen({
         <h3 className="text-[#0D1E12] text-base font-bold mb-3">Atalhos</h3>
         <div className="grid grid-cols-3 gap-3">
           {[
-            { icon: FileText, label: "Minhas\nInscrições", action: () => { goto("inscricoes"); setNav("inscricoes") } },
+            { icon: FileText, label: "Minhas\nInscrições", action: () => {
+              if (!shouldUseMocks() && getSessionUserId() == null) {
+                goto("perfil"); setNav("perfil"); return
+              }
+              goto("inscricoes"); setNav("inscricoes")
+            } },
             { icon: Upload, label: "Enviar\nDocumentos", action: () => goto("docs") },
             { icon: HelpCircle, label: "Ajuda\nRápida", action: () => {} },
           ].map(({ icon: Icon, label, action }) => (
@@ -536,16 +543,26 @@ function ProcessosScreen({
 
 // ─── EDITAL DETAIL SCREEN ─────────────────────────────────────────────────────
 function EditalScreen({
-  goto, onBack, edital,
+  goto, onBack, edital, setNav,
 }: {
   goto: (s: Screen) => void
   onBack: () => void
   edital: EditalCardData | null
+  setNav?: (t: NavTab) => void
 }) {
   const [view, setView] = useState<"aberto" | "andamento" | "aprovado">("aberto")
   const title = edital?.titulo ?? "Técnico em Informática"
   const campus = edital?.campus ?? "Campus Brasília"
   const vagas = edital?.vagas ?? 40
+
+  function requireLoginThen(next: Screen) {
+    if (!shouldUseMocks() && getSessionUserId() == null) {
+      setNav?.("perfil")
+      goto("perfil")
+      return
+    }
+    goto(next)
+  }
 
   const statusBanners = {
     aberto: null,
@@ -651,19 +668,19 @@ function EditalScreen({
               <Info className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
               <p className="text-amber-800 text-xs leading-relaxed">{AVISO_UM_CURSO_POR_EDITAL}</p>
             </div>
-            <Btn v="primary" cls="w-full text-lg font-black h-14" onClick={() => goto("wizard")}>
+            <Btn v="primary" cls="w-full text-lg font-black h-14" onClick={() => requireLoginThen("wizard")}>
               INSCREVER-SE
             </Btn>
           </>
         )}
         {view === "andamento" && (
-          <Btn v="secondary" cls="w-full h-14" onClick={() => goto("inscricoes")}>
+          <Btn v="secondary" cls="w-full h-14" onClick={() => requireLoginThen("inscricoes")}>
             <FileText className="w-5 h-5" /> Acompanhar Inscrição
           </Btn>
         )}
         {view === "aprovado" && (
           <div className="flex flex-col gap-3">
-            <Btn v="primary" cls="w-full h-14" onClick={() => goto("inscricoes")}>
+            <Btn v="primary" cls="w-full h-14" onClick={() => requireLoginThen("inscricoes")}>
               <Award className="w-5 h-5" /> Ver Resultado Completo
             </Btn>
             <p className="text-center text-xs text-[#4E6859]">Consulte as datas de matrícula no edital</p>
@@ -690,22 +707,71 @@ function WizardScreen({
   const [confirmed, setConfirmed] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const [nome, setNome] = useState("")
+  const [cpf, setCpf] = useState("")
+  const [nascimento, setNascimento] = useState("")
+  const [email, setEmail] = useState("")
+  const [telefone, setTelefone] = useState("")
 
   const STEPS = ["Dados Pessoais", "Cotas", "Socioeconômico", "Revisão"]
   const cursoLabel = edital
     ? `${edital.titulo} — ${edital.campus}`
     : "Técnico em Informática — Campus Brasília"
 
+  useEffect(() => {
+    if (shouldUseMocks()) {
+      setNome(MOCK_PROFILE.nome_completo)
+      setCpf(MOCK_PROFILE.CPF)
+      return
+    }
+    if (getSessionUserId() == null) {
+      goto("perfil")
+      return
+    }
+    void fetchCurrentUser().then((u) => {
+      if (!u) return
+      setNome(u.nome_completo ?? "")
+      setCpf(u.CPF ?? "")
+      setNascimento(u.data_nascimento?.slice(0, 10) ?? "")
+      setEmail(u.email ?? "")
+      setTelefone(u.telefone ?? "")
+    })
+  }, [goto])
+
   async function confirmInscricao() {
     if (submitting) return
     setSubmitting(true)
     setSubmitError(null)
-    const userId = getSessionUserId()
-    const cursoId = edital ? Number(edital.id) : NaN
-    if (userId != null && Number.isFinite(cursoId)) {
+
+    if (!shouldUseMocks()) {
+      const userId = getSessionUserId()
+      if (userId == null) {
+        setSubmitError("Faça login para enviar a inscrição.")
+        setSubmitting(false)
+        goto("perfil")
+        return
+      }
+      const user = await fetchCurrentUser()
+      const issues = profileMinimumIssues(user)
+      if (!nome.trim()) issues.push("Nome completo é obrigatório no formulário.")
+      if (!cpf.replace(/\D/g, "")) issues.push("CPF é obrigatório no formulário.")
+      if (!telefone.trim()) issues.push("Telefone é obrigatório no formulário.")
+      if (!nascimento) issues.push("Data de nascimento é obrigatória no formulário.")
+      if (!email.trim()) issues.push("E-mail é obrigatório no formulário.")
+      if (issues.length) {
+        setSubmitError(
+          `${issues.join(" ")} Complete em Meus Dados se faltar endereço.`,
+        )
+        setSubmitting(false)
+        return
+      }
+      const cursoId = edital ? Number(edital.id) : NaN
+      if (!Number.isFinite(cursoId)) {
+        setSubmitError("Curso/oferta inválido para inscrição.")
+        setSubmitting(false)
+        return
+      }
       try {
-        // Card ids still come from GET /cursos (catalog). Create needs
-        // id_oferta + id_edital (W1). M-06: until home uses ofertas, POST may 404.
         const created = await apiFetch<{ id: number }>("/candidaturas", {
           method: "POST",
           body: JSON.stringify({
@@ -725,21 +791,41 @@ function WizardScreen({
         return
       }
     }
+
     setSubmitting(false)
     goto("docs")
   }
 
+  const inputCls =
+    "h-12 px-4 rounded-xl border-2 border-[#D1E8D7] bg-white text-[#0D1E12] placeholder:text-[#A8C4B0] focus:outline-none focus:border-[#2A7B3E] focus:ring-4 focus:ring-[#2A7B3E]/10 text-base w-full"
+
   const stepContent: Record<WizardStep, ReactNode> = {
     1: (
       <div className="flex flex-col gap-4">
-        <Field label="Nome Completo" placeholder="Ex: João da Silva" required />
-        <Field label="CPF" placeholder="000.000.000-00" type="text" required hint="Apenas números" />
-        <Field label="Data de Nascimento" type="date" required />
-        <Field label="E-mail" placeholder="seu@email.com" type="email" required />
-        <Field label="Celular / WhatsApp" placeholder="(61) 99999-9999" type="tel" required />
+        <div className="flex flex-col gap-1.5">
+          <label className="text-sm font-semibold text-[#0D1E12]">Nome Completo<span className="text-red-500 ml-0.5">*</span></label>
+          <input className={inputCls} value={nome} onChange={e => setNome(e.target.value)} aria-label="Nome Completo" />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <label className="text-sm font-semibold text-[#0D1E12]">CPF<span className="text-red-500 ml-0.5">*</span></label>
+          <input className={inputCls} value={cpf} onChange={e => setCpf(e.target.value)} aria-label="CPF" />
+          <p className="text-xs text-[#4E6859]">Apenas números</p>
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <label className="text-sm font-semibold text-[#0D1E12]">Data de Nascimento<span className="text-red-500 ml-0.5">*</span></label>
+          <input className={inputCls} type="date" value={nascimento} onChange={e => setNascimento(e.target.value)} aria-label="Data de Nascimento" />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <label className="text-sm font-semibold text-[#0D1E12]">E-mail<span className="text-red-500 ml-0.5">*</span></label>
+          <input className={inputCls} type="email" value={email} onChange={e => setEmail(e.target.value)} aria-label="E-mail" />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <label className="text-sm font-semibold text-[#0D1E12]">Celular / WhatsApp<span className="text-red-500 ml-0.5">*</span></label>
+          <input className={inputCls} type="tel" value={telefone} onChange={e => setTelefone(e.target.value)} aria-label="Celular" />
+        </div>
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 flex gap-2.5">
           <Info className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
-          <p className="text-amber-800 text-xs leading-relaxed">Se você é menor de idade, um responsável legal deverá assinar a matrícula presencialmente.</p>
+          <p className="text-amber-800 text-xs leading-relaxed">Endereço completo é validado no envio a partir de Meus Dados. Se você é menor de idade, um responsável legal deverá assinar a matrícula presencialmente.</p>
         </div>
       </div>
     ),
@@ -798,8 +884,9 @@ function WizardScreen({
           <p className="text-[#2A7B3E] text-xs font-bold uppercase tracking-wider mb-3">Resumo da Inscrição</p>
           {[
             ["Curso", cursoLabel],
-            ["CPF", "***.***.***-**"],
-            ["E-mail", "joao@email.com"],
+            ["Nome", nome || "—"],
+            ["CPF", cpf || "***.***.***-**"],
+            ["E-mail", email || "—"],
             ["Escola de Origem", escola === "pub" ? "Pública" : escola === "priv" ? "Privada" : "Não informado"],
             ["Modalidade", cota || "Não selecionado"],
           ].map(([k, v]) => (
@@ -1156,12 +1243,14 @@ function CameraScreen({ onBack }: { onBack: () => void }) {
 
 // ─── MINHAS INSCRIÇÕES (Dashboard) ────────────────────────────────────────────
 function InscricoesScreen({
-  goto, onOpenDocs,
+  goto, onOpenDocs, setNav,
 }: {
   goto: (s: Screen) => void
   onOpenDocs: (candidaturaId: number) => void
+  setNav?: (t: NavTab) => void
 }) {
   const currentStep = 1 // visual stepper stays mock until status model freezes
+  const loggedIn = shouldUseMocks() || getSessionUserId() != null
   const { active, past, cancelActive, source } = useInscricoes()
   const [cancelError, setCancelError] = useState<string | null>(null)
   const [cancelling, setCancelling] = useState(false)
@@ -1179,6 +1268,28 @@ function InscricoesScreen({
     }
   }
 
+  if (!loggedIn) {
+    return (
+      <div>
+        <div className="bg-[#2A7B3E] px-4 pt-10 pb-5">
+          <h1 className="text-white text-xl font-extrabold">Minhas Inscrições</h1>
+          <p className="text-emerald-200 text-sm mt-0.5">Acompanhe o status das suas candidaturas</p>
+        </div>
+        <div className="px-4 pt-6 flex flex-col gap-4">
+          <div className="bg-white rounded-2xl border border-[#D1E8D7] p-5 text-center">
+            <p className="text-sm text-[#0D1E12] font-semibold mb-2">Login necessário</p>
+            <p className="text-xs text-[#4E6859] mb-4 leading-relaxed">
+              Entre com CPF ou e-mail para ver as suas inscrições. A listagem pública de cursos permanece disponível sem login.
+            </p>
+            <Btn v="primary" cls="w-full h-12" onClick={() => { setNav?.("perfil"); goto("perfil") }}>
+              Ir para Perfil / Entrar
+            </Btn>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div>
       <div className="bg-[#2A7B3E] px-4 pt-10 pb-5">
@@ -1187,7 +1298,8 @@ function InscricoesScreen({
       </div>
 
       <div className="px-4 pt-4 flex flex-col gap-4 pb-4">
-        {/* Pendência alert */}
+        {/* Pendência alert (demo only) */}
+        {shouldUseMocks() && (
         <div className="bg-red-50 border-2 border-red-300 rounded-2xl p-4 flex gap-3">
           <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
           <div className="flex-1">
@@ -1202,6 +1314,11 @@ function InscricoesScreen({
             </button>
           </div>
         </div>
+        )}
+
+        {!active && source === "api" && (
+          <p className="text-sm text-[#4E6859] text-center py-4">Nenhuma inscrição ativa.</p>
+        )}
 
         {/* Active inscription card */}
         {active && (
@@ -1732,7 +1849,10 @@ function PerfilScreen({
         <div className="bg-white rounded-2xl border border-[#D1E8D7] overflow-hidden divide-y divide-[#E4EBE6]">
           {[
             { icon: User, label: "Meus Dados", sub: "Informações pessoais", action: () => goto("meus-dados") },
-            { icon: FileText, label: "Minhas Inscrições", sub: "Histórico de candidaturas", action: () => { goto("inscricoes"); setNav("inscricoes") } },
+            { icon: FileText, label: "Minhas Inscrições", sub: "Histórico de candidaturas", action: () => {
+              if (!authed && !shouldUseMocks()) return
+              goto("inscricoes"); setNav("inscricoes")
+            } },
             { icon: Upload, label: "Documentos Enviados", sub: "Gerenciar arquivos", action: () => goto("docs") },
             { icon: Bell, label: "Preferências de Avisos", sub: "Email e push" },
             { icon: Shield, label: "Privacidade & LGPD", sub: "Seus dados e direitos" },
@@ -1809,6 +1929,7 @@ export default function App() {
     edital: (
       <EditalScreen
         goto={goto}
+        setNav={setNav}
         onBack={() => goto(nav === "inscricoes" ? "inscricoes" : "home")}
         edital={selectedEdital}
       />
@@ -1832,6 +1953,7 @@ export default function App() {
     inscricoes: (
       <InscricoesScreen
         goto={goto}
+        setNav={setNav}
         onOpenDocs={(id) => setActiveCandidaturaId(id)}
       />
     ),
