@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Tabs } from "../../../components/Tabs";
 import { useToast } from "../../../components/ToastProvider";
 import { FaixasSmEditor } from "../../../components/FaixasSmEditor";
+import { TiposDocumentoBaseEditor } from "../../../components/TiposDocumentoBaseEditor";
 import {
   DEFAULT_SETTINGS,
   loadSettings,
@@ -12,6 +13,7 @@ import {
 } from "../../../lib/settings";
 
 const TAB_ITEMS = [
+  { id: "docs-base", label: "Docs base" },
   { id: "faixas", label: "Faixas SM" },
   { id: "geral", label: "Geral" },
   { id: "notificacoes", label: "Notificações" },
@@ -21,7 +23,7 @@ const TAB_ITEMS = [
 
 export default function ConfiguracoesPage() {
   const { push } = useToast();
-  const [tab, setTab] = useState("faixas");
+  const [tab, setTab] = useState("docs-base");
   const [settings, setSettings] = useState<AdminSettings>(DEFAULT_SETTINGS);
 
   useEffect(() => {
@@ -38,8 +40,8 @@ export default function ConfiguracoesPage() {
       <div>
         <h1 className="text-2xl font-semibold text-slate-900">Configurações</h1>
         <p className="text-sm text-slate-500">
-          Preferências globais — faixas SM via API; demais abas ainda em
-          localStorage.
+          Preferências globais — docs base e faixas SM via API; demais abas
+          ainda em localStorage.
         </p>
       </div>
 
@@ -47,6 +49,8 @@ export default function ConfiguracoesPage() {
         <Tabs tabs={TAB_ITEMS} active={tab} onChange={setTab} />
 
         <div className="mt-6 space-y-4">
+          {tab === "docs-base" ? <TiposDocumentoBaseEditor /> : null}
+
           {tab === "faixas" ? <FaixasSmEditor /> : null}
 
           {tab === "geral" ? (
@@ -228,7 +232,7 @@ export default function ConfiguracoesPage() {
           ) : null}
         </div>
 
-        {tab !== "faixas" ? (
+        {tab !== "faixas" && tab !== "docs-base" ? (
           <div className="mt-6 flex justify-end">
             <button
               type="button"

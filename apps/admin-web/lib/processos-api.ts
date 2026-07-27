@@ -31,6 +31,8 @@ export type CreateEditalPayload = {
   termos_modo: TermosModo;
   termos_valor: string;
   link_oficial?: string | null;
+  /** REQ-1.5: omit = all active; [] = none; list = subset */
+  tipos_base_ids?: number[] | null;
 };
 
 export type UpdateEditalPayload = Partial<CreateEditalPayload> & {

@@ -1,9 +1,13 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { ApiError } from "../../../../lib/api";
 import { createEdital } from "../../../../lib/processos-api";
+import {
+  listTiposDocumentoBaseGestao,
+  type TipoDocumentoBase,
+} from "../../../../lib/tipos-documento-base-api";
 import { useToast } from "../../../../components/ToastProvider";
 import {
   ProcessoFormFields,
@@ -18,6 +22,46 @@ export default function NovoProcessoPage() {
   const [form, setForm] = useState<ProcessoFormState>(emptyProcessoForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [bases, setBases] = useState<TipoDocumentoBase[]>([]);
+  const [selectedBaseIds, setSelectedBaseIds] = useState<number[]>([]);
+  const [basesLoaded, setBasesLoaded] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await listTiposDocumentoBaseGestao();
+        if (cancelled) return;
+        const ativos = res.tipos
+          .filter((t) => t.ativo)
+          .slice()
+          .sort((a, b) => a.ordem - b.ordem);
+        setBases(ativos);
+        setSelectedBaseIds(ativos.map((t) => t.id));
+      } catch {
+        if (!cancelled) setBases([]);
+      } finally {
+        if (!cancelled) setBasesLoaded(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  function toggleBase(id: number) {
+    setSelectedBaseIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+  }
+
+  function selectAllBases() {
+    setSelectedBaseIds(bases.map((t) => t.id));
+  }
+
+  function clearBases() {
+    setSelectedBaseIds([]);
+  }
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -27,6 +71,15 @@ export default function NovoProcessoPage() {
       const payload = toCreatePayload(form);
       if (!payload.numero_ano || !payload.termos_valor) {
         throw new Error("Número/ano e termos são obrigatórios.");
+      }
+      // omit = all active; [] = none; list = subset (REQ-1.5)
+      const allIds = bases.map((t) => t.id);
+      const allSelected =
+        allIds.length > 0 &&
+        selectedBaseIds.length === allIds.length &&
+        allIds.every((id) => selectedBaseIds.includes(id));
+      if (!allSelected) {
+        payload.tipos_base_ids = selectedBaseIds;
       }
       const created = await createEdital(payload);
       push("Processo criado como rascunho.");
@@ -50,7 +103,7 @@ export default function NovoProcessoPage() {
         </h1>
         <p className="text-sm text-slate-500">
           Rascunho: publique só após enviar o PDF do edital. Link oficial é
-          opcional.
+          opcional. Tipos base ativos são herdados por omissão (desmarcáveis).
         </p>
       </div>
 
@@ -65,6 +118,68 @@ export default function NovoProcessoPage() {
         className="space-y-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
       >
         <ProcessoFormFields form={form} onChange={setForm} disabled={saving} />
+
+        <fieldset className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-4">
+          <legend className="px-1 text-sm font-semibold text-slate-900">
+            Documentação base a herdar (REQ-1.5)
+          </legend>
+          <p className="text-xs text-slate-500">
+            Desmarque os tipos que não devem entrar neste processo. Depois da
+            criação, desvincule no detalhe do processo se necessário.
+          </p>
+          {!basesLoaded ? (
+            <p className="text-sm text-slate-500">Carregando tipos base…</p>
+          ) : bases.length === 0 ? (
+            <p className="text-sm text-slate-500">
+              Nenhum tipo base ativo. Configure em Configurações → Docs base.
+            </p>
+          ) : (
+            <>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  className="rounded border border-slate-300 px-2 py-1 text-xs"
+                  onClick={selectAllBases}
+                >
+                  Marcar todos
+                </button>
+                <button
+                  type="button"
+                  className="rounded border border-slate-300 px-2 py-1 text-xs"
+                  onClick={clearBases}
+                >
+                  Desmarcar todos
+                </button>
+              </div>
+              <ul className="space-y-2">
+                {bases.map((t) => {
+                  const checked = selectedBaseIds.includes(t.id);
+                  return (
+                    <li key={t.id}>
+                      <label className="flex cursor-pointer items-start gap-2 text-sm text-slate-800">
+                        <input
+                          type="checkbox"
+                          className="mt-1"
+                          checked={checked}
+                          onChange={() => toggleBase(t.id)}
+                          disabled={saving}
+                        />
+                        <span>
+                          <span className="font-medium">{t.nome}</span>
+                          <span className="block text-xs text-slate-500">
+                            {t.fase} ·{" "}
+                            {t.obrigatorio ? "obrigatório" : "opcional"}
+                          </span>
+                        </span>
+                      </label>
+                    </li>
+                  );
+                })}
+              </ul>
+            </>
+          )}
+        </fieldset>
+
         <div className="flex justify-end gap-3">
           <button
             type="button"
