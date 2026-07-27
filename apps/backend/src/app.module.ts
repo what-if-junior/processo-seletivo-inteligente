@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { UserModule } from './user/user.module';
 import { CursosModule } from './cursos/cursos.module';
+import { CampusModule } from './campus/campus.module';
 import { AuthModule } from './auth/auth.module';
 import { CandidaturasModule } from './candidaturas/candidaturas.module';
 import { DocumentosModule } from './documentos/documentos.module';
@@ -39,6 +40,7 @@ import { JwtAuthGuard } from './auth/guards/jwt.guard';
       }),
     }),
     CursosModule,
+    CampusModule,
     UserModule,
     AuthModule,
     CandidaturasModule,
