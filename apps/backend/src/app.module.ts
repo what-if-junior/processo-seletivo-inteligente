@@ -11,6 +11,8 @@ import { EtapasProcessoModule } from './etapas-processo/etapas-processo.module';
 import { OfertasModule } from './ofertas/ofertas.module';
 import { RecursosModule } from './recursos/recursos.module';
 import { CronogramaModule } from './cronograma/cronograma.module';
+import { TiposDocumentoModule } from './tipos-documento/tipos-documento.module';
+import { EntregaDocumentalModule } from './entrega-documental/entrega-documental.module';
 import { SchemaExtrasModule } from './schema-extras/schema-extras.module';
 import { SchemaFoundationModule } from './schema-foundation/schema-foundation.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -47,6 +49,8 @@ import { JwtAuthGuard } from './auth/guards/jwt.guard';
     EditaisModule,
     OfertasModule,
     CronogramaModule,
+    TiposDocumentoModule,
+    EntregaDocumentalModule,
     GestoresModule,
     EtapasProcessoModule,
     RecursosModule,

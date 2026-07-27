@@ -36,6 +36,12 @@ erDiagram
   Editais ||--o{ CarrosselItens : auto_card
   Editais ||--o{ TemplatesEdital : copia
   Editais ||--o{ CronogramaEtapas : agenda
+  Editais ||--o{ TiposDocumento : exige
+  TiposDocumento ||--o{ TipoDocumentoCampos : builder
+  Editais ||--o{ ConfiguracaoEntregaDocumental : entrega
+  Campus ||--o{ ConfiguracaoEntregaDocumental : local
+  Cursos ||--o{ ConfiguracaoEntregaDocumental : curso
+  CronogramaEtapas ||--o{ ConfiguracaoEntregaDocumental : etapa
   ConfiguracaoGlobal ||--o{ FaixasSalarioMinimo : referencia_sm
   TemplatesEdital ||--o{ CronogramaEtapas : instrucao_opcional
 
@@ -239,6 +245,37 @@ erDiagram
     bool elegivel_recurso
     bigint template_instrucao_id FK
   }
+
+  TiposDocumento {
+    int id PK
+    bigint id_edital FK
+    string nome
+    bool obrigatorio
+    text[] formatos
+    int tamanho_max_bytes
+    fase_documento fase
+    string tipo_cota
+    int ordem
+  }
+
+  TipoDocumentoCampos {
+    int id PK
+    bigint id_tipo_documento FK
+    campo_formulario_tipo tipo
+    string rotulo
+    bool obrigatorio
+    int ordem
+  }
+
+  ConfiguracaoEntregaDocumental {
+    int id PK
+    bigint id_edital FK
+    bigint id_campus FK
+    bigint id_curso FK
+    bigint id_cronograma_etapa FK
+    modo_entrega modo
+    subtipo_entrega_online subtipo_online
+  }
 ```
 
 ## W1 foundation (`01_schemas.sql` + `02_seeds.sql` + `03_auth.sql`)
@@ -274,6 +311,16 @@ Legacy `Recursos` remains for the old etapa-bound flow; new contestação UX use
 
 Enums W5: `tipo_etapa_cronograma`, `etapa_status_override`.
 
+## W6 doc types + delivery (`08_doc_types_delivery.sql` + `09_seeds_doc_types_delivery.sql`)
+
+| Área | Tabelas / enums | Notas |
+| --- | --- | --- |
+| Tipos documento (REQ-1.4) | `TiposDocumento`, `TipoDocumentoCampos` | Nome livre; `tipo_cota` NULL = edital-wide; fase `INSCRICAO`/`MATRICULA`; builder `texto`/`numero`/`documento`; template BYTEA opcional |
+| Entrega (REQ-1.6) | `ConfiguracaoEntregaDocumental` | UNIQUE(edital, campus, curso, etapa); `PRESENCIAL`\|`ONLINE` + subtipo online |
+| Legacy `Documentos` | candidatura files | Sem FK ao catálogo ainda (W26) |
+
+Enums W6: `fase_documento`, `campo_formulario_tipo`, `modo_entrega`, `subtipo_entrega_online`.
+
 ## Mapeamento coluna SQL ↔ propriedade TypeORM
 
 | Tabela SQL | Coluna | Entity / prop |
@@ -289,8 +336,11 @@ Enums W5: `tipo_etapa_cronograma`, `etapa_status_override`.
 | Usuarios | senha | User.senha (`select: false`) |
 | Etapas Processo | (nome com espaço) | EtapaProcesso `@Entity('Etapas Processo')` |
 | CronogramaEtapas | tipo / override / flags | CronogramaEtapa |
+| TiposDocumento | fase / formatos / tipo_cota | TipoDocumento |
+| TipoDocumentoCampos | tipo (texto\|numero\|documento) | TipoDocumentoCampo |
+| ConfiguracaoEntregaDocumental | modo / subtipo_online | ConfiguracaoEntregaDocumental |
 
-Enums persistidos: ver `packages/types/src/db-enums.ts` (valores idênticos a `01_schemas.sql` + `04_schema_extras.sql` + `06_cronograma.sql`).
+Enums persistidos: ver `packages/types/src/db-enums.ts` (valores idênticos a `01`–`08` SQL).
 
 ## Auth seed
 

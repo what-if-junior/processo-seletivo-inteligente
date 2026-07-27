@@ -27,6 +27,10 @@ export const PG_ENUM_NAMES = {
   tipoCarrossel: 'tipo_carrossel',
   tipoEtapaCronograma: 'tipo_etapa_cronograma',
   etapaStatusOverride: 'etapa_status_override',
+  faseDocumento: 'fase_documento',
+  campoFormularioTipo: 'campo_formulario_tipo',
+  modoEntrega: 'modo_entrega',
+  subtipoEntregaOnline: 'subtipo_entrega_online',
 } as const;
 
 export enum MetodoSelecao {
@@ -171,3 +175,32 @@ export enum EtapaStatusOverride {
   FORCADO_ABERTO = 'FORCADO_ABERTO',
   BLOQUEADO_MANUALMENTE = 'BLOQUEADO_MANUALMENTE',
 }
+
+/** W6 — TiposDocumento.fase (REQ-1.4). */
+export enum FaseDocumento {
+  INSCRICAO = 'INSCRICAO',
+  MATRICULA = 'MATRICULA',
+}
+
+/** W6 — TipoDocumentoCampos.tipo (REQ-1.4 / RS01 builder). */
+export enum CampoFormularioTipo {
+  TEXTO = 'texto',
+  NUMERO = 'numero',
+  DOCUMENTO = 'documento',
+}
+
+/** W6 — ConfiguracaoEntregaDocumental.modo (REQ-1.6). */
+export enum ModoEntrega {
+  PRESENCIAL = 'PRESENCIAL',
+  ONLINE = 'ONLINE',
+}
+
+/** W6 — ConfiguracaoEntregaDocumental.subtipo_online (REQ-1.6). */
+export enum SubtipoEntregaOnline {
+  UPLOAD_NATIVO_PWA = 'UPLOAD_NATIVO_PWA',
+  URL_FORMULARIO_EXTERNO = 'URL_FORMULARIO_EXTERNO',
+  EMAIL_INSTITUCIONAL = 'EMAIL_INSTITUCIONAL',
+}
+
+/** Backend hard ceiling for tipo/campo tamanho_max_bytes (15 MiB; same as edital PDF). */
+export const BACKEND_UPLOAD_MAX_BYTES = 15 * 1024 * 1024;
