@@ -104,10 +104,16 @@ Todos os controllers são anotados com `@ApiTags` / `@ApiOperation`; Swagger em 
 | user | GET | `/user` | JWT | Lista usuários com endereços |
 | user | GET | `/user/:id` | JWT | Usuário por id |
 | user | PATCH/DELETE | `/user/:id` | JWT | Atualiza / remove |
-| cursos | GET | `/cursos` | público | Lista cursos |
+| cursos | GET | `/cursos` | público | Catálogo de cursos (slim) |
 | cursos | GET | `/cursos/:id` | público | Curso por id |
-| cursos | GET | `/cursos/:id/candidaturas` | JWT | Candidaturas do curso |
-| cursos | POST/PATCH/DELETE | `/cursos[/:id]` | JWT | CRUD |
+| cursos | POST/PATCH/DELETE | `/cursos[/:id]` | JWT | CRUD catálogo |
+| editais | GET | `/editais` | público | Lista editais (`?publicado`, `?inscricoes_abertas`) |
+| editais | GET | `/editais/:id` | público | Edital + ofertas (curso/campus) |
+| editais | POST/PATCH/DELETE | `/editais[/:id]` | JWT | CRUD edital (termos/flags; PDF upload em W3) |
+| ofertas | GET | `/ofertas` | público | Catálogo de inscrição (`?abertas=true`, filtros id_*) |
+| ofertas | GET | `/ofertas/:id` | público | Oferta + edital/curso/campus/cotas |
+| ofertas | GET | `/ofertas/:id/candidaturas` | JWT | Candidaturas da oferta |
+| ofertas | POST/PATCH/DELETE | `/ofertas[/:id]` | JWT | CRUD oferta (edital×curso×campus×turno) |
 | candidaturas | GET | `/candidaturas` | JWT | Lista com usuário + oferta (curso/campus) |
 | candidaturas | GET | `/candidaturas/:id` | JWT | Detalhe com documentos, etapas, recursos |
 | candidaturas | POST | `/candidaturas` | JWT | Cria (bloqueia inscrição ativa duplicada por edital) |
@@ -133,7 +139,8 @@ Todos os controllers são anotados com `@ApiTags` / `@ApiOperation`; Swagger em 
 
 - **RS02 — inscrição única:** partial unique `(id_usuario, id_edital)` onde status
   ativo + verificação em `CandidaturasService.create` (trata violação `23505`).
-  CRUD de Editais/Ofertas ainda não existe (W3–W4); `/cursos` lista o catálogo slim.
+  Superfície de inscrição pública: `GET /ofertas?abertas=true` (edital pai + curso/campus).
+  `/cursos` é só o catálogo slim (nome/eixo/área), sem candidaturas aninhadas.
 - **CPF único / email único:** índices em `03_auth.sql`.
 
 ---

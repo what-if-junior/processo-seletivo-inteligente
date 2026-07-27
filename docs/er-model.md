@@ -235,6 +235,9 @@ erDiagram
 | Ofertas | `Ofertas`, `DistribuicaoCotas` | Unique `(edital, curso, campus, turno)`; cotas `vagas` e/ou `percentual` |
 | Candidaturas | `Candidaturas` | FK `id_oferta` + `id_edital` denormalizado; partial unique ativo CPF×edital |
 
+HTTP (ver [architecture.md](architecture.md)): `/cursos` = catálogo slim; inscrição pública =
+`GET /ofertas?abertas=true`; CRUD de processo em `/editais` + `/ofertas`.
+
 Enums W1: `metodo_selecao`, `merito_tipo`, `termos_modo`, `turno`, `status_candidatura` (+ `cancelada` / `desclassificada`), `tipo_vaga` alinhado a cotas (`AC`, `PPI`, `PCD`, `ESCOLA_PUBLICA`, `BAIXA_RENDA`).
 
 `03_auth.sql`: senha bcrypt; unique email/CPF; partial unique
