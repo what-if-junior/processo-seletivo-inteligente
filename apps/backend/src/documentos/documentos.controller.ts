@@ -1,11 +1,32 @@
-import { Controller, Get, Param, ParseIntPipe, Query } from '@nestjs/common';
+import {
+  BadRequestException,
+  Controller,
+  Get,
+  Param,
+  ParseIntPipe,
+  Post,
+  Query,
+  UploadedFile,
+  UseInterceptors,
+  Body,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiBearerAuth,
+  ApiBody,
+  ApiConsumes,
   ApiOperation,
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { DocumentosService } from './documentos.service';
+
+type UploadedBinary = {
+  buffer: Buffer;
+  originalname: string;
+  size: number;
+  mimetype?: string;
+};
 
 @ApiTags('documentos')
 @ApiBearerAuth()
@@ -32,5 +53,40 @@ export class DocumentosController {
   })
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.documentosService.findOne(id);
+  }
+
+  @Post()
+  @UseInterceptors(
+    FileInterceptor('arquivo', { limits: { fileSize: 5 * 1024 * 1024 } }),
+  )
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['arquivo', 'id_candidatura', 'tipo_documento'],
+      properties: {
+        arquivo: { type: 'string', format: 'binary' },
+        id_candidatura: { type: 'integer' },
+        tipo_documento: { type: 'string' },
+      },
+    },
+  })
+  @ApiOperation({
+    summary: 'Upload de documento (multipart) para uma candidatura',
+  })
+  create(
+    @UploadedFile() file: UploadedBinary | undefined,
+    @Body('id_candidatura') idCandidaturaRaw: string,
+    @Body('tipo_documento') tipoDocumento: string,
+  ) {
+    if (!file?.buffer?.length) {
+      throw new BadRequestException('arquivo é obrigatório');
+    }
+    return this.documentosService.create({
+      id_candidatura: Number(idCandidaturaRaw),
+      tipo_documento: tipoDocumento,
+      nome_arquivo: file.originalname || 'upload.bin',
+      arquivo: file.buffer,
+    });
   }
 }

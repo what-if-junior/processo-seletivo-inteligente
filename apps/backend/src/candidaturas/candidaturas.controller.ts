@@ -5,10 +5,12 @@ import {
   Param,
   ParseIntPipe,
   Post,
+  Query,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOperation,
+  ApiQuery,
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
@@ -23,10 +25,19 @@ export class CandidaturasController {
   constructor(private readonly candidaturasService: CandidaturasService) {}
 
   @Get()
-  @ApiOperation({
-    summary: 'Lista candidaturas com usuário e oferta (requer JWT)',
+  @ApiQuery({
+    name: 'usuario',
+    required: false,
+    description: 'Filtra candidaturas pelo id do usuário (PWA Inscrições)',
   })
-  findAll() {
+  @ApiOperation({
+    summary:
+      'Lista candidaturas com usuário e oferta; opcionalmente por ?usuario= (requer JWT)',
+  })
+  findAll(@Query('usuario') usuario?: string) {
+    if (usuario != null && usuario !== '') {
+      return this.candidaturasService.findByUsuario(Number(usuario));
+    }
     return this.candidaturasService.findAll();
   }
 
