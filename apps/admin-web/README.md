@@ -1,36 +1,44 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/create-next-app).
+# IFB Admin (`admin-web`)
 
-## Getting Started
+Console administrativo de revisão de processos seletivos (Next.js 15).
 
-First, run the development server:
+## Rotas
+
+| Rota | Descrição |
+| --- | --- |
+| `/login` | Autenticação JWT contra a API |
+| `/admin` | Dashboard (KPIs, gráfico, atividade) |
+| `/admin/inscricoes` | Lista de candidaturas |
+| `/admin/inscricoes/[id]` | Detalhe + ações de homologação |
+| `/admin/candidatos` | Lista de usuários |
+| `/admin/relatorios` | Relatórios CSV no cliente |
+| `/admin/configuracoes` | Preferências (localStorage) |
+
+## Desenvolvimento
+
+Na raiz do monorepo (ou neste pacote):
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# API (Nest) precisa estar em :5005 para dados reais
+export NEXT_PUBLIC_API_URL=http://localhost:5005
+pnpm --filter admin-web dev
+# ou
+npm run dev --workspace=admin-web
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Abra [http://localhost:3000](http://localhost:3000). Sem token, você é redirecionado para `/login`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Seed de desenvolvimento:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load Inter, a custom Google Font.
+- `admin@teste.com` / `admin123`
 
-## Learn More
+## Scripts
 
-To learn more about Next.js, take a look at the following resources:
+- `npm run dev` — Turbopack na porta 3000
+- `npm run check-types` — `tsc --noEmit`
+- `npm run lint` — ESLint
+- `npm run build` — build standalone
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Notas
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Quando a API estiver indisponível, as telas caem para mocks tipados com aviso visual. Ações `PATCH` de status/documentos ainda não existem no backend — a UI tenta a chamada e documenta o gap.
