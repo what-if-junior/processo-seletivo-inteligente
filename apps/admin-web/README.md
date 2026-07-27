@@ -38,7 +38,8 @@ Seed de desenvolvimento:
 - `npm run check-types` — `tsc --noEmit`
 - `npm run lint` — ESLint
 - `npm run build` — build standalone
+- `npm start` — serve o build standalone (`scripts/start-standalone.mjs`, porta 3000)
 
 ## Notas
 
-Quando a API estiver indisponível, as telas caem para mocks tipados com aviso visual. Ações `PATCH` de status/documentos ainda não existem no backend — a UI tenta a chamada e documenta o gap.
+Quando a API estiver indisponível, as telas caem para mocks tipados com aviso visual. Ações `PATCH` de status/documentos ainda não existem no backend — a UI tenta a chamada e documenta o gap. Gaps trackeados em `codegen/issues-found/` (workspace root).
