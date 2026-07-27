@@ -1,13 +1,17 @@
 import { Cursos } from './cursos';
-import { TurnoOferta } from './db-enums';
 import {
+  MetodoSelecao,
+  MeritoTipo,
   ResultadoEtapa,
   StatusCandidatura,
   StatusDocumento,
   StatusRecurso,
+  TermosModo,
+  TipoCota,
   TipoEtapaProcesso,
   TipoIngresso,
   TipoVagaCandidatura,
+  TurnoOferta,
 } from './db-enums';
 import { Usuario } from './user';
 
@@ -17,7 +21,32 @@ export interface CampusRef {
   nome: string;
 }
 
-/** Tabela "Ofertas": edital x curso x campus x turno + vagas. */
+/** Tabela "Editais" (REQ-1.1). */
+export interface Edital {
+  id: number;
+  numero_ano: string;
+  metodo_selecao: MetodoSelecao;
+  merito_tipo?: MeritoTipo | null;
+  is_simplificado: boolean;
+  fallback_ac_para_rv: boolean;
+  termos_modo: TermosModo;
+  termos_valor: string;
+  link_oficial?: string | null;
+  publicado: boolean;
+  inscricoes_abertas: boolean;
+  ofertas?: Oferta[];
+}
+
+/** Tabela "DistribuicaoCotas". */
+export interface DistribuicaoCota {
+  id: number;
+  id_oferta: number;
+  tipo_cota: TipoCota | string;
+  vagas?: number | null;
+  percentual?: string | null;
+}
+
+/** Tabela "Ofertas": edital x curso x campus x turno + vagas (superficie de inscricao). */
 export interface Oferta {
   id: number;
   id_edital: number;
@@ -25,8 +54,10 @@ export interface Oferta {
   id_campus: number;
   turno: TurnoOferta;
   vagas_totais: number;
+  edital?: Edital;
   curso?: Cursos;
   campus?: CampusRef;
+  distribuicao_cotas?: DistribuicaoCota[];
 }
 
 /** Tabela "Candidaturas": inscricao de um usuario em uma oferta/edital. */
