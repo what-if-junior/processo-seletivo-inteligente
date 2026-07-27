@@ -4,6 +4,7 @@ import {
   Get,
   Param,
   ParseIntPipe,
+  Patch,
   Post,
   Query,
 } from '@nestjs/common';
@@ -53,9 +54,18 @@ export class CandidaturasController {
   @Post()
   @ApiOperation({
     summary:
-      'Cria candidatura, bloqueando inscrição ativa duplicada no mesmo edital (requer JWT)',
+      'Cria candidatura na janela de Inscrição; bloqueia 2ª ativa no mesmo edital (REQ-2.2)',
   })
   create(@Body() createCandidaturaDto: CreateCandidaturaDto) {
     return this.candidaturasService.create(createCandidaturaDto);
+  }
+
+  @Patch(':id/cancelar')
+  @ApiOperation({
+    summary:
+      'Cancela inscrição → cancelada; só na janela efetiva de Inscrição (REQ-2.2)',
+  })
+  cancel(@Param('id', ParseIntPipe) id: number) {
+    return this.candidaturasService.cancel(id);
   }
 }

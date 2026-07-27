@@ -19,6 +19,10 @@ export function statusCandidaturaToBadge(
       return "aprovado";
     case StatusCandidatura.REPROVADO:
       return "reprovado";
+    case StatusCandidatura.CANCELADA:
+      return "encerrado";
+    case StatusCandidatura.DESCLASSIFICADA:
+      return "reprovado";
     default:
       return "analise";
   }

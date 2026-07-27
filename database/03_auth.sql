@@ -33,9 +33,11 @@ CREATE UNIQUE INDEX IF NOT EXISTS "usuarios_email_unique" ON "Usuarios"("email")
 -- RS02: uma unica inscricao ativa por usuario (CPF) e edital.
 CREATE UNIQUE INDEX IF NOT EXISTS "usuarios_cpf_unique" ON "Usuarios"("CPF");
 DROP INDEX IF EXISTS "candidaturas_usuario_curso_unique";
-CREATE UNIQUE INDEX IF NOT EXISTS "candidaturas_usuario_edital_active_unique"
+-- REQ-2.2: only `cancelada` frees the slot; reprovado/desclassificada still occupy it.
+DROP INDEX IF EXISTS "candidaturas_usuario_edital_active_unique";
+CREATE UNIQUE INDEX "candidaturas_usuario_edital_active_unique"
     ON "Candidaturas"("id_usuario", "id_edital")
-    WHERE "status" NOT IN ('cancelada', 'reprovado', 'desclassificada');
+    WHERE "status" <> 'cancelada';
 
 -- Consultas de acompanhamento do candidato e dos paineis de gestao.
 CREATE INDEX IF NOT EXISTS "candidaturas_id_usuario_idx" ON "Candidaturas"("id_usuario");

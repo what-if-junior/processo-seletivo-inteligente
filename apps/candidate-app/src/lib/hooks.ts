@@ -123,6 +123,9 @@ export function useInscricoes() {
   const [past, setPast] = useState<InscricaoCard[]>(MOCK_PAST);
   const [source, setSource] = useState<DataSource>("mock");
   const [loading, setLoading] = useState(true);
+  const [reloadToken, setReloadToken] = useState(0);
+
+  const reload = () => setReloadToken((n) => n + 1);
 
   useEffect(() => {
     if (shouldUseMocks()) {
@@ -165,9 +168,17 @@ export function useInscricoes() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [reloadToken]);
 
-  return { active, past, source, loading };
+  async function cancelActive(): Promise<void> {
+    if (shouldUseMocks() || !active || active.id <= 0) {
+      throw new Error("Cancelamento indisponível no modo demonstração.");
+    }
+    await apiFetch(`/candidaturas/${active.id}/cancelar`, { method: "PATCH" });
+    reload();
+  }
+
+  return { active, past, source, loading, reload, cancelActive };
 }
 
 export function useDocumentos(
