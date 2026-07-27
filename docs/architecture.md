@@ -107,9 +107,15 @@ Todos os controllers são anotados com `@ApiTags` / `@ApiOperation`; Swagger em 
 | cursos | GET | `/cursos` | público | Catálogo de cursos (slim) |
 | cursos | GET | `/cursos/:id` | público | Curso por id |
 | cursos | POST/PATCH/DELETE | `/cursos[/:id]` | JWT | CRUD catálogo |
-| editais | GET | `/editais` | público | Lista editais (`?publicado`, `?inscricoes_abertas`) |
-| editais | GET | `/editais/:id` | público | Edital + ofertas (curso/campus) |
-| editais | POST/PATCH/DELETE | `/editais[/:id]` | JWT | CRUD edital (termos/flags; PDF upload em W3) |
+| editais | GET | `/editais` | público | Lista **publicados** (`?inscricoes_abertas`) |
+| editais | GET | `/editais/:id` | público | Edital publicado + ofertas; rascunho → 404 |
+| editais | GET | `/editais/:id/arquivos/vigente` | público | PDF vigente (último); só se publicado |
+| editais | GET | `/editais/gestao` | JWT | Lista todos (filtros `publicado`, `inscricoes_abertas`) |
+| editais | GET | `/editais/gestao/:id` | JWT | Detalhe inclusive rascunho |
+| editais | POST | `/editais/:id/arquivos` | JWT | Upload PDF (multipart `arquivo`); último = vigente |
+| editais | GET | `/editais/:id/arquivos` | JWT | Histórico de PDFs (metadados + `vigente`) |
+| editais | GET | `/editais/:id/arquivos/:arquivoId` | JWT | Download PDF do histórico |
+| editais | POST/PATCH/DELETE | `/editais[/:id]` | JWT | CRUD; termos um modo PDF\|URL\|TEXTO; publicar exige PDF |
 | ofertas | GET | `/ofertas` | público | Catálogo de inscrição (`?abertas=true`, filtros id_*) |
 | ofertas | GET | `/ofertas/:id` | público | Oferta + edital/curso/campus/cotas |
 | ofertas | GET | `/ofertas/:id/candidaturas` | JWT | Candidaturas da oferta |

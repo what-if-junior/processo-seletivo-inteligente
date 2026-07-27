@@ -28,13 +28,16 @@ async function bootstrap() {
         '- `POST /auth/login`',
         '- `POST /user` (cadastro)',
         '- `GET /cursos`, `GET /cursos/:id` (catálogo de cursos)',
-        '- `GET /editais`, `GET /editais/:id`',
+        '- `GET /editais`, `GET /editais/:id` (só publicados)',
+        '- `GET /editais/:id/arquivos/vigente` (PDF vigente, edital publicado)',
         '- `GET /ofertas`, `GET /ofertas/:id` (catálogo de inscrição: `?abertas=true`)',
         '- `GET /etapas-processo`, `GET /etapas-processo/:id`',
         '',
+        'Gestão de editais (JWT): `GET /editais/gestao`, `POST /editais/:id/arquivos`, etc.',
+        '',
         'Demais rotas exigem header `Authorization: Bearer <access_token>`.',
         'Use o botão **Authorize** neste Swagger com o token retornado pelo login.',
-        
+        '',
         'Seeds de desenvolvimento: `joao@teste.com` / `senha123`, `admin@teste.com` / `admin123`.',
       ].join('\n'),
     )

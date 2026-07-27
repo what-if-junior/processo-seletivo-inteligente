@@ -35,6 +35,17 @@ export interface Edital {
   publicado: boolean;
   inscricoes_abertas: boolean;
   ofertas?: Oferta[];
+  /** Histórico de PDFs; vigente = último por criado_em/id (API marca `vigente`). */
+  arquivos?: EditalArquivoMeta[];
+}
+
+/** Metadados de "EditalArquivos" (binário omitido no JSON). */
+export interface EditalArquivoMeta {
+  id: number;
+  id_edital: number;
+  criado_em: Date | string;
+  /** true no PDF mais recente (último inserido = vigente). */
+  vigente: boolean;
 }
 
 /** Tabela "DistribuicaoCotas". */
