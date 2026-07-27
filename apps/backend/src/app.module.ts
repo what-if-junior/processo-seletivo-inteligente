@@ -13,6 +13,7 @@ import { OfertasModule } from './ofertas/ofertas.module';
 import { RecursosModule } from './recursos/recursos.module';
 import { CronogramaModule } from './cronograma/cronograma.module';
 import { TiposDocumentoModule } from './tipos-documento/tipos-documento.module';
+import { TiposDocumentoBaseModule } from './tipos-documento-base/tipos-documento-base.module';
 import { EntregaDocumentalModule } from './entrega-documental/entrega-documental.module';
 import { FaixasModule } from './faixas/faixas.module';
 import { SchemaExtrasModule } from './schema-extras/schema-extras.module';
@@ -53,6 +54,7 @@ import { JwtAuthGuard } from './auth/guards/jwt.guard';
     OfertasModule,
     CronogramaModule,
     TiposDocumentoModule,
+    TiposDocumentoBaseModule,
     EntregaDocumentalModule,
     FaixasModule,
     GestoresModule,

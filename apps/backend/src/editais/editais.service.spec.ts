@@ -5,6 +5,7 @@ import { MetodoSelecao, TermosModo } from '@repo/types';
 import { EditaisService } from './editais.service';
 import { Edital } from './entities/edital.entity';
 import { EditalArquivo } from './entities/edital-arquivo.entity';
+import { TiposDocumentoBaseService } from '../tipos-documento-base/tipos-documento-base.service';
 
 describe('EditaisService', () => {
   let service: EditaisService;
@@ -68,6 +69,10 @@ describe('EditaisService', () => {
         EditaisService,
         { provide: getRepositoryToken(Edital), useValue: editalRepo },
         { provide: getRepositoryToken(EditalArquivo), useValue: arquivoRepo },
+        {
+          provide: TiposDocumentoBaseService,
+          useValue: { inheritIntoEdital: jest.fn().mockResolvedValue([]) },
+        },
       ],
     }).compile();
 

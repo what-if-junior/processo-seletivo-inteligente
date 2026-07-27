@@ -9,6 +9,7 @@ import {
 import { FaseDocumento, PG_ENUM_NAMES } from '@repo/types';
 import { numericTransformer } from '../../common/transformers';
 import { Edital } from '../../editais/entities/edital.entity';
+import { TipoDocumentoBase } from '../../tipos-documento-base/entities/tipo-documento-base.entity';
 import { TipoDocumentoCampo } from './tipo-documento-campo.entity';
 
 /** Tabela "TiposDocumento": catálogo livre por edital/cota (REQ-1.4). */
@@ -17,13 +18,16 @@ export class TipoDocumento {
   @PrimaryGeneratedColumn({ type: 'int' })
   id: number;
 
+  @Column({ type: 'bigint', transformer: numericTransformer })
+  id_edital: number;
+
+  /** W8: NULL = extra do edital; set = herdado de TiposDocumentoBase. */
   @Column({
     type: 'bigint',
-    insert: false,
-    update: false,
+    nullable: true,
     transformer: numericTransformer,
   })
-  id_edital: number;
+  id_tipo_base?: number | null;
 
   @Column({ length: 255 })
   nome: string;
@@ -66,6 +70,10 @@ export class TipoDocumento {
   @ManyToOne(() => Edital, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'id_edital' })
   edital?: Edital;
+
+  @ManyToOne(() => TipoDocumentoBase, { nullable: true })
+  @JoinColumn({ name: 'id_tipo_base' })
+  tipoBase?: TipoDocumentoBase | null;
 
   @OneToMany(() => TipoDocumentoCampo, (campo) => campo.tipoDocumento)
   campos?: TipoDocumentoCampo[];

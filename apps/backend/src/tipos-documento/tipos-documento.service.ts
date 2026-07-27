@@ -30,6 +30,8 @@ import {
 export type TipoDocumentoResponse = TipoDocumento & {
   campos: TipoDocumentoCampo[];
   warnings: TiposDocumentoWarning[];
+  /** W8/REQ-1.5: true when copied from TiposDocumentoBase. */
+  herdado: boolean;
 };
 
 export type TiposDocumentoListResponse = {
@@ -94,6 +96,7 @@ export class TiposDocumentoService {
     return {
       ...tipo,
       campos: tipo.campos ?? [],
+      herdado: tipo.id_tipo_base != null,
       warnings: await this.warningsFor(editalId),
     };
   }
@@ -125,7 +128,12 @@ export class TiposDocumentoService {
     const warnings = await this.warningsFor(editalId);
     const tipos = await this.listRows(editalId);
     return {
-      tipos: tipos.map((t) => ({ ...t, campos: t.campos ?? [], warnings })),
+      tipos: tipos.map((t) => ({
+        ...t,
+        campos: t.campos ?? [],
+        herdado: t.id_tipo_base != null,
+        warnings,
+      })),
       warnings,
     };
   }
@@ -181,7 +189,7 @@ export class TiposDocumentoService {
       fase,
       tipo_cota,
       ordem,
-      edital: { id: editalId } as Edital,
+      id_edital: editalId,
     });
     const saved = await this.tipoRepository.save(tipo);
     return this.findOneGestao(editalId, saved.id);
@@ -229,7 +237,12 @@ export class TiposDocumentoService {
     const tipo = await this.loadTipo(editalId, id);
     const warnings = await this.warningsFor(editalId);
     await this.tipoRepository.delete({ id, id_edital: editalId });
-    return { ...tipo, campos: tipo.campos ?? [], warnings };
+    return {
+      ...tipo,
+      campos: tipo.campos ?? [],
+      herdado: tipo.id_tipo_base != null,
+      warnings,
+    };
   }
 
   private validateCampoItem(
