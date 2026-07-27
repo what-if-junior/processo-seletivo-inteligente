@@ -25,6 +25,8 @@ export const PG_ENUM_NAMES = {
   statusContestacao: 'status_contestacao',
   origemNotificacao: 'origem_notificacao',
   tipoCarrossel: 'tipo_carrossel',
+  tipoEtapaCronograma: 'tipo_etapa_cronograma',
+  etapaStatusOverride: 'etapa_status_override',
 } as const;
 
 export enum MetodoSelecao {
@@ -150,4 +152,22 @@ export enum OrigemNotificacao {
 export enum TipoCarrossel {
   MANUAL = 'manual',
   AUTO_EDITAL = 'auto_edital',
+}
+
+/** W5 — CronogramaEtapas.tipo (REQ-1.2 catalogue). */
+export enum TipoEtapaCronograma {
+  INSCRICAO = 'INSCRICAO',
+  HOMOLOGACAO = 'HOMOLOGACAO',
+  SORTEIO_ELETRONICO = 'SORTEIO_ELETRONICO',
+  RESULTADO_PRELIMINAR = 'RESULTADO_PRELIMINAR',
+  RECURSO_E_IMPUGNACAO = 'RECURSO_E_IMPUGNACAO',
+  RESULTADO_FINAL = 'RESULTADO_FINAL',
+  MATRICULA = 'MATRICULA',
+}
+
+/** W5 — CronogramaEtapas.override (REQ-1.2). */
+export enum EtapaStatusOverride {
+  AUTOMATICO = 'AUTOMATICO',
+  FORCADO_ABERTO = 'FORCADO_ABERTO',
+  BLOQUEADO_MANUALMENTE = 'BLOQUEADO_MANUALMENTE',
 }

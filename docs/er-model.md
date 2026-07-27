@@ -35,7 +35,9 @@ erDiagram
   Editais ||--o{ Notificacoes : audiencia
   Editais ||--o{ CarrosselItens : auto_card
   Editais ||--o{ TemplatesEdital : copia
+  Editais ||--o{ CronogramaEtapas : agenda
   ConfiguracaoGlobal ||--o{ FaixasSalarioMinimo : referencia_sm
+  TemplatesEdital ||--o{ CronogramaEtapas : instrucao_opcional
 
   Campus {
     int id PK
@@ -223,6 +225,20 @@ erDiagram
     bigint id_edital FK
     string titulo
   }
+
+  CronogramaEtapas {
+    int id PK
+    bigint id_edital FK
+    tipo_etapa_cronograma tipo
+    string nome_exibido
+    timestamp data_inicio
+    timestamp data_fim
+    int ordem
+    etapa_status_override override
+    bool elegivel_impugnacao
+    bool elegivel_recurso
+    bigint template_instrucao_id FK
+  }
 ```
 
 ## W1 foundation (`01_schemas.sql` + `02_seeds.sql` + `03_auth.sql`)
@@ -249,6 +265,15 @@ Enums W1: `metodo_selecao`, `merito_tipo`, `termos_modo`, `turno`, `tipo_vaga` (
 
 Legacy `Recursos` remains for the old etapa-bound flow; new contestação UX uses `Contestacoes`.
 
+## W5 cronograma (`06_cronograma.sql` + `07_seeds_cronograma.sql`)
+
+| Área | Tabelas / enums | Notas |
+| --- | --- | --- |
+| Cronograma edital (REQ-1.2) | `CronogramaEtapas` | ≠ `Etapas Processo` (candidatura); catálogo `tipo_etapa_cronograma`; override; soft date overlap in API |
+| Elegibilidade (REQ-1.3 flags) | cols on `CronogramaEtapas` | `elegivel_impugnacao`, `elegivel_recurso`, `template_instrucao_id` → `TemplatesEdital` |
+
+Enums W5: `tipo_etapa_cronograma`, `etapa_status_override`.
+
 ## Mapeamento coluna SQL ↔ propriedade TypeORM
 
 | Tabela SQL | Coluna | Entity / prop |
@@ -263,8 +288,9 @@ Legacy `Recursos` remains for the old etapa-bound flow; new contestação UX use
 | Candidaturas | protocolo | Candidatura.protocolo |
 | Usuarios | senha | User.senha (`select: false`) |
 | Etapas Processo | (nome com espaço) | EtapaProcesso `@Entity('Etapas Processo')` |
+| CronogramaEtapas | tipo / override / flags | CronogramaEtapa |
 
-Enums persistidos: ver `packages/types/src/db-enums.ts` (valores idênticos a `01_schemas.sql` + `04_schema_extras.sql`).
+Enums persistidos: ver `packages/types/src/db-enums.ts` (valores idênticos a `01_schemas.sql` + `04_schema_extras.sql` + `06_cronograma.sql`).
 
 ## Auth seed
 
