@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "config/**"]
+  pull_request:
+    branches: [main, "config/**"]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: .
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check types
+        run: npm run check-types
+
+      - name: Test (backend Jest + candidate Vitest)
+        run: npm run test
+
+      - name: Build
+        run: npm run build

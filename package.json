@@ -6,7 +6,8 @@
     "dev": "npm run start:dev -w backend & npm run dev -w admin-web & npm run dev -w candidate-app",
     "lint": "npm run lint --workspaces --if-present",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
-    "check-types": "npm run check-types --workspaces --if-present"
+    "check-types": "npm run check-types --workspaces --if-present",
+    "test": "npm run test -w backend && npm run test -w candidate-app"
   },
   "devDependencies": {
     "prettier": "^3.6.2",

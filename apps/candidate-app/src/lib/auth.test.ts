@@ -25,7 +25,7 @@ describe("apiFetch", () => {
         headers: expect.any(Headers),
       }),
     );
-    const headers = fetchMock.mock.calls[0][1].headers as Headers;
+    const headers = fetchMock.mock.calls[0]?.[1]?.headers as Headers;
     expect(headers.get("Authorization")).toBe("Bearer tok");
   });
 
