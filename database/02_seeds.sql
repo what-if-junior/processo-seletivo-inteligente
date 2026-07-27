@@ -149,3 +149,13 @@ INSERT INTO "Recursos"
 ("id_etapa_processo", "data_solicitacao", "titulo", "nome_anexo", "arquivo_anexo", "status", "id_gestor", "observacoes")
 VALUES
 (1, '2024-06-05', 'Revisão de Documento', 'novo_comprovante_res.pdf', '\x', 'aberto', 1, 'Envio de documento atualizado');
+
+-- OVERRIDING SYSTEM VALUE does not advance IDENTITY; sync sequences for CRUD inserts.
+SELECT setval(pg_get_serial_sequence('"Campus"', 'id'), (SELECT COALESCE(MAX(id), 1) FROM "Campus"));
+SELECT setval(pg_get_serial_sequence('"Editais"', 'id'), (SELECT COALESCE(MAX(id), 1) FROM "Editais"));
+SELECT setval(pg_get_serial_sequence('"Cursos"', 'id'), (SELECT COALESCE(MAX(id), 1) FROM "Cursos"));
+SELECT setval(pg_get_serial_sequence('"Ofertas"', 'id'), (SELECT COALESCE(MAX(id), 1) FROM "Ofertas"));
+SELECT setval(pg_get_serial_sequence('"Usuarios"', 'id'), (SELECT COALESCE(MAX(id), 1) FROM "Usuarios"));
+SELECT setval(pg_get_serial_sequence('"Gestores"', 'id'), (SELECT COALESCE(MAX(id), 1) FROM "Gestores"));
+SELECT setval(pg_get_serial_sequence('"Candidaturas"', 'id'), (SELECT COALESCE(MAX(id), 1) FROM "Candidaturas"));
+SELECT setval(pg_get_serial_sequence('"Etapas Processo"', 'id'), (SELECT COALESCE(MAX(id), 1) FROM "Etapas Processo"));
