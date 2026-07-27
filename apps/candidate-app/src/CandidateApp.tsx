@@ -1,15 +1,30 @@
 "use client"
 
-import { useState, useRef, type ReactNode, type ElementType } from "react"
+import { useState, useMemo, useRef, type ReactNode, type ElementType } from "react"
 import {
   Home, FileText, Bell, User, Search, ArrowLeft, Camera,
   Upload, MessageCircle, CheckCircle, Clock, AlertCircle,
   X, Shield, Calendar, Check, AlertTriangle, Mic, Send,
-  Info, Eye, LogOut, ChevronRight, ChevronDown, Filter,
-  MapPin, Star, Paperclip, Loader2, GraduationCap,
-  Award, UserCheck, BookOpen, Mail, Phone, Edit3,
-  RefreshCw, ZoomIn, HelpCircle, Plus
+  Info, Eye, LogOut, ChevronRight, ChevronDown,
+  MapPin, Loader2, GraduationCap,
+  Award, UserCheck,
+  RefreshCw, HelpCircle, Plus
 } from "lucide-react"
+import { login, logout } from "./lib/auth"
+import { apiFetch, getAccessToken } from "./lib/api"
+import { useCursos, useDocumentos, useInscricoes, useProfile } from "./lib/hooks"
+import {
+  tipoVagaFromWizard,
+  type DocUiRow,
+  type EditalCard as EditalCardData,
+} from "./lib/mappers"
+import {
+  MOCK_PROFILE,
+  firstNameFrom,
+  getSessionUserId,
+  maskCpf,
+  shouldUseMocks,
+} from "./lib/session"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Screen =
@@ -343,7 +358,7 @@ function ChatModal({ onClose }: { onClose: () => void }) {
 }
 
 // ─── Edital Card ──────────────────────────────────────────────────────────────
-function EditalCard({ e, onClick }: { e: typeof EDITAIS[0]; onClick: () => void }) {
+function EditalCard({ e, onClick }: { e: EditalCardData; onClick: () => void }) {
   const tipoColor: Record<string, string> = {
     Técnico: "bg-[#2A7B3E]", Superior: "bg-blue-600", Médio: "bg-violet-600"
   }
@@ -377,17 +392,27 @@ function EditalCard({ e, onClick }: { e: typeof EDITAIS[0]; onClick: () => void 
 }
 
 // ─── HOME SCREEN ──────────────────────────────────────────────────────────────
-function HomeScreen({ goto, setNav }: { goto: (s: Screen) => void; setNav: (t: NavTab) => void }) {
+function HomeScreen({
+  goto, setNav, onSelectEdital,
+}: {
+  goto: (s: Screen) => void
+  setNav: (t: NavTab) => void
+  onSelectEdital: (e: EditalCardData) => void
+}) {
   const [filter, setFilter] = useState("Todos")
   const tipos = ["Todos", "Técnico", "Superior", "Médio"]
-  const shown = filter === "Todos" ? EDITAIS : EDITAIS.filter(e => e.tipo === filter)
+  const fallback = useMemo(() => EDITAIS as EditalCardData[], [])
+  const { editais } = useCursos(fallback)
+  const { user, authed } = useProfile()
+  const greetName = authed && user ? firstNameFrom(user.nome_completo) : MOCK_PROFILE.firstName
+  const shown = filter === "Todos" ? editais : editais.filter(e => e.tipo === filter)
 
   return (
     <div>
       <MainHeader onProfile={() => { goto("perfil"); setNav("perfil") }} />
       <div className="px-4 pt-5 pb-4 bg-[#2A7B3E]">
         <p className="text-emerald-200 text-sm font-medium">Bem-vindo de volta 👋</p>
-        <h2 className="text-white text-2xl font-extrabold mt-0.5">Olá, João!</h2>
+        <h2 className="text-white text-2xl font-extrabold mt-0.5">Olá, {greetName}!</h2>
       </div>
 
       {/* Banner */}
@@ -434,7 +459,7 @@ function HomeScreen({ goto, setNav }: { goto: (s: Screen) => void; setNav: (t: N
       {/* Editais list */}
       <div className="px-4 pt-3 pb-4 flex flex-col gap-3">
         {shown.map(e => (
-          <EditalCard key={e.id} e={e} onClick={() => goto("edital")} />
+          <EditalCard key={e.id} e={e} onClick={() => { onSelectEdital(e); goto("edital") }} />
         ))}
       </div>
 
@@ -462,16 +487,24 @@ function HomeScreen({ goto, setNav }: { goto: (s: Screen) => void; setNav: (t: N
 }
 
 // ─── PROCESSOS ABERTOS SCREEN ─────────────────────────────────────────────────
-function ProcessosScreen({ goto, onBack }: { goto: (s: Screen) => void; onBack: () => void }) {
+function ProcessosScreen({
+  goto, onBack, onSelectEdital,
+}: {
+  goto: (s: Screen) => void
+  onBack: () => void
+  onSelectEdital: (e: EditalCardData) => void
+}) {
   const [filter, setFilter] = useState("Todos")
   const tipos = ["Todos", "Técnico", "Superior", "Médio"]
-  const shown = filter === "Todos" ? EDITAIS : EDITAIS.filter(e => e.tipo === filter)
+  const fallback = useMemo(() => EDITAIS as EditalCardData[], [])
+  const { editais } = useCursos(fallback)
+  const shown = filter === "Todos" ? editais : editais.filter(e => e.tipo === filter)
 
   return (
     <div>
       <BackHeader title="Processos Abertos" onBack={onBack} />
       <div className="px-4 pt-4">
-        <p className="text-[#4E6859] text-sm mb-4">{EDITAIS.filter(e => e.status === "aberto").length} editais com inscrições abertas</p>
+        <p className="text-[#4E6859] text-sm mb-4">{editais.filter(e => e.status === "aberto").length} editais com inscrições abertas</p>
         <div className="flex gap-2 overflow-x-auto pb-1 mb-4" style={{ scrollbarWidth: "none" }}>
           {tipos.map(t => (
             <button key={t} onClick={() => setFilter(t)}
@@ -482,7 +515,7 @@ function ProcessosScreen({ goto, onBack }: { goto: (s: Screen) => void; onBack: 
         </div>
         <div className="flex flex-col gap-3 pb-4">
           {shown.map(e => (
-            <EditalCard key={e.id} e={e} onClick={() => goto("edital")} />
+            <EditalCard key={e.id} e={e} onClick={() => { onSelectEdital(e); goto("edital") }} />
           ))}
         </div>
       </div>
@@ -491,8 +524,17 @@ function ProcessosScreen({ goto, onBack }: { goto: (s: Screen) => void; onBack: 
 }
 
 // ─── EDITAL DETAIL SCREEN ─────────────────────────────────────────────────────
-function EditalScreen({ goto, onBack }: { goto: (s: Screen) => void; onBack: () => void }) {
+function EditalScreen({
+  goto, onBack, edital,
+}: {
+  goto: (s: Screen) => void
+  onBack: () => void
+  edital: EditalCardData | null
+}) {
   const [view, setView] = useState<"aberto" | "andamento" | "aprovado">("aberto")
+  const title = edital?.titulo ?? "Técnico em Informática"
+  const campus = edital?.campus ?? "Campus Brasília"
+  const vagas = edital?.vagas ?? 40
 
   const statusBanners = {
     aberto: null,
@@ -523,7 +565,7 @@ function EditalScreen({ goto, onBack }: { goto: (s: Screen) => void; onBack: () 
 
   return (
     <div>
-      <BackHeader title="Técnico em Informática" onBack={onBack} />
+      <BackHeader title={title} onBack={onBack} />
 
       {/* Demo toggle — style guide only */}
       <div className="mx-4 mt-4 bg-[#E7F4EA] rounded-xl p-3 border border-[#D1E8D7]">
@@ -557,10 +599,10 @@ function EditalScreen({ goto, onBack }: { goto: (s: Screen) => void; onBack: () 
       {/* Info chips */}
       <div className="px-4 pt-4 flex gap-2 flex-wrap">
         <span className="flex items-center gap-1 bg-white border border-[#D1E8D7] rounded-full px-3 py-1.5 text-xs font-semibold text-[#4E6859]">
-          <MapPin className="w-3 h-3" /> Campus Brasília
+          <MapPin className="w-3 h-3" /> {campus}
         </span>
         <span className="flex items-center gap-1 bg-white border border-[#D1E8D7] rounded-full px-3 py-1.5 text-xs font-semibold text-[#4E6859]">
-          <User className="w-3 h-3" /> 40 vagas
+          <User className="w-3 h-3" /> {vagas} vagas
         </span>
         <Badge s={view === "aberto" ? "aberto" : view === "andamento" ? "andamento" : "aprovado"} />
       </div>
@@ -616,16 +658,51 @@ function EditalScreen({ goto, onBack }: { goto: (s: Screen) => void; onBack: () 
 }
 
 // ─── WIZARD SCREEN ────────────────────────────────────────────────────────────
-function WizardScreen({ goto, onBack }: { goto: (s: Screen) => void; onBack: () => void }) {
+function WizardScreen({
+  goto, onBack, edital, onCandidaturaCreated,
+}: {
+  goto: (s: Screen) => void
+  onBack: () => void
+  edital: EditalCardData | null
+  onCandidaturaCreated: (id: number) => void
+}) {
   const [step, setStep] = useState<WizardStep>(1)
   const [escola, setEscola] = useState("")
   const [cota, setCota] = useState("")
-  const [raca, setRaca] = useState("")
-  const [pcd, setPcd] = useState("")
   const [bolsa, setBolsa] = useState("")
   const [confirmed, setConfirmed] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
 
   const STEPS = ["Dados Pessoais", "Cotas", "Socioeconômico", "Revisão"]
+  const cursoLabel = edital
+    ? `${edital.titulo} — ${edital.campus}`
+    : "Técnico em Informática — Campus Brasília"
+
+  async function confirmInscricao() {
+    if (submitting) return
+    setSubmitting(true)
+    setSubmitError(null)
+    const userId = getSessionUserId()
+    const cursoId = edital ? Number(edital.id) : NaN
+    if (userId != null && Number.isFinite(cursoId)) {
+      try {
+        const created = await apiFetch<{ id: number }>("/candidaturas", {
+          method: "POST",
+          body: JSON.stringify({
+            id_usuario: userId,
+            id_curso: cursoId,
+            tipo_vaga: tipoVagaFromWizard(cota || "nenhuma", escola),
+          }),
+        })
+        onCandidaturaCreated(created.id)
+      } catch {
+        setSubmitError("Não foi possível enviar a inscrição. Continuando em modo demonstração.")
+      }
+    }
+    setSubmitting(false)
+    goto("docs")
+  }
 
   const stepContent: Record<WizardStep, ReactNode> = {
     1: (
@@ -695,7 +772,7 @@ function WizardScreen({ goto, onBack }: { goto: (s: Screen) => void; onBack: () 
         <div className="bg-[#E7F4EA] rounded-2xl p-4 border border-[#D1E8D7]">
           <p className="text-[#2A7B3E] text-xs font-bold uppercase tracking-wider mb-3">Resumo da Inscrição</p>
           {[
-            ["Curso", "Técnico em Informática — Campus Brasília"],
+            ["Curso", cursoLabel],
             ["CPF", "***.***.***-**"],
             ["E-mail", "joao@email.com"],
             ["Escola de Origem", escola === "pub" ? "Pública" : escola === "priv" ? "Privada" : "Não informado"],
@@ -776,18 +853,38 @@ function WizardScreen({ goto, onBack }: { goto: (s: Screen) => void; onBack: () 
               Continuar <ChevronRight className="w-4 h-4" />
             </Btn>
           ) : (
-            <Btn v="primary" cls="flex-1 h-14 text-base font-black" disabled={!confirmed} onClick={() => goto("docs")}>
-              Confirmar Inscrição
+            <Btn v="primary" cls="flex-1 h-14 text-base font-black" disabled={!confirmed || submitting} onClick={() => { void confirmInscricao() }}>
+              {submitting ? "Enviando…" : "Confirmar Inscrição"}
             </Btn>
           )}
         </div>
+        {submitError && (
+          <p className="mt-3 text-xs text-amber-700 text-center">{submitError}</p>
+        )}
       </div>
     </div>
   )
 }
 
 // ─── DOCS UPLOAD SCREEN ───────────────────────────────────────────────────────
-function DocsScreen({ goto, onBack }: { goto: (s: Screen) => void; onBack: () => void }) {
+function DocsScreen({
+  goto, onBack, candidaturaId,
+}: {
+  goto: (s: Screen) => void
+  onBack: () => void
+  candidaturaId: number | null
+}) {
+  const docsFallback = useMemo(
+    () =>
+      DOCS_LIST.map(d => ({
+        ...d,
+        status: d.status as "enviado" | "pendente" | "na",
+        tipo: d.tipo as "upload" | "camera",
+      })),
+    [],
+  )
+  const { docs } = useDocumentos(candidaturaId, docsFallback)
+
   const statusIcon = (s: string) => {
     if (s === "enviado") return <CheckCircle className="w-5 h-5 text-emerald-600" />
     if (s === "pendente") return <AlertCircle className="w-5 h-5 text-amber-500" />
@@ -795,8 +892,8 @@ function DocsScreen({ goto, onBack }: { goto: (s: Screen) => void; onBack: () =>
     return <Upload className="w-5 h-5 text-[#4E6859]" />
   }
 
-  const enviados = DOCS_LIST.filter(d => d.status === "enviado").length
-  const total = DOCS_LIST.filter(d => d.status !== "na").length
+  const enviados = docs.filter(d => d.status === "enviado").length
+  const total = docs.filter(d => d.status !== "na").length
 
   return (
     <div>
@@ -810,9 +907,9 @@ function DocsScreen({ goto, onBack }: { goto: (s: Screen) => void; onBack: () =>
             <span className="font-mono text-sm font-bold text-[#2A7B3E]">{enviados}/{total}</span>
           </div>
           <div className="h-2 bg-[#E4EBE6] rounded-full overflow-hidden">
-            <div className="h-full bg-[#2A7B3E] rounded-full transition-all" style={{ width: `${(enviados / total) * 100}%` }} />
+            <div className="h-full bg-[#2A7B3E] rounded-full transition-all" style={{ width: `${total ? (enviados / total) * 100 : 0}%` }} />
           </div>
-          <p className="text-xs text-[#4E6859] mt-2">{total - enviados} documento(s) ainda precisam ser enviados</p>
+          <p className="text-xs text-[#4E6859] mt-2">{Math.max(total - enviados, 0)} documento(s) ainda precisam ser enviados</p>
         </div>
 
         {/* Alert */}
@@ -823,7 +920,7 @@ function DocsScreen({ goto, onBack }: { goto: (s: Screen) => void; onBack: () =>
 
         {/* Doc list */}
         <div className="flex flex-col gap-3 pb-4">
-          {DOCS_LIST.map(doc => (
+          {docs.map(doc => (
             <div key={doc.id}
               className={`bg-white rounded-2xl border p-4 ${doc.status === "pendente" ? "border-amber-300" : doc.status === "enviado" ? "border-[#D1E8D7]" : "border-[#E4EBE6]"}`}>
               <div className="flex items-start justify-between gap-3">
@@ -846,10 +943,34 @@ function DocsScreen({ goto, onBack }: { goto: (s: Screen) => void; onBack: () =>
                     </button>
                   ) : (
                     <>
-                      <button className="flex-1 flex items-center justify-center gap-2 h-10 rounded-xl border-2 border-[#D1E8D7] text-[#2A7B3E] text-sm font-semibold hover:bg-[#E7F4EA] transition-colors focus-visible:outline-2 focus-visible:outline-[#2A7B3E]">
+                      <button
+                        onClick={() => {
+                          const input = document.createElement("input")
+                          input.type = "file"
+                          input.accept = "image/*,application/pdf"
+                          input.onchange = () => {
+                            const file = input.files?.[0]
+                            if (!file) return
+                            void (async () => {
+                              if (shouldUseMocks() || !candidaturaId || !getAccessToken()) return
+                              try {
+                                const form = new FormData()
+                                form.append("arquivo", file)
+                                form.append("id_candidatura", String(candidaturaId))
+                                form.append("tipo_documento", doc.nome)
+                                await apiFetch("/documentos", { method: "POST", body: form })
+                              } catch {
+                                /* keep UI; list refresh is best-effort on remount */
+                              }
+                            })()
+                          }
+                          input.click()
+                        }}
+                        className="flex-1 flex items-center justify-center gap-2 h-10 rounded-xl border-2 border-[#D1E8D7] text-[#2A7B3E] text-sm font-semibold hover:bg-[#E7F4EA] transition-colors focus-visible:outline-2 focus-visible:outline-[#2A7B3E]">
                         <Upload className="w-4 h-4" /> Arquivo
                       </button>
-                      <button className="flex-1 flex items-center justify-center gap-2 h-10 rounded-xl border-2 border-[#D1E8D7] text-[#2A7B3E] text-sm font-semibold hover:bg-[#E7F4EA] transition-colors focus-visible:outline-2 focus-visible:outline-[#2A7B3E]">
+                      <button onClick={() => goto("camera")}
+                        className="flex-1 flex items-center justify-center gap-2 h-10 rounded-xl border-2 border-[#D1E8D7] text-[#2A7B3E] text-sm font-semibold hover:bg-[#E7F4EA] transition-colors focus-visible:outline-2 focus-visible:outline-[#2A7B3E]">
                         <Camera className="w-4 h-4" /> Câmera
                       </button>
                     </>
@@ -1004,8 +1125,14 @@ function CameraScreen({ onBack }: { onBack: () => void }) {
 }
 
 // ─── MINHAS INSCRIÇÕES (Dashboard) ────────────────────────────────────────────
-function InscricoesScreen({ goto }: { goto: (s: Screen) => void }) {
-  const currentStep = 1 // 0-indexed, step 1 = "Análise de Documentos"
+function InscricoesScreen({
+  goto, onOpenDocs,
+}: {
+  goto: (s: Screen) => void
+  onOpenDocs: (candidaturaId: number) => void
+}) {
+  const currentStep = 1 // visual stepper stays mock until status model freezes
+  const { active, past } = useInscricoes()
 
   return (
     <div>
@@ -1021,7 +1148,10 @@ function InscricoesScreen({ goto }: { goto: (s: Screen) => void }) {
           <div className="flex-1">
             <p className="text-red-800 text-sm font-bold">Ação necessária</p>
             <p className="text-red-700 text-xs mt-1 leading-relaxed">Seu CPF foi enviado em baixa qualidade. Reenvie para não perder o prazo.</p>
-            <button onClick={() => goto("docs")}
+            <button onClick={() => {
+              if (active && active.id > 0) onOpenDocs(active.id)
+              goto("docs")
+            }}
               className="mt-2 inline-flex items-center gap-1 text-xs font-bold text-red-700 underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-red-600 rounded">
               Ir para documentos <ChevronRight className="w-3 h-3" />
             </button>
@@ -1029,84 +1159,86 @@ function InscricoesScreen({ goto }: { goto: (s: Screen) => void }) {
         </div>
 
         {/* Active inscription card */}
-        <div className="bg-white rounded-2xl border border-[#D1E8D7] overflow-hidden">
-          <div className="bg-[#2A7B3E] px-4 py-3">
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <p className="text-white text-base font-bold leading-snug">Técnico em Hotelaria</p>
-                <p className="text-emerald-200 text-xs mt-0.5">Campus Planaltina</p>
+        {active && (
+          <div className="bg-white rounded-2xl border border-[#D1E8D7] overflow-hidden">
+            <div className="bg-[#2A7B3E] px-4 py-3">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="text-white text-base font-bold leading-snug">{active.curso}</p>
+                  <p className="text-emerald-200 text-xs mt-0.5">{active.campus}</p>
+                </div>
+                <Badge s={active.statusBadge} />
               </div>
-              <Badge s="analise" />
-            </div>
-          </div>
-
-          <div className="px-4 py-4">
-            <div className="flex gap-3 mb-4 text-xs font-mono text-[#4E6859]">
-              <span>Nº IFB-2025-00847</span>
-              <span>•</span>
-              <span>Inscrito em 14/11/2024</span>
             </div>
 
-            {/* Timeline stepper */}
-            <div className="relative">
-              {/* Connecting line */}
-              <div className="absolute left-3.5 top-4 bottom-4 w-0.5 bg-[#D1E8D7]">
-                <div className="w-full bg-[#2A7B3E] transition-all" style={{ height: `${(currentStep / (INSCRICAO_STEPS.length - 1)) * 100}%` }} />
+            <div className="px-4 py-4">
+              <div className="flex gap-3 mb-4 text-xs font-mono text-[#4E6859]">
+                <span>Nº {active.protocolo || "—"}</span>
+                <span>•</span>
+                <span>Inscrito em {active.data}</span>
               </div>
 
-              <div className="flex flex-col gap-5">
-                {INSCRICAO_STEPS.map((s, i) => {
-                  const done = i < currentStep
-                  const active = i === currentStep
-                  const future = i > currentStep
-                  return (
-                    <div key={s.label} className="flex items-start gap-3 relative">
-                      <div className={`w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center border-2 transition-all z-10 ${done ? "bg-[#2A7B3E] border-[#2A7B3E]" : active ? "bg-white border-[#2A7B3E] ring-4 ring-[#2A7B3E]/15" : "bg-white border-[#D1E8D7]"}`}>
-                        {done ? <Check className="w-3.5 h-3.5 text-white" />
-                          : active ? <Clock className="w-3.5 h-3.5 text-[#2A7B3E]" />
-                            : <div className={`w-2 h-2 rounded-full ${future ? "bg-[#D1E8D7]" : "bg-[#2A7B3E]"}`} />}
+              {/* Timeline stepper */}
+              <div className="relative">
+                {/* Connecting line */}
+                <div className="absolute left-3.5 top-4 bottom-4 w-0.5 bg-[#D1E8D7]">
+                  <div className="w-full bg-[#2A7B3E] transition-all" style={{ height: `${(currentStep / (INSCRICAO_STEPS.length - 1)) * 100}%` }} />
+                </div>
+
+                <div className="flex flex-col gap-5">
+                  {INSCRICAO_STEPS.map((s, i) => {
+                    const done = i < currentStep
+                    const activeStep = i === currentStep
+                    const future = i > currentStep
+                    return (
+                      <div key={s.label} className="flex items-start gap-3 relative">
+                        <div className={`w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center border-2 transition-all z-10 ${done ? "bg-[#2A7B3E] border-[#2A7B3E]" : activeStep ? "bg-white border-[#2A7B3E] ring-4 ring-[#2A7B3E]/15" : "bg-white border-[#D1E8D7]"}`}>
+                          {done ? <Check className="w-3.5 h-3.5 text-white" />
+                            : activeStep ? <Clock className="w-3.5 h-3.5 text-[#2A7B3E]" />
+                              : <div className={`w-2 h-2 rounded-full ${future ? "bg-[#D1E8D7]" : "bg-[#2A7B3E]"}`} />}
+                        </div>
+                        <div className={`flex-1 pt-0.5 pb-1 ${future ? "opacity-40" : ""}`}>
+                          <p className={`text-sm font-bold leading-snug ${activeStep ? "text-[#2A7B3E]" : "text-[#0D1E12]"}`}>{s.label}</p>
+                          <p className="text-xs text-[#4E6859] mt-0.5">{s.sub}</p>
+                          {activeStep && (
+                            <div className="mt-2 inline-flex items-center gap-1.5 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1">
+                              <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                              <span className="text-amber-700 text-[11px] font-semibold">Em andamento</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                      <div className={`flex-1 pt-0.5 pb-1 ${future ? "opacity-40" : ""}`}>
-                        <p className={`text-sm font-bold leading-snug ${active ? "text-[#2A7B3E]" : "text-[#0D1E12]"}`}>{s.label}</p>
-                        <p className="text-xs text-[#4E6859] mt-0.5">{s.sub}</p>
-                        {active && (
-                          <div className="mt-2 inline-flex items-center gap-1.5 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1">
-                            <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                            <span className="text-amber-700 text-[11px] font-semibold">Em andamento</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )
-                })}
+                    )
+                  })}
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="px-4 pb-4">
-            <button onClick={() => goto("edital")}
-              className="w-full flex items-center justify-center gap-2 h-10 rounded-xl border-2 border-[#D1E8D7] text-[#2A7B3E] text-sm font-semibold hover:bg-[#E7F4EA] transition-colors focus-visible:outline-2 focus-visible:outline-[#2A7B3E]">
-              Ver detalhes do edital <ChevronRight className="w-4 h-4" />
-            </button>
+            <div className="px-4 pb-4">
+              <button onClick={() => goto("edital")}
+                className="w-full flex items-center justify-center gap-2 h-10 rounded-xl border-2 border-[#D1E8D7] text-[#2A7B3E] text-sm font-semibold hover:bg-[#E7F4EA] transition-colors focus-visible:outline-2 focus-visible:outline-[#2A7B3E]">
+                Ver detalhes do edital <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Past inscriptions */}
         <div>
           <p className="text-[#0D1E12] text-sm font-bold mb-3">Inscrições Anteriores</p>
           <div className="bg-white rounded-2xl border border-[#D1E8D7] divide-y divide-[#E4EBE6]">
-            {[
-              { curso: "Técnico em Moda", campus: "Campus Samambaia", status: "reprovado", data: "2024.1" },
-              { curso: "Ensino Médio Integrado", campus: "Campus Gama", status: "aprovado", data: "2023.2" },
-            ].map(ins => (
-              <div key={ins.curso} className="flex items-center gap-3 px-4 py-3">
+            {past.map(ins => (
+              <div key={`${ins.id}-${ins.curso}`} className="flex items-center gap-3 px-4 py-3">
                 <div className="flex-1">
                   <p className="text-sm font-semibold text-[#0D1E12]">{ins.curso}</p>
                   <p className="text-xs text-[#4E6859]">{ins.campus} · {ins.data}</p>
                 </div>
-                <Badge s={ins.status} />
+                <Badge s={ins.statusBadge} />
               </div>
             ))}
+            {!past.length && (
+              <p className="px-4 py-3 text-xs text-[#4E6859]">Nenhuma inscrição anterior.</p>
+            )}
           </div>
         </div>
 
@@ -1172,7 +1304,42 @@ function NotifScreen() {
 }
 
 // ─── PERFIL SCREEN ────────────────────────────────────────────────────────────
-function PerfilScreen({ goto, setNav }: { goto: (s: Screen) => void; setNav: (t: NavTab) => void }) {
+function PerfilScreen({
+  goto, setNav, onAuthChange,
+}: {
+  goto: (s: Screen) => void
+  setNav: (t: NavTab) => void
+  onAuthChange: () => void
+}) {
+  const { user, authed, refresh } = useProfile()
+  const [email, setEmail] = useState("")
+  const [senha, setSenha] = useState("")
+  const [loginError, setLoginError] = useState<string | null>(null)
+  const [loggingIn, setLoggingIn] = useState(false)
+
+  const displayName = authed && user ? user.nome_completo : MOCK_PROFILE.nome
+  const displayCpf = authed && user ? maskCpf(user.CPF) : MOCK_PROFILE.cpfMasked
+
+  async function handleLogin() {
+    setLoggingIn(true)
+    setLoginError(null)
+    try {
+      await login({ email, senha })
+      await refresh()
+      onAuthChange()
+    } catch {
+      setLoginError("Falha no login. Verifique e-mail e senha.")
+    } finally {
+      setLoggingIn(false)
+    }
+  }
+
+  function handleLogout() {
+    logout()
+    void refresh()
+    onAuthChange()
+  }
+
   return (
     <div>
       <div className="bg-[#2A7B3E] px-4 pt-10 pb-10">
@@ -1180,17 +1347,47 @@ function PerfilScreen({ goto, setNav }: { goto: (s: Screen) => void; setNav: (t:
           <div className="w-20 h-20 rounded-full bg-white/20 border-4 border-white/40 flex items-center justify-center mb-3">
             <User className="w-10 h-10 text-white/80" />
           </div>
-          <h1 className="text-white text-xl font-extrabold">João da Silva</h1>
-          <p className="text-emerald-200 text-sm mt-0.5 font-mono">CPF: ***.***.***-12</p>
+          <h1 className="text-white text-xl font-extrabold">{displayName}</h1>
+          <p className="text-emerald-200 text-sm mt-0.5 font-mono">{displayCpf}</p>
           <div className="mt-3 inline-flex items-center gap-1.5 bg-white/15 rounded-full px-3 py-1.5">
             <div className="w-1.5 h-1.5 rounded-full bg-emerald-300" />
-            <span className="text-emerald-100 text-xs font-semibold">Candidato Ativo</span>
+            <span className="text-emerald-100 text-xs font-semibold">
+              {authed ? "Candidato Ativo" : "Demonstração (não autenticado)"}
+            </span>
           </div>
         </div>
       </div>
 
+      {!authed && (
+        <div className="px-4 -mt-4 mb-4">
+          <div className="bg-white rounded-2xl border border-[#D1E8D7] p-4 flex flex-col gap-3">
+            <p className="text-sm font-bold text-[#0D1E12]">Entrar com e-mail</p>
+            <input
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              placeholder="seu@email.com"
+              aria-label="E-mail"
+              className="h-12 px-4 rounded-xl border-2 border-[#D1E8D7] bg-white text-[#0D1E12] placeholder:text-[#A8C4B0] focus:outline-none focus:border-[#2A7B3E] focus:ring-4 focus:ring-[#2A7B3E]/10 text-base"
+            />
+            <input
+              type="password"
+              value={senha}
+              onChange={e => setSenha(e.target.value)}
+              placeholder="Senha"
+              aria-label="Senha"
+              className="h-12 px-4 rounded-xl border-2 border-[#D1E8D7] bg-white text-[#0D1E12] placeholder:text-[#A8C4B0] focus:outline-none focus:border-[#2A7B3E] focus:ring-4 focus:ring-[#2A7B3E]/10 text-base"
+            />
+            {loginError && <p className="text-xs text-red-600">{loginError}</p>}
+            <Btn v="primary" cls="w-full h-12" disabled={loggingIn || !email || !senha} onClick={() => { void handleLogin() }}>
+              {loggingIn ? "Entrando…" : "Entrar"}
+            </Btn>
+          </div>
+        </div>
+      )}
+
       {/* Menu */}
-      <div className="px-4 -mt-4">
+      <div className={`px-4 ${authed ? "-mt-4" : ""}`}>
         <div className="bg-white rounded-2xl border border-[#D1E8D7] overflow-hidden divide-y divide-[#E4EBE6]">
           {[
             { icon: User, label: "Meus Dados", sub: "Informações pessoais" },
@@ -1214,7 +1411,10 @@ function PerfilScreen({ goto, setNav }: { goto: (s: Screen) => void; setNav: (t:
           ))}
         </div>
 
-        <button className="w-full mt-4 mb-4 flex items-center justify-center gap-2 h-12 rounded-xl border-2 border-red-200 text-red-600 font-semibold text-sm hover:bg-red-50 transition-colors focus-visible:outline-2 focus-visible:outline-red-600">
+        <button
+          onClick={handleLogout}
+          className="w-full mt-4 mb-4 flex items-center justify-center gap-2 h-12 rounded-xl border-2 border-red-200 text-red-600 font-semibold text-sm hover:bg-red-50 transition-colors focus-visible:outline-2 focus-visible:outline-red-600"
+        >
           <LogOut className="w-4 h-4" /> Sair da Conta
         </button>
 
@@ -1235,6 +1435,8 @@ export default function App() {
   const [screen, setScreen] = useState<Screen>("home")
   const [nav, setNav] = useState<NavTab>("home")
   const [chat, setChat] = useState(false)
+  const [selectedEdital, setSelectedEdital] = useState<EditalCardData | null>(null)
+  const [activeCandidaturaId, setActiveCandidaturaId] = useState<number | null>(null)
 
   function goto(s: Screen) {
     setScreen(s)
@@ -1249,15 +1451,57 @@ export default function App() {
   }
 
   const screenEl: Record<Screen, ReactNode> = {
-    home: <HomeScreen goto={goto} setNav={setNav} />,
-    processos: <ProcessosScreen goto={goto} onBack={() => goto("home")} />,
-    edital: <EditalScreen goto={goto} onBack={() => goto(nav === "inscricoes" ? "inscricoes" : "home")} />,
-    wizard: <WizardScreen goto={goto} onBack={() => goto("edital")} />,
-    docs: <DocsScreen goto={goto} onBack={() => goto("wizard")} />,
+    home: (
+      <HomeScreen
+        goto={goto}
+        setNav={setNav}
+        onSelectEdital={setSelectedEdital}
+      />
+    ),
+    processos: (
+      <ProcessosScreen
+        goto={goto}
+        onBack={() => goto("home")}
+        onSelectEdital={setSelectedEdital}
+      />
+    ),
+    edital: (
+      <EditalScreen
+        goto={goto}
+        onBack={() => goto(nav === "inscricoes" ? "inscricoes" : "home")}
+        edital={selectedEdital}
+      />
+    ),
+    wizard: (
+      <WizardScreen
+        goto={goto}
+        onBack={() => goto("edital")}
+        edital={selectedEdital}
+        onCandidaturaCreated={setActiveCandidaturaId}
+      />
+    ),
+    docs: (
+      <DocsScreen
+        goto={goto}
+        onBack={() => goto("wizard")}
+        candidaturaId={activeCandidaturaId}
+      />
+    ),
     camera: <CameraScreen onBack={() => goto("docs")} />,
-    inscricoes: <InscricoesScreen goto={goto} />,
+    inscricoes: (
+      <InscricoesScreen
+        goto={goto}
+        onOpenDocs={(id) => setActiveCandidaturaId(id)}
+      />
+    ),
     notificacoes: <NotifScreen />,
-    perfil: <PerfilScreen goto={goto} setNav={setNav} />,
+    perfil: (
+      <PerfilScreen
+        goto={goto}
+        setNav={setNav}
+        onAuthChange={() => { /* token updated; screens re-read session */ }}
+      />
+    ),
   }
 
   return (
@@ -1271,7 +1515,7 @@ export default function App() {
           {screenEl[screen]}
         </div>
 
-        {/* FAB — Chatbot */}
+        {/* FAB — Chatbot (STAY_MOCK: RS04 intentional MVP mock) */}
         <div className="absolute bottom-[84px] right-4 z-50">
           <button
             onClick={() => setChat(true)}
