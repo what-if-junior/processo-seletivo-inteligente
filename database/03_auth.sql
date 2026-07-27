@@ -30,14 +30,17 @@ ALTER TABLE "Usuarios" ALTER COLUMN "atualizado_em" SET DEFAULT NOW();
 -- Login por email exige unicidade.
 CREATE UNIQUE INDEX IF NOT EXISTS "usuarios_email_unique" ON "Usuarios"("email");
 
--- RS02: uma unica inscricao por CPF e por edital/curso.
+-- RS02: uma unica inscricao ativa por usuario (CPF) e edital.
 CREATE UNIQUE INDEX IF NOT EXISTS "usuarios_cpf_unique" ON "Usuarios"("CPF");
-CREATE UNIQUE INDEX IF NOT EXISTS "candidaturas_usuario_curso_unique"
-    ON "Candidaturas"("id_usuario", "id_curso");
+DROP INDEX IF EXISTS "candidaturas_usuario_curso_unique";
+CREATE UNIQUE INDEX IF NOT EXISTS "candidaturas_usuario_edital_active_unique"
+    ON "Candidaturas"("id_usuario", "id_edital")
+    WHERE "status" NOT IN ('cancelada', 'reprovado', 'desclassificada');
 
 -- Consultas de acompanhamento do candidato e dos paineis de gestao.
 CREATE INDEX IF NOT EXISTS "candidaturas_id_usuario_idx" ON "Candidaturas"("id_usuario");
-CREATE INDEX IF NOT EXISTS "candidaturas_id_curso_idx" ON "Candidaturas"("id_curso");
+CREATE INDEX IF NOT EXISTS "candidaturas_id_oferta_idx" ON "Candidaturas"("id_oferta");
+CREATE INDEX IF NOT EXISTS "candidaturas_id_edital_idx" ON "Candidaturas"("id_edital");
 CREATE INDEX IF NOT EXISTS "documentos_id_candidatura_idx" ON "Documentos"("id_candidatura");
 CREATE INDEX IF NOT EXISTS "etapas_processo_id_candidatura_idx" ON "Etapas Processo"("id_candidatura");
 CREATE INDEX IF NOT EXISTS "recursos_id_etapa_processo_idx" ON "Recursos"("id_etapa_processo");

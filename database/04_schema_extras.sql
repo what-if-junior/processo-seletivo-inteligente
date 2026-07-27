@@ -1,5 +1,5 @@
 -- W2 schema extras: contestacoes, notificacoes, carrossel, faixas SM, templates.
--- id_edital columns are soft references until W1 Editais table exists (FK deferred).
+-- id_edital columns reference W1 Editais (hard FK added below).
 -- APIs/controllers for these tables land in later workstreams (W7, W29–W32).
 
 CREATE TYPE TIPO_CONTESTACAO AS ENUM(
@@ -171,6 +171,20 @@ ALTER TABLE
 ALTER TABLE
     "ContestacaoHistorico" ADD CONSTRAINT "contestacao_historico_id_template_edital_foreign"
     FOREIGN KEY("id_template_edital") REFERENCES "TemplatesEdital"("id");
+
+-- W1 hard FKs: id_edital soft refs from W2 now point to Editais.
+ALTER TABLE
+    "Contestacoes" ADD CONSTRAINT "contestacoes_id_edital_foreign"
+    FOREIGN KEY("id_edital") REFERENCES "Editais"("id");
+ALTER TABLE
+    "Notificacoes" ADD CONSTRAINT "notificacoes_id_edital_foreign"
+    FOREIGN KEY("id_edital") REFERENCES "Editais"("id");
+ALTER TABLE
+    "CarrosselItens" ADD CONSTRAINT "carrossel_itens_id_edital_foreign"
+    FOREIGN KEY("id_edital") REFERENCES "Editais"("id");
+ALTER TABLE
+    "TemplatesEdital" ADD CONSTRAINT "templates_edital_id_edital_foreign"
+    FOREIGN KEY("id_edital") REFERENCES "Editais"("id");
 
 CREATE UNIQUE INDEX IF NOT EXISTS "notificacao_leituras_unique"
     ON "NotificacaoLeituras"("id_notificacao", "id_usuario");
