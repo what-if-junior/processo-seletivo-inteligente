@@ -20,6 +20,7 @@ import {
   type ProcessoFormState,
 } from "../../../components/ProcessoFormFields";
 import { OfertasEditor } from "../../../components/OfertasEditor";
+import { CronogramaEditor } from "../../../components/CronogramaEditor";
 import { StatusBadge } from "../../../components/StatusBadge";
 import { formatDate } from "../../../lib/format";
 
@@ -120,10 +121,23 @@ export default function ProcessoDetailPage() {
     }
   }
 
-  function downloadUrl(arquivoId: number): string {
-    const token = getAccessToken();
-    const base = `${getApiBaseUrl()}/editais/${id}/arquivos/${arquivoId}`;
-    return token ? `${base}?access_token=${encodeURIComponent(token)}` : base;
+  async function openArquivo(arquivoId: number) {
+    try {
+      const headers = new Headers();
+      const token = getAccessToken();
+      if (token) headers.set("Authorization", `Bearer ${token}`);
+      const res = await fetch(
+        `${getApiBaseUrl()}/editais/${id}/arquivos/${arquivoId}`,
+        { headers },
+      );
+      if (!res.ok) throw new Error(`Download falhou (${res.status})`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank", "noopener,noreferrer");
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (err) {
+      push(err instanceof Error ? err.message : "Erro ao abrir PDF.", "error");
+    }
   }
 
   if (loading || !form || !edital) {
@@ -254,14 +268,13 @@ export default function ProcessoDetailPage() {
                 ) : (
                   <StatusBadge label="Histórico" tone="gray" />
                 )}
-                <a
+                <button
+                  type="button"
                   className="text-[#2f9e41] hover:underline"
-                  href={downloadUrl(a.id)}
-                  target="_blank"
-                  rel="noreferrer"
+                  onClick={() => void openArquivo(a.id)}
                 >
                   Abrir
-                </a>
+                </button>
               </div>
             </li>
           ))}
@@ -275,6 +288,10 @@ export default function ProcessoDetailPage() {
 
       <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
         <OfertasEditor editalId={id} />
+      </div>
+
+      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <CronogramaEditor editalId={id} />
       </div>
     </div>
   );
