@@ -48,13 +48,62 @@ export function getSessionUserId(): number | null {
 
 export async function fetchCurrentUser(): Promise<Usuario | null> {
   if (shouldUseMocks()) return null;
-  const id = getSessionUserId();
-  if (id == null) return null;
+  if (getSessionUserId() == null) return null;
   try {
-    return await apiFetch<Usuario>(`/user/${id}`);
+    return await apiFetch<Usuario>("/auth/me");
   } catch {
     return null;
   }
+}
+
+export type ProfileUpdatePayload = {
+  nome_completo?: string;
+  telefone?: string;
+  data_nascimento?: string;
+  endereco?: {
+    estado: string;
+    cidade: string;
+    CEP: string;
+    logradouro: string;
+    bairro: string;
+    numero_residencia: string;
+    complemento?: string;
+  };
+};
+
+/** PATCH own user (JWT sub). Returns updated profile or null on failure. */
+export async function updateCurrentUser(
+  payload: ProfileUpdatePayload,
+): Promise<Usuario | null> {
+  const id = getSessionUserId();
+  if (id == null) return null;
+  return apiFetch<Usuario>(`/user/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+/** Minimum profile fields required before inscription submit (REQ-2.1). */
+export function profileMinimumIssues(user: Usuario | null | undefined): string[] {
+  const issues: string[] = [];
+  if (!user) {
+    issues.push("Faça login para continuar.");
+    return issues;
+  }
+  if (!user.nome_completo?.trim()) issues.push("Nome completo é obrigatório.");
+  if (!user.CPF?.replace(/\D/g, "")) issues.push("CPF é obrigatório.");
+  if (!user.telefone?.trim()) issues.push("Telefone é obrigatório.");
+  if (!user.data_nascimento) issues.push("Data de nascimento é obrigatória.");
+  const end = user.enderecos?.[0];
+  if (
+    !end?.logradouro?.trim() ||
+    !end?.cidade?.trim() ||
+    !end?.estado?.trim() ||
+    !end?.CEP?.replace(/\D/g, "")
+  ) {
+    issues.push("Endereço completo é obrigatório (Meus Dados).");
+  }
+  return issues;
 }
 
 export function maskCpf(cpf: string | undefined | null): string {

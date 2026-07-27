@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class AuthPayloadDto {
   sub: number;
@@ -6,8 +6,17 @@ export class AuthPayloadDto {
 }
 
 export class LoginDto {
-  @ApiProperty({ example: 'joao@teste.com' })
-  email: string;
+  @ApiPropertyOptional({
+    example: 'joao@teste.com',
+    description: 'E-mail do candidato (alternativa a CPF)',
+  })
+  email?: string;
+
+  @ApiPropertyOptional({
+    example: '123.456.789-00',
+    description: 'CPF do candidato (alternativa a e-mail); dígitos ou formatado',
+  })
+  CPF?: string;
 
   @ApiProperty({ example: 'senha123' })
   senha: string;

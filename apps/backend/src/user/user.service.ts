@@ -61,6 +61,28 @@ export class UserService {
     return user;
   }
 
+  /** Lookup by CPF digits only (ignores `.` / `-` in stored value). */
+  async findByCpf(cpf: string): Promise<User> {
+    const digits = cpf.replace(/\D/g, '');
+    if (!digits) {
+      throw new NotFoundException(`Usuário com CPF inválido`);
+    }
+    const user = await this.userRepository
+      .createQueryBuilder('usuario')
+      .addSelect('usuario.senha')
+      .leftJoinAndSelect('usuario.enderecos', 'enderecos')
+      .where(
+        `regexp_replace(usuario."CPF", '[^0-9]', '', 'g') = :digits`,
+        { digits },
+      )
+      .getOne();
+
+    if (!user) {
+      throw new NotFoundException(`Usuário com CPF '${digits}' não encontrado`);
+    }
+    return user;
+  }
+
   async findById(id: number): Promise<User> {
     const user = await this.userRepository.findOne({
       where: { id },

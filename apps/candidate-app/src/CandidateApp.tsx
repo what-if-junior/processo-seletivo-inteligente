@@ -10,7 +10,7 @@ import {
   Award, UserCheck,
   RefreshCw, HelpCircle, Plus
 } from "lucide-react"
-import { login, logout } from "./lib/auth"
+import { login, logout, loginPayloadFromIdentifier } from "./lib/auth"
 import { apiFetch, getAccessToken } from "./lib/api"
 import { useCursos, useDocumentos, useInscricoes, useProfile } from "./lib/hooks"
 import {
@@ -1361,7 +1361,7 @@ function PerfilScreen({
   onAuthChange: () => void
 }) {
   const { user, authed, refresh } = useProfile()
-  const [email, setEmail] = useState("")
+  const [identifier, setIdentifier] = useState("")
   const [senha, setSenha] = useState("")
   const [loginError, setLoginError] = useState<string | null>(null)
   const [loggingIn, setLoggingIn] = useState(false)
@@ -1373,11 +1373,11 @@ function PerfilScreen({
     setLoggingIn(true)
     setLoginError(null)
     try {
-      await login({ email, senha })
+      await login(loginPayloadFromIdentifier(identifier, senha))
       await refresh()
       onAuthChange()
     } catch {
-      setLoginError("Falha no login. Verifique e-mail e senha.")
+      setLoginError("Falha no login. Verifique CPF/e-mail e senha.")
     } finally {
       setLoggingIn(false)
     }
@@ -1410,13 +1410,14 @@ function PerfilScreen({
       {!authed && (
         <div className="px-4 -mt-4 mb-4">
           <div className="bg-white rounded-2xl border border-[#D1E8D7] p-4 flex flex-col gap-3">
-            <p className="text-sm font-bold text-[#0D1E12]">Entrar com e-mail</p>
+            <p className="text-sm font-bold text-[#0D1E12]">Entrar com CPF ou e-mail</p>
             <input
-              type="email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              placeholder="seu@email.com"
-              aria-label="E-mail"
+              type="text"
+              value={identifier}
+              onChange={e => setIdentifier(e.target.value)}
+              placeholder="CPF ou e-mail"
+              aria-label="CPF ou e-mail"
+              autoComplete="username"
               className="h-12 px-4 rounded-xl border-2 border-[#D1E8D7] bg-white text-[#0D1E12] placeholder:text-[#A8C4B0] focus:outline-none focus:border-[#2A7B3E] focus:ring-4 focus:ring-[#2A7B3E]/10 text-base"
             />
             <input
@@ -1425,10 +1426,11 @@ function PerfilScreen({
               onChange={e => setSenha(e.target.value)}
               placeholder="Senha"
               aria-label="Senha"
+              autoComplete="current-password"
               className="h-12 px-4 rounded-xl border-2 border-[#D1E8D7] bg-white text-[#0D1E12] placeholder:text-[#A8C4B0] focus:outline-none focus:border-[#2A7B3E] focus:ring-4 focus:ring-[#2A7B3E]/10 text-base"
             />
             {loginError && <p className="text-xs text-red-600">{loginError}</p>}
-            <Btn v="primary" cls="w-full h-12" disabled={loggingIn || !email || !senha} onClick={() => { void handleLogin() }}>
+            <Btn v="primary" cls="w-full h-12" disabled={loggingIn || !identifier.trim() || !senha} onClick={() => { void handleLogin() }}>
               {loggingIn ? "Entrando…" : "Entrar"}
             </Btn>
           </div>

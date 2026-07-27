@@ -1,11 +1,18 @@
 import {
   Injectable,
+  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UserService } from '../user/user.service';
 import * as bcrypt from 'bcrypt';
 import { AuthPayloadDto } from './dto/auth.dto';
+
+export type LoginIdentifier = {
+  email?: string;
+  CPF?: string;
+  senha: string;
+};
 
 @Injectable()
 export class AuthService {
@@ -14,10 +21,31 @@ export class AuthService {
     private jwtService: JwtService,
   ) {}
 
+  /** Accepts e-mail or CPF + senha. Missing user and bad password both → 401. */
   async validateUser(email: string, senha: string) {
-    const user = await this.userService.findByEmail(email);
+    return this.validateCredentials({ email, senha });
+  }
 
-    const passwordMatch = await bcrypt.compare(senha, user.senha);
+  async validateCredentials(input: LoginIdentifier) {
+    const email = input.email?.trim() || undefined;
+    const CPF = input.CPF?.trim() || undefined;
+    if (!input.senha || (!email && !CPF)) {
+      throw new UnauthorizedException('Credenciais inválidas');
+    }
+
+    let user;
+    try {
+      user = email
+        ? await this.userService.findByEmail(email)
+        : await this.userService.findByCpf(CPF!);
+    } catch (err) {
+      if (err instanceof NotFoundException) {
+        throw new UnauthorizedException('Credenciais inválidas');
+      }
+      throw err;
+    }
+
+    const passwordMatch = await bcrypt.compare(input.senha, user.senha);
     if (!passwordMatch) {
       throw new UnauthorizedException('Credenciais inválidas');
     }
