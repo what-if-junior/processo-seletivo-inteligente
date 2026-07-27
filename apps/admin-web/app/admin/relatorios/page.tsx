@@ -34,7 +34,7 @@ export default function RelatoriosPage() {
   const { data: candidatos } = useCandidatos();
   const { push } = useToast();
 
-  const processosAbertos = new Set(inscricoes.map((i) => i.id_curso)).size || 3;
+  const processosAbertos = new Set(inscricoes.map((i) => i.id_oferta)).size || 3;
   const pendentes = inscricoes.filter(
     (i) => statusBucket(i.status) === "em_analise",
   ).length;
@@ -53,7 +53,7 @@ export default function RelatoriosPage() {
           inscricoes.map((i) => [
             String(i.id),
             i.usuario?.nome_completo ?? "",
-            i.curso?.nome ?? String(i.id_curso),
+            i.oferta?.curso?.nome ?? String(i.id_oferta),
             statusLabel(i.status),
             i.data_inscricao,
           ]),

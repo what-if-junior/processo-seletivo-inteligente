@@ -104,7 +104,7 @@ export default function InscricaoDetailPage() {
             Inscrição #{data.id}
           </h1>
           <p className="text-sm text-slate-500">
-            {data.curso?.nome ?? `Curso #${data.id_curso}`}
+            {data.oferta?.curso?.nome ?? `Oferta #${data.id_oferta}`}
             {source === "mock" ? " · dados de demonstração" : ""}
           </p>
         </div>
@@ -145,8 +145,8 @@ export default function InscricaoDetailPage() {
               label="Necessidades especiais"
               value={data.necessidades_especiais ?? (data.usuario?.pcd ? "PcD" : "—")}
             />
-            <Field label="Campus" value={data.curso?.campus} />
-            <Field label="Turno" value={data.curso?.turno} />
+            <Field label="Campus" value={data.oferta?.campus?.nome} />
+            <Field label="Turno" value={data.oferta?.turno} />
             <Field label="Data de envio" value={formatDate(data.data_inscricao)} />
           </dl>
         </section>

@@ -23,7 +23,7 @@ export default function InscricoesPage() {
       if (status && item.status !== status) return false;
       if (!term) return true;
       const nome = item.usuario?.nome_completo?.toLowerCase() ?? "";
-      const processo = item.curso?.nome?.toLowerCase() ?? "";
+      const processo = item.oferta?.curso?.nome?.toLowerCase() ?? "";
       return nome.includes(term) || processo.includes(term);
     });
   }, [data, q, status]);
@@ -93,7 +93,7 @@ export default function InscricoesPage() {
                 {item.usuario?.nome_completo ?? `Usuário #${item.id_usuario}`}
               </td>
               <td className="px-4 py-3 text-slate-600">
-                {item.curso?.nome ?? `Curso #${item.id_curso}`}
+                {item.oferta?.curso?.nome ?? `Oferta #${item.id_oferta}`}
               </td>
               <td className="px-4 py-3">
                 <StatusBadge

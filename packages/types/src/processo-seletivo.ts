@@ -1,4 +1,5 @@
 import { Cursos } from './cursos';
+import { TurnoOferta } from './db-enums';
 import {
   ResultadoEtapa,
   StatusCandidatura,
@@ -10,17 +11,37 @@ import {
 } from './db-enums';
 import { Usuario } from './user';
 
-/** Tabela "Candidaturas": inscricao de um usuario em um curso/edital. */
+/** Tabela "Campus": unidade fisica IFB. */
+export interface CampusRef {
+  id: number;
+  nome: string;
+}
+
+/** Tabela "Ofertas": edital x curso x campus x turno + vagas. */
+export interface Oferta {
+  id: number;
+  id_edital: number;
+  id_curso: number;
+  id_campus: number;
+  turno: TurnoOferta;
+  vagas_totais: number;
+  curso?: Cursos;
+  campus?: CampusRef;
+}
+
+/** Tabela "Candidaturas": inscricao de um usuario em uma oferta/edital. */
 export interface Candidatura {
   id: number;
   id_usuario: number;
-  id_curso: number;
+  id_oferta: number;
+  id_edital: number;
   data_inscricao: string;
   status: StatusCandidatura;
   tipo_ingresso?: TipoIngresso | null;
   tipo_vaga: TipoVagaCandidatura;
+  protocolo?: string | null;
   usuario?: Usuario;
-  curso?: Cursos;
+  oferta?: Oferta;
   documentos?: Documento[];
   etapas?: EtapaProcesso[];
 }

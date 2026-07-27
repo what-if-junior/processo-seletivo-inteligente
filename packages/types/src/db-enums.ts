@@ -3,7 +3,7 @@
  * Os valores precisam ser identicos aos dos CREATE TYPE do banco.
  *
  * Nao confundir com processo-seletivo-enums.ts, que descreve o vocabulario
- * de dominio dos editais e ainda nao esta persistido (W1).
+ * de dominio dos editais no nivel de aplicacao.
  */
 
 /**
@@ -11,6 +11,10 @@
  * CREATE TYPE em maiusculo do schema viraram tipos em minusculo.
  */
 export const PG_ENUM_NAMES = {
+  metodoSelecao: 'metodo_selecao',
+  meritoTipo: 'merito_tipo',
+  termosModo: 'termos_modo',
+  turno: 'turno',
   statusCandidatura: 'status_candidatura',
   tipoIngresso: 'tipo_ingresso',
   tipoVaga: 'tipo_vaga',
@@ -23,12 +27,51 @@ export const PG_ENUM_NAMES = {
   tipoCarrossel: 'tipo_carrossel',
 } as const;
 
+export enum MetodoSelecao {
+  ALEATORIO = 'ALEATORIO',
+  MERITO = 'MERITO',
+  HIBRIDO = 'HIBRIDO',
+}
+
+export enum MeritoTipo {
+  HISTORICO_ESCOLAR = 'HISTORICO_ESCOLAR',
+  NOTA_ENEM = 'NOTA_ENEM',
+  PROVA_ESPECIFICA = 'PROVA_ESPECIFICA',
+}
+
+export enum TermosModo {
+  PDF = 'PDF',
+  URL = 'URL',
+  TEXTO = 'TEXTO',
+}
+
+/** Turno persistido em Ofertas.turno. */
+export enum TurnoOferta {
+  MATUTINO = 'MATUTINO',
+  VESPERTINO = 'VESPERTINO',
+  NOTURNO = 'NOTURNO',
+  INTEGRAL = 'INTEGRAL',
+}
+
+/** Codigos canonicos de cota (DistribuicaoCotas.tipo_cota e Candidaturas.tipo_vaga). */
+export const TIPO_COTA_VALUES = [
+  'AC',
+  'PPI',
+  'PCD',
+  'ESCOLA_PUBLICA',
+  'BAIXA_RENDA',
+] as const;
+
+export type TipoCota = (typeof TIPO_COTA_VALUES)[number];
+
 export enum StatusCandidatura {
   INSCRICAO_RECEBIDA = 'inscricao_recebida',
   PRE_SELECIONADO = 'pre_selecionado',
   ANALISE_DOCUMENTAL = 'analise_documental',
   APROVADO = 'aprovado',
   REPROVADO = 'reprovado',
+  CANCELADA = 'cancelada',
+  DESCLASSIFICADA = 'desclassificada',
 }
 
 export enum TipoIngresso {
@@ -39,12 +82,13 @@ export enum TipoIngresso {
   TRANSFERENCIA = 'transferencia',
 }
 
-/** TIPO_VAGA do banco: ampla concorrencia, PcD, preto/pardo/indigena, escola publica. */
+/** TIPO_VAGA do banco: alinhado ao vocabulario de cotas. */
 export enum TipoVagaCandidatura {
   AC = 'AC',
+  PPI = 'PPI',
   PCD = 'PCD',
-  PII = 'PII',
-  ESCOLA_PUBLICA = 'escola_publica',
+  ESCOLA_PUBLICA = 'ESCOLA_PUBLICA',
+  BAIXA_RENDA = 'BAIXA_RENDA',
 }
 
 export enum TipoEtapaProcesso {

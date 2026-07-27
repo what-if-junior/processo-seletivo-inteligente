@@ -9,7 +9,8 @@ import { StatusCandidatura, TipoVagaCandidatura } from '@repo/types';
 import { Candidatura } from './entities/candidatura.entity';
 import { CreateCandidaturaDto } from './dto/create-candidatura.dto';
 import { User } from '../user/entities/user.entity';
-import { Curso } from '../cursos/entities/curso.entity';
+import { Oferta } from '../ofertas/entities/oferta.entity';
+import { Edital } from '../editais/entities/edital.entity';
 
 const UNIQUE_VIOLATION = '23505';
 
@@ -22,7 +23,7 @@ export class CandidaturasService {
 
   async findAll(): Promise<Candidatura[]> {
     return this.candidaturaRepository.find({
-      relations: { usuario: true, curso: true },
+      relations: { usuario: true, oferta: { curso: true, campus: true } },
       order: { id: 'ASC' },
     });
   }
@@ -32,7 +33,7 @@ export class CandidaturasService {
       where: { id },
       relations: {
         usuario: true,
-        curso: true,
+        oferta: { curso: true, campus: true, edital: true },
         documentos: true,
         etapas: { gestor: true, recursos: true },
       },
@@ -42,9 +43,9 @@ export class CandidaturasService {
     return candidatura;
   }
 
-  async findByCurso(idCurso: number): Promise<Candidatura[]> {
+  async findByOferta(idOferta: number): Promise<Candidatura[]> {
     return this.candidaturaRepository.find({
-      where: { id_curso: idCurso },
+      where: { id_oferta: idOferta },
       relations: { usuario: true },
       order: { id: 'ASC' },
     });
@@ -53,19 +54,19 @@ export class CandidaturasService {
   async findByUsuario(idUsuario: number): Promise<Candidatura[]> {
     return this.candidaturaRepository.find({
       where: { id_usuario: idUsuario },
-      relations: { curso: true, etapas: true },
+      relations: { oferta: { curso: true, campus: true } },
       order: { id: 'ASC' },
     });
   }
 
-  /** RS02: uma unica candidatura por usuario em cada curso/edital. */
+  /** RS02: uma unica candidatura ativa por usuario em cada edital. */
   async create(dto: CreateCandidaturaDto): Promise<Candidatura> {
     const duplicada = await this.candidaturaRepository.findOne({
-      where: { id_usuario: dto.id_usuario, id_curso: dto.id_curso },
+      where: { id_usuario: dto.id_usuario, id_edital: dto.id_edital },
     });
     if (duplicada) {
       throw new ConflictException(
-        `Usuário ${dto.id_usuario} já possui candidatura no curso ${dto.id_curso}`,
+        `Usuário ${dto.id_usuario} já possui candidatura no edital ${dto.id_edital}`,
       );
     }
 
@@ -75,7 +76,8 @@ export class CandidaturasService {
       tipo_vaga: dto.tipo_vaga ?? TipoVagaCandidatura.AC,
       status: StatusCandidatura.INSCRICAO_RECEBIDA,
       usuario: { id: dto.id_usuario } as User,
-      curso: { id: dto.id_curso } as Curso,
+      oferta: { id: dto.id_oferta } as Oferta,
+      edital: { id: dto.id_edital } as Edital,
     });
 
     try {
@@ -83,7 +85,7 @@ export class CandidaturasService {
     } catch (error) {
       if ((error as { code?: string }).code === UNIQUE_VIOLATION) {
         throw new ConflictException(
-          `Usuário ${dto.id_usuario} já possui candidatura no curso ${dto.id_curso}`,
+          `Usuário ${dto.id_usuario} já possui candidatura no edital ${dto.id_edital}`,
         );
       }
       throw error;

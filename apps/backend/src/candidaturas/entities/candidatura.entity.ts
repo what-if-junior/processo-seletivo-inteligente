@@ -13,7 +13,8 @@ import {
   TipoVagaCandidatura,
 } from '@repo/types';
 import { User } from '../../user/entities/user.entity';
-import { Curso } from '../../cursos/entities/curso.entity';
+import { Oferta } from '../../ofertas/entities/oferta.entity';
+import { Edital } from '../../editais/entities/edital.entity';
 import { Documento } from '../../documentos/entities/documento.entity';
 import { EtapaProcesso } from '../../etapas-processo/entities/etapa-processo.entity';
 import { numericTransformer } from '../../common/transformers';
@@ -37,7 +38,16 @@ export class Candidatura {
     update: false,
     transformer: numericTransformer,
   })
-  id_curso: number;
+  id_oferta: number;
+
+  /** Denormalizado para unicidade parcial ativa por usuario x edital. */
+  @Column({
+    type: 'bigint',
+    insert: false,
+    update: false,
+    transformer: numericTransformer,
+  })
+  id_edital: number;
 
   @Column({ type: 'date' })
   data_inscricao: string;
@@ -66,13 +76,20 @@ export class Candidatura {
   })
   tipo_vaga: TipoVagaCandidatura;
 
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  protocolo?: string | null;
+
   @ManyToOne(() => User, (user) => user.candidaturas)
   @JoinColumn({ name: 'id_usuario' })
   usuario?: User;
 
-  @ManyToOne(() => Curso, (curso) => curso.candidaturas)
-  @JoinColumn({ name: 'id_curso' })
-  curso?: Curso;
+  @ManyToOne(() => Oferta, (oferta) => oferta.candidaturas)
+  @JoinColumn({ name: 'id_oferta' })
+  oferta?: Oferta;
+
+  @ManyToOne(() => Edital)
+  @JoinColumn({ name: 'id_edital' })
+  edital?: Edital;
 
   @OneToMany(() => Documento, (documento) => documento.candidatura)
   documentos?: Documento[];

@@ -1,3 +1,4 @@
+/** Turno de exibicao legado (UI/mocks). Ofertas usam TurnoOferta em db-enums. */
 export enum Turno {
   INTEGRAL = 'Integral',
   DIURNO = 'Diurno',
@@ -6,7 +7,7 @@ export enum Turno {
   VESPERTINO = 'Vespertino',
 }
 
-/** Ainda nao persistido: "Cursos" nao tem coluna de status no schema atual. */
+/** Ainda nao persistido: catalogo de cursos nao tem status no schema W1. */
 export enum Status_Curso {
   ABERTO = 'Aberto',
   FECHADO = 'Fechado',
@@ -18,11 +19,8 @@ export enum Modalidade {
   HIBRIDO = 'Híbrido',
 }
 
-/**
- * Lista canonica dos campi. A coluna "campus" e VARCHAR livre no banco e os
- * dados de seed usam o prefixo "Campus ...", por isso Cursos.campus e string.
- */
-export enum Campus {
+/** Nomes canonicos dos campi IFB (tabela Campus.nome). */
+export enum CampusNome {
   BRASILIA = 'Brasília',
   CEILANDIA = 'Ceilândia',
   ESTRUTURAL = 'Estrutural',
@@ -37,17 +35,14 @@ export enum Campus {
   SOBRADINHO = 'Sobradinho (Campus em construção)',
 }
 
+/** @deprecated Use CampusNome — alias mantido para mocks legados. */
+export const Campus = CampusNome;
+
+/** Catalogo slim de cursos (W1). Vagas/turno/campus ficam em Ofertas. */
 export interface Cursos {
   id: number;
   nome: string;
-  duracao_semestres: string;
-  campus: string;
-  modalidade: Modalidade;
-  turno: Turno;
-  vagas_totais: number;
-  vagas_cotas_pii?: number | null;
-  vagas_pcd?: number | null;
-  data_inicio_inscricao: string;
-  data_fim_inscricao: string;
+  eixo_tecnologico?: string | null;
+  requisito_escolaridade?: string | null;
   area_conhecimento?: string | null;
 }

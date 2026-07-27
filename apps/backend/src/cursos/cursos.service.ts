@@ -5,12 +5,15 @@ import { CreateCursoDto } from './dto/create-curso.dto';
 import { UpdateCursoDto } from './dto/update-curso.dto';
 import { Curso } from './entities/curso.entity';
 import { CandidaturasService } from '../candidaturas/candidaturas.service';
+import { Oferta } from '../ofertas/entities/oferta.entity';
 
 @Injectable()
 export class CursosService {
   constructor(
     @InjectRepository(Curso)
     private readonly cursoRepository: Repository<Curso>,
+    @InjectRepository(Oferta)
+    private readonly ofertaRepository: Repository<Oferta>,
     private readonly candidaturasService: CandidaturasService,
   ) {}
 
@@ -30,8 +33,18 @@ export class CursosService {
   }
 
   async findCandidaturas(id: number) {
-    await this.findOne(id);
-    return this.candidaturasService.findByCurso(id);
+    const ofertas = await this.ofertaRepository.find({
+      where: { id_curso: id },
+      select: ['id'],
+    });
+    if (ofertas.length === 0) {
+      await this.findOne(id);
+      return [];
+    }
+    const results = await Promise.all(
+      ofertas.map((oferta) => this.candidaturasService.findByOferta(oferta.id)),
+    );
+    return results.flat();
   }
 
   async update(id: number, updateCursoDto: UpdateCursoDto): Promise<Curso> {

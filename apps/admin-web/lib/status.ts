@@ -7,6 +7,8 @@ export const STATUS_CANDIDATURA_LABELS: Record<StatusCandidatura, string> = {
   [StatusCandidatura.ANALISE_DOCUMENTAL]: "Em Análise",
   [StatusCandidatura.APROVADO]: "Aprovado",
   [StatusCandidatura.REPROVADO]: "Rejeitado",
+  [StatusCandidatura.CANCELADA]: "Cancelada",
+  [StatusCandidatura.DESCLASSIFICADA]: "Desclassificada",
 };
 
 /** Prototype-friendly bucket for KPI cards. */
@@ -29,6 +31,8 @@ export function statusBucket(status: string): StatusBucket {
     case StatusCandidatura.APROVADO:
       return "aprovada";
     case StatusCandidatura.REPROVADO:
+    case StatusCandidatura.CANCELADA:
+    case StatusCandidatura.DESCLASSIFICADA:
       return "rejeitada";
     case StatusCandidatura.ANALISE_DOCUMENTAL:
     case StatusCandidatura.INSCRICAO_RECEBIDA:

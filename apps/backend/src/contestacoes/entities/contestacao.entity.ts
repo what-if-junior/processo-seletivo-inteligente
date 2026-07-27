@@ -38,7 +38,7 @@ export class Contestacao {
   })
   status: StatusContestacao;
 
-  /** Soft ref until W1 Editais exists. */
+  /** FK para Editais (W1). */
   @Column({
     type: 'bigint',
     nullable: true,
