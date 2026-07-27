@@ -1,9 +1,9 @@
 /**
- * Enums persistidos em Postgres, definidos em database/01_schemas.sql.
+ * Enums persistidos em Postgres (`database/01_schemas.sql` + `04_schema_extras.sql`).
  * Os valores precisam ser identicos aos dos CREATE TYPE do banco.
  *
  * Nao confundir com processo-seletivo-enums.ts, que descreve o vocabulario
- * de dominio dos editais e ainda nao esta persistido.
+ * de dominio dos editais e ainda nao esta persistido (W1).
  */
 
 /**
@@ -17,6 +17,10 @@ export const PG_ENUM_NAMES = {
   etapaProcesso: 'etapa_processo',
   resultadoEtapa: 'resultado_etapa',
   statusRecurso: 'status_recurso',
+  tipoContestacao: 'tipo_contestacao',
+  statusContestacao: 'status_contestacao',
+  origemNotificacao: 'origem_notificacao',
+  tipoCarrossel: 'tipo_carrossel',
 } as const;
 
 export enum StatusCandidatura {
@@ -75,4 +79,31 @@ export enum StatusDocumento {
   APROVADO = 'aprovado',
   REPROVADO = 'reprovado',
   REVISAO_MANUAL = 'revisao_manual',
+}
+
+/** W2 — Contestacoes.tipo (REQ-1.3 / 5.1). */
+export enum TipoContestacao {
+  IMPUGNACAO = 'IMPUGNACAO',
+  RECURSO = 'RECURSO',
+  JUSTIFICATIVA = 'JUSTIFICATIVA',
+}
+
+/** W2 — Contestacoes.status cycle. */
+export enum StatusContestacao {
+  ENVIADA = 'enviada',
+  EM_ANALISE = 'em_analise',
+  DEFERIDA = 'deferida',
+  INDEFERIDA = 'indeferida',
+}
+
+/** W2 — Notificacoes.origem (REQ-6.1). */
+export enum OrigemNotificacao {
+  MANUAL = 'manual',
+  AUTOMATICO_CRONOGRAMA = 'automatico_cronograma',
+}
+
+/** W2 — CarrosselItens.tipo (REQ-6.2 / RS09). */
+export enum TipoCarrossel {
+  MANUAL = 'manual',
+  AUTO_EDITAL = 'auto_edital',
 }

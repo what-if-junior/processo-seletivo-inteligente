@@ -8,6 +8,7 @@ import { DocumentosModule } from './documentos/documentos.module';
 import { GestoresModule } from './gestores/gestores.module';
 import { EtapasProcessoModule } from './etapas-processo/etapas-processo.module';
 import { RecursosModule } from './recursos/recursos.module';
+import { SchemaExtrasModule } from './schema-extras/schema-extras.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { JwtAuthGuard } from './auth/guards/jwt.guard';
@@ -42,6 +43,7 @@ import { JwtAuthGuard } from './auth/guards/jwt.guard';
     GestoresModule,
     EtapasProcessoModule,
     RecursosModule,
+    SchemaExtrasModule,
   ],
   providers: [
     {

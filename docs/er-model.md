@@ -9,12 +9,23 @@ erDiagram
   Usuarios ||--o{ Enderecos : possui
   Usuarios ||--o{ Candidaturas : candidata
   Usuarios ||--o{ Gestores : pode_ser
+  Usuarios ||--o{ Contestacoes : pode_abrir
+  Usuarios ||--o{ NotificacaoLeituras : le
+  Usuarios ||--o| PreferenciasNotificacao : configura
   Cursos ||--o{ Candidaturas : recebe
   Candidaturas ||--o{ Documentos : anexa
   Candidaturas ||--o{ EtapasProcesso : passa_por
+  Candidaturas ||--o{ Contestacoes : pode_gerar
   Gestores ||--o{ EtapasProcesso : avalia
-  EtapasProcesso ||--o{ Recursos : recebe
   Gestores ||--o{ Recursos : analisa
+  Gestores ||--o{ Notificacoes : dispara
+  Gestores ||--o{ ContestacaoHistorico : responde
+  EtapasProcesso ||--o{ Recursos : recebe
+  Contestacoes ||--o{ ContestacaoHistorico : historico
+  Notificacoes ||--o{ NotificacaoLeituras : entrega
+  TemplatesBiblioteca ||--o{ TemplatesEdital : copia
+  TemplatesEdital ||--o{ ContestacaoHistorico : usa
+  ConfiguracaoGlobal ||--o{ FaixasSalarioMinimo : referencia_sm
 
   Usuarios {
     int id PK
@@ -82,7 +93,95 @@ erDiagram
     bigint id_gestor FK
     status_recurso status
   }
+
+  Contestacoes {
+    int id PK
+    tipo_contestacao tipo
+    status_contestacao status
+    bigint id_edital
+    bigint id_usuario FK
+    bigint id_candidatura FK
+    text texto
+  }
+
+  ContestacaoHistorico {
+    int id PK
+    bigint id_contestacao FK
+    bigint id_gestor FK
+    bigint id_template_edital FK
+    string canal
+  }
+
+  Notificacoes {
+    int id PK
+    string titulo
+    origem_notificacao origem
+    bigint id_edital
+    bigint id_gestor FK
+  }
+
+  NotificacaoLeituras {
+    int id PK
+    bigint id_notificacao FK
+    bigint id_usuario FK
+    timestamp lida_em
+  }
+
+  PreferenciasNotificacao {
+    int id PK
+    bigint id_usuario FK
+    boolean silenciar_email
+    boolean silenciar_push
+    boolean silenciar_oficiais
+  }
+
+  CarrosselItens {
+    int id PK
+    tipo_carrossel tipo
+    string titulo
+    int ordem
+    bigint id_edital
+    boolean auto_edital_habilitado
+  }
+
+  ConfiguracaoGlobal {
+    int id PK
+    decimal salario_minimo_referencia
+  }
+
+  FaixasSalarioMinimo {
+    int id PK
+    int ordem UK
+    string rotulo
+    boolean ativo
+  }
+
+  TemplatesBiblioteca {
+    int id PK
+    string titulo
+    text corpo
+    boolean ativo
+  }
+
+  TemplatesEdital {
+    int id PK
+    bigint id_template_origem FK
+    bigint id_edital
+    string titulo
+  }
 ```
+
+## W2 extras (`04_schema_extras.sql`)
+
+| Área | Tabelas | Notas |
+| --- | --- | --- |
+| Contestações (REQ-1.3 / 5.1) | `Contestacoes`, `ContestacaoHistorico` | `tipo` ∈ IMPUGNACAO\|RECURSO\|JUSTIFICATIVA; status `enviada`→`indeferida` |
+| Notificações (REQ-6.1) | `Notificacoes`, `NotificacaoLeituras`, `PreferenciasNotificacao` | Audiência via filtros; preferências de silêncio |
+| Carrossel (REQ-6.2 / RS09) | `CarrosselItens` | `manual` \| `auto_edital` + toggle `auto_edital_habilitado` |
+| Faixas SM (REQ-1.7) | `ConfiguracaoGlobal`, `FaixasSalarioMinimo` | Seed: SM referência; faixas vazias = regra B |
+| Templates (REQ-5.2 stub) | `TemplatesBiblioteca`, `TemplatesEdital` | Biblioteca + cópia por edital; APIs em W30 |
+
+`id_edital` columns are **soft references** until W1 creates `Editais` (FK deferred). Legacy `Recursos` remains for the old etapa-bound flow; new contestação UX uses `Contestacoes`.
 
 ## Mapeamento coluna SQL ↔ propriedade TypeORM
 
@@ -98,8 +197,11 @@ erDiagram
 | Candidaturas | status | Candidatura.status (`status_candidatura`) |
 | Candidaturas | tipo_vaga | Candidatura.tipo_vaga (`tipo_vaga`) |
 | Etapas Processo | (nome com espaço) | EtapaProcesso `@Entity('Etapas Processo')` |
+| Contestacoes | tipo / status | Contestacao (`tipo_contestacao` / `status_contestacao`) |
+| CarrosselItens | tipo | CarrosselItem (`tipo_carrossel`) |
+| ConfiguracaoGlobal | salario_minimo_referencia | ConfiguracaoGlobal.salario_minimo_referencia |
 
-Enums persistidos: ver `packages/types/src/db-enums.ts` (valores idênticos a `01_schemas.sql`).
+Enums persistidos: ver `packages/types/src/db-enums.ts` (valores idênticos a `01_schemas.sql` + `04_schema_extras.sql`).
 
 ## Auth seed
 
@@ -107,5 +209,9 @@ Enums persistidos: ver `packages/types/src/db-enums.ts` (valores idênticos a `0
 
 - `joao@teste.com` / `senha123`
 - `admin@teste.com` / `admin123`
+
+## W2 seed
+
+`05_seeds_extras.sql` garante singleton `ConfiguracaoGlobal` (SM referência). Lista de faixas inicia vazia (regra B).
 
 > Init scripts só rodam em volume vazio: use `docker compose down -v` ao mudar SQL.
