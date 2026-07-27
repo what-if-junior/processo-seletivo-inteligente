@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useRef, type ReactNode, type ElementType } from "react"
+import { useState, useMemo, useRef, useEffect, type ReactNode, type ElementType } from "react"
 import {
   Home, FileText, Bell, User, Search, ArrowLeft, Camera,
   Upload, MessageCircle, CheckCircle, Clock, AlertCircle,
@@ -26,12 +26,13 @@ import {
   getSessionUserId,
   maskCpf,
   shouldUseMocks,
+  updateCurrentUser,
 } from "./lib/session"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Screen =
   | "home" | "processos" | "edital" | "wizard" | "docs"
-  | "camera" | "inscricoes" | "notificacoes" | "perfil"
+  | "camera" | "inscricoes" | "notificacoes" | "perfil" | "meus-dados"
 type NavTab = "home" | "inscricoes" | "notificacoes" | "perfil"
 type WizardStep = 1 | 2 | 3 | 4
 
@@ -1352,6 +1353,168 @@ function NotifScreen() {
   )
 }
 
+// ─── MEUS DADOS (REQ-2.1) ─────────────────────────────────────────────────────
+function MeusDadosScreen({ onBack }: { onBack: () => void }) {
+  const { user, authed, refresh, loading } = useProfile()
+  const [nome, setNome] = useState("")
+  const [telefone, setTelefone] = useState("")
+  const [nascimento, setNascimento] = useState("")
+  const [estado, setEstado] = useState("")
+  const [cidade, setCidade] = useState("")
+  const [cep, setCep] = useState("")
+  const [logradouro, setLogradouro] = useState("")
+  const [bairro, setBairro] = useState("")
+  const [numero, setNumero] = useState("")
+  const [complemento, setComplemento] = useState("")
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [savedOk, setSavedOk] = useState(false)
+
+  useEffect(() => {
+    if (!user) return
+    const end0 = user.enderecos?.[0]
+    setNome(user.nome_completo ?? "")
+    setTelefone(user.telefone ?? "")
+    setNascimento(user.data_nascimento?.slice(0, 10) ?? "")
+    setEstado(end0?.estado ?? "")
+    setCidade(end0?.cidade ?? "")
+    setCep(end0?.CEP ?? "")
+    setLogradouro(end0?.logradouro ?? "")
+    setBairro(end0?.bairro ?? "")
+    setNumero(end0?.numero_residencia ?? "")
+    setComplemento(end0?.complemento ?? "")
+  }, [user])
+
+  async function handleSave() {
+    if (!authed || !user) {
+      setError("Faça login para editar Meus Dados.")
+      return
+    }
+    setSaving(true)
+    setError(null)
+    setSavedOk(false)
+    try {
+      await updateCurrentUser({
+        nome_completo: nome.trim(),
+        telefone: telefone.trim(),
+        data_nascimento: nascimento || undefined,
+        endereco: {
+          estado: estado.trim(),
+          cidade: cidade.trim(),
+          CEP: cep.trim(),
+          logradouro: logradouro.trim(),
+          bairro: bairro.trim(),
+          numero_residencia: numero.trim(),
+          complemento: complemento.trim() || undefined,
+        },
+      })
+      await refresh()
+      setSavedOk(true)
+    } catch {
+      setError("Não foi possível salvar. Tente novamente.")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const inputCls =
+    "h-12 px-4 rounded-xl border-2 border-[#D1E8D7] bg-white text-[#0D1E12] placeholder:text-[#A8C4B0] focus:outline-none focus:border-[#2A7B3E] focus:ring-4 focus:ring-[#2A7B3E]/10 text-base w-full"
+
+  function Labeled({
+    label, children, required,
+  }: { label: string; children: ReactNode; required?: boolean }) {
+    return (
+      <div className="flex flex-col gap-1.5">
+        <label className="text-sm font-semibold text-[#0D1E12]">
+          {label}{required && <span className="text-red-500 ml-0.5">*</span>}
+        </label>
+        {children}
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      <div className="bg-[#2A7B3E] px-4 pt-10 pb-5 flex items-center gap-3">
+        <button
+          onClick={onBack}
+          aria-label="Voltar"
+          className="w-10 h-10 flex items-center justify-center rounded-full bg-white/15 text-white focus-visible:outline-2 focus-visible:outline-white"
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </button>
+        <div>
+          <h1 className="text-white text-xl font-extrabold">Meus Dados</h1>
+          <p className="text-emerald-200 text-sm mt-0.5">Pessoais, telefone e endereço</p>
+        </div>
+      </div>
+
+      <div className="px-4 pt-4 pb-6 flex flex-col gap-4">
+        {!authed && !loading && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 text-amber-900 text-sm">
+            Entre na conta (Perfil) para visualizar e editar seus dados.
+          </div>
+        )}
+
+        <section className="bg-white rounded-2xl border border-[#D1E8D7] p-4 flex flex-col gap-3">
+          <p className="text-sm font-bold text-[#0D1E12]">Dados pessoais</p>
+          <Labeled label="Nome completo" required>
+            <input className={inputCls} value={nome} onChange={e => setNome(e.target.value)} aria-label="Nome completo" disabled={!authed} />
+          </Labeled>
+          <Labeled label="CPF">
+            <input className={inputCls} value={user?.CPF ?? ""} readOnly aria-label="CPF" disabled />
+          </Labeled>
+          <Labeled label="E-mail">
+            <input className={inputCls} value={user?.email ?? ""} readOnly aria-label="E-mail" disabled />
+          </Labeled>
+          <Labeled label="Data de nascimento" required>
+            <input className={inputCls} type="date" value={nascimento} onChange={e => setNascimento(e.target.value)} aria-label="Data de nascimento" disabled={!authed} />
+          </Labeled>
+          <Labeled label="Telefone / WhatsApp" required>
+            <input className={inputCls} type="tel" value={telefone} onChange={e => setTelefone(e.target.value)} aria-label="Telefone" disabled={!authed} />
+          </Labeled>
+        </section>
+
+        <section className="bg-white rounded-2xl border border-[#D1E8D7] p-4 flex flex-col gap-3">
+          <p className="text-sm font-bold text-[#0D1E12]">Endereço</p>
+          <Labeled label="CEP" required>
+            <input className={inputCls} value={cep} onChange={e => setCep(e.target.value)} aria-label="CEP" disabled={!authed} />
+          </Labeled>
+          <Labeled label="Logradouro" required>
+            <input className={inputCls} value={logradouro} onChange={e => setLogradouro(e.target.value)} aria-label="Logradouro" disabled={!authed} />
+          </Labeled>
+          <div className="grid grid-cols-2 gap-3">
+            <Labeled label="Número" required>
+              <input className={inputCls} value={numero} onChange={e => setNumero(e.target.value)} aria-label="Número" disabled={!authed} />
+            </Labeled>
+            <Labeled label="Complemento">
+              <input className={inputCls} value={complemento} onChange={e => setComplemento(e.target.value)} aria-label="Complemento" disabled={!authed} />
+            </Labeled>
+          </div>
+          <Labeled label="Bairro" required>
+            <input className={inputCls} value={bairro} onChange={e => setBairro(e.target.value)} aria-label="Bairro" disabled={!authed} />
+          </Labeled>
+          <div className="grid grid-cols-2 gap-3">
+            <Labeled label="Cidade" required>
+              <input className={inputCls} value={cidade} onChange={e => setCidade(e.target.value)} aria-label="Cidade" disabled={!authed} />
+            </Labeled>
+            <Labeled label="Estado" required>
+              <input className={inputCls} value={estado} onChange={e => setEstado(e.target.value)} aria-label="Estado" disabled={!authed} />
+            </Labeled>
+          </div>
+        </section>
+
+        {error && <p className="text-xs text-red-600">{error}</p>}
+        {savedOk && <p className="text-xs text-[#2A7B3E] font-semibold">Dados salvos. Inscrições já enviadas não são alteradas.</p>}
+
+        <Btn v="primary" cls="w-full h-12" disabled={!authed || saving} onClick={() => { void handleSave() }}>
+          {saving ? "Salvando…" : "Salvar Meus Dados"}
+        </Btn>
+      </div>
+    </div>
+  )
+}
+
 // ─── PERFIL SCREEN ────────────────────────────────────────────────────────────
 function PerfilScreen({
   goto, setNav, onAuthChange,
@@ -1441,7 +1604,7 @@ function PerfilScreen({
       <div className={`px-4 ${authed ? "-mt-4" : ""}`}>
         <div className="bg-white rounded-2xl border border-[#D1E8D7] overflow-hidden divide-y divide-[#E4EBE6]">
           {[
-            { icon: User, label: "Meus Dados", sub: "Informações pessoais" },
+            { icon: User, label: "Meus Dados", sub: "Informações pessoais", action: () => goto("meus-dados") },
             { icon: FileText, label: "Minhas Inscrições", sub: "Histórico de candidaturas", action: () => { goto("inscricoes"); setNav("inscricoes") } },
             { icon: Upload, label: "Documentos Enviados", sub: "Gerenciar arquivos", action: () => goto("docs") },
             { icon: Bell, label: "Preferências de Avisos", sub: "Email e push" },
@@ -1553,6 +1716,7 @@ export default function App() {
         onAuthChange={() => { /* token updated; screens re-read session */ }}
       />
     ),
+    "meus-dados": <MeusDadosScreen onBack={() => goto("perfil")} />,
   }
 
   return (
