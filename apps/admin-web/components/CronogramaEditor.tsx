@@ -158,7 +158,10 @@ export function CronogramaEditor({ editalId }: { editalId: number }) {
     const swap = idx + dir;
     if (idx < 0 || swap < 0 || swap >= etapas.length) return;
     const ids = etapas.map((e) => e.id);
-    [ids[idx], ids[swap]] = [ids[swap], ids[idx]];
+    const a = ids[idx]!;
+    const b = ids[swap]!;
+    ids[idx] = b;
+    ids[swap] = a;
     setBusy(true);
     try {
       const res = await reorderCronograma(editalId, ids);

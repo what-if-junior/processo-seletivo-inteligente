@@ -4,25 +4,25 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import type { Edital, EditalArquivoMeta } from "@repo/types";
-import { ApiError, getAccessToken, getApiBaseUrl } from "../../../lib/api";
+import { ApiError, getAccessToken, getApiBaseUrl } from "../../../../lib/api";
 import {
   getEditalGestao,
   listEditalArquivos,
   updateEdital,
   uploadEditalPdf,
-} from "../../../lib/processos-api";
-import { useToast } from "../../../components/ToastProvider";
+} from "../../../../lib/processos-api";
+import { useToast } from "../../../../components/ToastProvider";
 import {
   ProcessoFormFields,
   Toggle,
   formFromEdital,
   toCreatePayload,
   type ProcessoFormState,
-} from "../../../components/ProcessoFormFields";
-import { OfertasEditor } from "../../../components/OfertasEditor";
-import { CronogramaEditor } from "../../../components/CronogramaEditor";
-import { StatusBadge } from "../../../components/StatusBadge";
-import { formatDate } from "../../../lib/format";
+} from "../../../../components/ProcessoFormFields";
+import { OfertasEditor } from "../../../../components/OfertasEditor";
+import { CronogramaEditor } from "../../../../components/CronogramaEditor";
+import { StatusBadge } from "../../../../components/StatusBadge";
+import { formatDate } from "../../../../lib/format";
 
 export default function ProcessoDetailPage() {
   const params = useParams();

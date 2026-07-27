@@ -2,15 +2,15 @@
 
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
-import { ApiError } from "../../../lib/api";
-import { createEdital } from "../../../lib/processos-api";
-import { useToast } from "../../../components/ToastProvider";
+import { ApiError } from "../../../../lib/api";
+import { createEdital } from "../../../../lib/processos-api";
+import { useToast } from "../../../../components/ToastProvider";
 import {
   ProcessoFormFields,
   emptyProcessoForm,
   toCreatePayload,
   type ProcessoFormState,
-} from "../../../components/ProcessoFormFields";
+} from "../../../../components/ProcessoFormFields";
 
 export default function NovoProcessoPage() {
   const router = useRouter();
