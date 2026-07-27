@@ -21,7 +21,7 @@ export class EtapasProcessoService {
     const etapa = await this.etapaRepository.findOne({
       where: { id },
       relations: {
-        candidatura: { usuario: true, curso: true },
+        candidatura: { usuario: true, oferta: { curso: true, campus: true } },
         gestor: { usuario: true },
         recursos: true,
       },
