@@ -55,4 +55,13 @@ export class CreateEditalDto {
 
   @ApiPropertyOptional({ example: false })
   inscricoes_abertas?: boolean;
+
+  @ApiPropertyOptional({
+    type: [Number],
+    nullable: true,
+    description:
+      'W8/REQ-1.5: ids de TiposDocumentoBase a herdar. Omitir = todos ativos; [] = nenhum; lista = só esses (desmarcáveis).',
+    example: [1, 2],
+  })
+  tipos_base_ids?: number[] | null;
 }

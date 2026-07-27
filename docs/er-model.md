@@ -37,7 +37,10 @@ erDiagram
   Editais ||--o{ TemplatesEdital : copia
   Editais ||--o{ CronogramaEtapas : agenda
   Editais ||--o{ TiposDocumento : exige
+  TiposDocumentoBase ||--o{ TiposDocumento : herda
   TiposDocumento ||--o{ TipoDocumentoCampos : builder
+  TiposDocumentoBase ||--o{ DocumentosConta : meus_dados
+  Usuarios ||--o{ DocumentosConta : anexa_conta
   Editais ||--o{ ConfiguracaoEntregaDocumental : entrega
   Campus ||--o{ ConfiguracaoEntregaDocumental : local
   Cursos ||--o{ ConfiguracaoEntregaDocumental : curso
@@ -249,6 +252,7 @@ erDiagram
   TiposDocumento {
     int id PK
     bigint id_edital FK
+    bigint id_tipo_base FK
     string nome
     bool obrigatorio
     text[] formatos
@@ -256,6 +260,25 @@ erDiagram
     fase_documento fase
     string tipo_cota
     int ordem
+  }
+
+  TiposDocumentoBase {
+    int id PK
+    string nome
+    bool obrigatorio
+    text[] formatos
+    int tamanho_max_bytes
+    fase_documento fase
+    int ordem
+    bool ativo
+  }
+
+  DocumentosConta {
+    int id PK
+    bigint id_usuario FK
+    bigint id_tipo_base FK
+    string nome_arquivo
+    timestamp atualizado_em
   }
 
   TipoDocumentoCampos {
@@ -321,6 +344,14 @@ Enums W5: `tipo_etapa_cronograma`, `etapa_status_override`.
 
 Enums W6: `fase_documento`, `campo_formulario_tipo`, `modo_entrega`, `subtipo_entrega_online`.
 
+## W8 account-base docs (`10_account_base_docs.sql` + `11_seeds_account_base_docs.sql`)
+
+| Área | Tabelas | Notas |
+| --- | --- | --- |
+| Tipos base da conta (REQ-1.5) | `TiposDocumentoBase` | Globais; herdados em `POST /editais` via `tipos_base_ids` (omit=all, []=none) |
+| Vínculo herança | `TiposDocumento.id_tipo_base` | Delete base bloqueado se vinculados; desmarcar = apagar linha do edital |
+| Meus Dados ficheiros | `DocumentosConta` | UNIQUE(usuario, tipo_base); um ficheiro atual; HTTP `/me/documentos-conta` |
+
 ## Mapeamento coluna SQL ↔ propriedade TypeORM
 
 | Tabela SQL | Coluna | Entity / prop |
@@ -336,7 +367,9 @@ Enums W6: `fase_documento`, `campo_formulario_tipo`, `modo_entrega`, `subtipo_en
 | Usuarios | senha | User.senha (`select: false`) |
 | Etapas Processo | (nome com espaço) | EtapaProcesso `@Entity('Etapas Processo')` |
 | CronogramaEtapas | tipo / override / flags | CronogramaEtapa |
-| TiposDocumento | fase / formatos / tipo_cota | TipoDocumento |
+| TiposDocumento | fase / formatos / tipo_cota / id_tipo_base | TipoDocumento (`herdado` na API) |
+| TiposDocumentoBase | fase / formatos / ativo | TipoDocumentoBase |
+| DocumentosConta | id_usuario × id_tipo_base UK | DocumentoConta |
 | TipoDocumentoCampos | tipo (texto\|numero\|documento) | TipoDocumentoCampo |
 | ConfiguracaoEntregaDocumental | modo / subtipo_online | ConfiguracaoEntregaDocumental |
 

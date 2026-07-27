@@ -15,6 +15,7 @@ import {
   assertNoConflictingTermosChannels,
   assertTermosOneMode,
 } from './termos.util';
+import { TiposDocumentoBaseService } from '../tipos-documento-base/tipos-documento-base.service';
 
 const PDF_MAGIC = Buffer.from('%PDF');
 const MAX_PDF_BYTES = 15 * 1024 * 1024;
@@ -33,6 +34,7 @@ export class EditaisService {
     private readonly editalRepository: Repository<Edital>,
     @InjectRepository(EditalArquivo)
     private readonly arquivoRepository: Repository<EditalArquivo>,
+    private readonly tiposDocumentoBaseService: TiposDocumentoBaseService,
   ) {}
 
   async create(
@@ -62,7 +64,13 @@ export class EditaisService {
       publicado: false,
       inscricoes_abertas: false,
     });
-    return this.editalRepository.save(edital);
+    const saved = await this.editalRepository.save(edital);
+    // REQ-1.5: inherit account-base doc types (deselectable via tipos_base_ids).
+    await this.tiposDocumentoBaseService.inheritIntoEdital(
+      saved.id,
+      dto.tipos_base_ids,
+    );
+    return saved;
   }
 
   async findAll(opts?: {
