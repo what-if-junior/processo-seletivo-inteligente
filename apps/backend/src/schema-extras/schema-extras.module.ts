@@ -13,7 +13,7 @@ import { TemplateEdital } from '../templates/entities/template-edital.entity';
 
 /**
  * W2 schema extras — entity registration only.
- * Controllers/services arrive in W7 / W29–W32.
+ * Faixas HTTP = FaixasModule (W7); others arrive in W29–W32.
  */
 @Module({
   imports: [
