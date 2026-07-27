@@ -15,7 +15,6 @@ describe('CursosController', () => {
             create: jest.fn(),
             findAll: jest.fn(),
             findOne: jest.fn(),
-            findCandidaturas: jest.fn(),
             update: jest.fn(),
             remove: jest.fn(),
           },

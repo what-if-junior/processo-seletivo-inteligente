@@ -24,7 +24,7 @@ export class CandidaturasController {
 
   @Get()
   @ApiOperation({
-    summary: 'Lista candidaturas com usuário e curso (requer JWT)',
+    summary: 'Lista candidaturas com usuário e oferta (requer JWT)',
   })
   findAll() {
     return this.candidaturasService.findAll();
@@ -42,7 +42,7 @@ export class CandidaturasController {
   @Post()
   @ApiOperation({
     summary:
-      'Cria candidatura, bloqueando inscrição duplicada no mesmo curso (requer JWT)',
+      'Cria candidatura, bloqueando inscrição ativa duplicada no mesmo edital (requer JWT)',
   })
   create(@Body() createCandidaturaDto: CreateCandidaturaDto) {
     return this.candidaturasService.create(createCandidaturaDto);

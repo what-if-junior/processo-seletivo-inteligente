@@ -27,31 +27,21 @@ export class CursosController {
   @Post()
   @ApiBearerAuth()
   @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
-  @ApiOperation({ summary: 'Cria um curso/edital (requer JWT)' })
+  @ApiOperation({ summary: 'Cria um curso no catálogo (requer JWT)' })
   create(@Body() createCursoDto: CreateCursoDto) {
     return this.cursosService.create(createCursoDto);
   }
 
   @Public()
   @Get()
-  @ApiOperation({ summary: 'Lista cursos (público)' })
+  @ApiOperation({ summary: 'Lista cursos do catálogo (público)' })
   findAll() {
     return this.cursosService.findAll();
   }
 
-  @Get(':id/candidaturas')
-  @ApiBearerAuth()
-  @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
-  @ApiOperation({
-    summary: 'Lista candidaturas de um curso (requer JWT)',
-  })
-  findCandidaturas(@Param('id', ParseIntPipe) id: number) {
-    return this.cursosService.findCandidaturas(id);
-  }
-
   @Public()
   @Get(':id')
-  @ApiOperation({ summary: 'Busca curso por id (público)' })
+  @ApiOperation({ summary: 'Busca curso do catálogo por id (público)' })
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.cursosService.findOne(id);
   }
@@ -59,7 +49,7 @@ export class CursosController {
   @Patch(':id')
   @ApiBearerAuth()
   @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
-  @ApiOperation({ summary: 'Atualiza um curso (requer JWT)' })
+  @ApiOperation({ summary: 'Atualiza um curso do catálogo (requer JWT)' })
   update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateCursoDto: UpdateCursoDto,
@@ -70,7 +60,7 @@ export class CursosController {
   @Delete(':id')
   @ApiBearerAuth()
   @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
-  @ApiOperation({ summary: 'Remove um curso (requer JWT)' })
+  @ApiOperation({ summary: 'Remove um curso do catálogo (requer JWT)' })
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.cursosService.remove(id);
   }
