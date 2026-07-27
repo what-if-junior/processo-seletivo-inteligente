@@ -5,8 +5,10 @@ import { CursosModule } from './cursos/cursos.module';
 import { AuthModule } from './auth/auth.module';
 import { CandidaturasModule } from './candidaturas/candidaturas.module';
 import { DocumentosModule } from './documentos/documentos.module';
+import { EditaisModule } from './editais/editais.module';
 import { GestoresModule } from './gestores/gestores.module';
 import { EtapasProcessoModule } from './etapas-processo/etapas-processo.module';
+import { OfertasModule } from './ofertas/ofertas.module';
 import { RecursosModule } from './recursos/recursos.module';
 import { SchemaExtrasModule } from './schema-extras/schema-extras.module';
 import { SchemaFoundationModule } from './schema-foundation/schema-foundation.module';
@@ -41,6 +43,8 @@ import { JwtAuthGuard } from './auth/guards/jwt.guard';
     AuthModule,
     CandidaturasModule,
     DocumentosModule,
+    EditaisModule,
+    OfertasModule,
     GestoresModule,
     EtapasProcessoModule,
     RecursosModule,

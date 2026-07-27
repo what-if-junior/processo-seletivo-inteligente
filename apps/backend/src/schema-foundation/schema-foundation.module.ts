@@ -8,7 +8,7 @@ import { DistribuicaoCota } from '../distribuicao-cotas/entities/distribuicao-co
 
 /**
  * W1 schema foundation — entity registration only.
- * CRUD controllers arrive in W3–W4.
+ * HTTP CRUD: EditaisModule / OfertasModule (W3–W4 surface split).
  */
 @Module({
   imports: [
