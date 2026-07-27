@@ -12,7 +12,6 @@ import {
 } from '@repo/types';
 import { numericTransformer } from '../../common/transformers';
 import { Edital } from '../../editais/entities/edital.entity';
-import { TemplateEdital } from '../../templates/entities/template-edital.entity';
 
 /** Tabela "CronogramaEtapas": etapas do edital (REQ-1.2). ≠ "Etapas Processo". */
 @Entity('CronogramaEtapas')
@@ -74,8 +73,4 @@ export class CronogramaEtapa {
   @ManyToOne(() => Edital, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'id_edital' })
   edital?: Edital;
-
-  @ManyToOne(() => TemplateEdital, { nullable: true })
-  @JoinColumn({ name: 'template_instrucao_id' })
-  templateInstrucao?: TemplateEdital | null;
 }
