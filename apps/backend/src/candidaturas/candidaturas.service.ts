@@ -61,10 +61,19 @@ export class CandidaturasService {
 
   /** RS02: uma unica candidatura ativa por usuario em cada edital. */
   async create(dto: CreateCandidaturaDto): Promise<Candidatura> {
-    const duplicada = await this.candidaturaRepository.findOne({
-      where: { id_usuario: dto.id_usuario, id_edital: dto.id_edital },
-    });
-    if (duplicada) {
+    const ativa = await this.candidaturaRepository
+      .createQueryBuilder('c')
+      .where('c.id_usuario = :idUsuario', { idUsuario: dto.id_usuario })
+      .andWhere('c.id_edital = :idEdital', { idEdital: dto.id_edital })
+      .andWhere('c.status NOT IN (:...inativos)', {
+        inativos: [
+          StatusCandidatura.CANCELADA,
+          StatusCandidatura.REPROVADO,
+          StatusCandidatura.DESCLASSIFICADA,
+        ],
+      })
+      .getOne();
+    if (ativa) {
       throw new ConflictException(
         `Usuário ${dto.id_usuario} já possui candidatura no edital ${dto.id_edital}`,
       );
