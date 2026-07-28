@@ -45,6 +45,12 @@ import {
   upsertDocumentoConta,
   type TipoBaseSlot,
 } from "./lib/documentos-conta"
+import {
+  fileToBase64,
+  isMenorNaData,
+  MSG_MENOR_RESPONSAVEL_CLIENT,
+  responsavelSubmitIssues,
+} from "./lib/menoridade"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Screen =
@@ -868,12 +874,20 @@ function WizardScreen({
   const [idFaixa, setIdFaixa] = useState("")
   const [numeroPessoas, setNumeroPessoas] = useState("")
   const [stepError, setStepError] = useState<string | null>(null)
+  const [respNome, setRespNome] = useState("")
+  const [respCpf, setRespCpf] = useState("")
+  const [respAceite, setRespAceite] = useState(false)
+  const [respDocNome, setRespDocNome] = useState("")
+  const [respDocBase64, setRespDocBase64] = useState("")
 
   const STEPS = ["Dados Pessoais", "Cotas", "Socioeconômico", "Revisão"]
   const cursoLabel = edital
     ? `${edital.titulo} — ${edital.campus}`
     : "Técnico em Informática — Campus Brasília"
   const regraB = faixasEnv?.regra_b_socioeconomico === true
+  const submitDate = new Date().toISOString().slice(0, 10)
+  const isMenor =
+    Boolean(nascimento) && isMenorNaData(nascimento, submitDate)
 
   useEffect(() => {
     if (shouldUseMocks()) {
@@ -965,12 +979,23 @@ function WizardScreen({
       if (!telefone.trim()) issues.push("Telefone é obrigatório no formulário.")
       if (!nascimento) issues.push("Data de nascimento é obrigatória no formulário.")
       if (!email.trim()) issues.push("E-mail é obrigatório no formulário.")
+      const menorNow =
+        Boolean(nascimento) && isMenorNaData(nascimento, submitDate)
       issues.push(
         ...socioWizardIssues({
           cota: cota || "nenhuma",
           regraB,
           idFaixa,
           numeroPessoas,
+        }),
+      )
+      issues.push(
+        ...responsavelSubmitIssues(menorNow, {
+          nome: respNome,
+          cpf: respCpf,
+          aceite: respAceite,
+          documentoNome: respDocNome,
+          documentoBase64: respDocBase64,
         }),
       )
       if (issues.length) {
@@ -1007,6 +1032,15 @@ function WizardScreen({
             id_edital: idEdital,
             tipo_vaga: tipoVagaFromWizard(cota || "nenhuma", escola),
             ...(socio != null ? { socioeconomico: socio } : {}),
+            ...(menorNow
+              ? {
+                  responsavel_nome: respNome.trim(),
+                  responsavel_cpf: respCpf,
+                  responsavel_aceite: true,
+                  responsavel_documento_base64: respDocBase64,
+                  responsavel_documento_nome: respDocNome,
+                }
+              : {}),
           }),
         })
         onCandidaturaCreated(created.id)
@@ -1053,8 +1087,56 @@ function WizardScreen({
         </div>
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 flex gap-2.5">
           <Info className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
-          <p className="text-amber-800 text-xs leading-relaxed">Endereço completo é validado no envio a partir de Meus Dados. Se você é menor de idade, um responsável legal deverá assinar a matrícula presencialmente.</p>
+          <p className="text-amber-800 text-xs leading-relaxed">Endereço completo é validado no envio a partir de Meus Dados.</p>
         </div>
+        {isMenor && (
+          <div className="flex flex-col gap-3 border-t border-[#E4EBE6] pt-4" aria-label="Dados do responsável legal">
+            <p className="text-sm font-bold text-[#0D1E12]">Responsável legal</p>
+            <p className="text-xs text-[#4E6859] leading-relaxed">{MSG_MENOR_RESPONSAVEL_CLIENT}</p>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-semibold text-[#0D1E12]">Nome do responsável<span className="text-red-500 ml-0.5">*</span></label>
+              <input className={inputCls} value={respNome} onChange={e => setRespNome(e.target.value)} aria-label="Nome do responsável" />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-semibold text-[#0D1E12]">CPF do responsável<span className="text-red-500 ml-0.5">*</span></label>
+              <input className={inputCls} value={respCpf} onChange={e => setRespCpf(e.target.value)} aria-label="CPF do responsável" />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-semibold text-[#0D1E12]">Documento do responsável<span className="text-red-500 ml-0.5">*</span></label>
+              <input
+                type="file"
+                accept="image/*,.pdf,application/pdf"
+                aria-label="Documento do responsável"
+                className="text-sm text-[#0D1E12]"
+                onChange={(e) => {
+                  const file = e.target.files?.[0]
+                  if (!file) {
+                    setRespDocNome("")
+                    setRespDocBase64("")
+                    return
+                  }
+                  void fileToBase64(file).then((b64) => {
+                    setRespDocNome(file.name)
+                    setRespDocBase64(b64)
+                  })
+                }}
+              />
+              {respDocNome ? (
+                <p className="text-xs text-[#4E6859]">Anexo: {respDocNome}</p>
+              ) : null}
+            </div>
+            <label className="flex items-start gap-2.5 text-sm text-[#0D1E12]">
+              <input
+                type="checkbox"
+                className="mt-1"
+                checked={respAceite}
+                onChange={e => setRespAceite(e.target.checked)}
+                aria-label="Aceite do responsável legal"
+              />
+              <span>Declaro que o responsável legal autoriza esta inscrição e que o documento anexado é válido.<span className="text-red-500 ml-0.5">*</span></span>
+            </label>
+          </div>
+        )}
       </div>
     ),
     2: (

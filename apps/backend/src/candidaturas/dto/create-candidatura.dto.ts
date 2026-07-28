@@ -17,4 +17,12 @@ export class CreateCandidaturaDto {
       'Obrigatório (faixa + nº pessoas) para BAIXA_RENDA quando há faixas ativas; omitido/incompleto sob regra B',
   })
   socioeconomico?: SocioeconomicoDto;
+
+  /** REQ-2.4 — required when candidate is minor at submit date. */
+  responsavel_nome?: string;
+  responsavel_cpf?: string;
+  responsavel_aceite?: boolean;
+  /** Base64 (optionally data-URL) of responsável document. */
+  responsavel_documento_base64?: string;
+  responsavel_documento_nome?: string;
 }

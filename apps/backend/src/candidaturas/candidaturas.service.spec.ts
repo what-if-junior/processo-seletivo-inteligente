@@ -10,6 +10,7 @@ import { StatusCandidatura, TipoVagaCandidatura } from '@repo/types';
 import { CandidaturasService } from './candidaturas.service';
 import { Candidatura } from './entities/candidatura.entity';
 import { Oferta } from '../ofertas/entities/oferta.entity';
+import { User } from '../user/entities/user.entity';
 import { CronogramaService } from '../cronograma/cronograma.service';
 import { SocioeconomicoService } from '../socioeconomico/socioeconomico.service';
 import {
@@ -18,6 +19,7 @@ import {
   MSG_CANCEL_WINDOW_CLOSED,
   MSG_INSCRICAO_WINDOW_CLOSED,
 } from './candidatura-uniqueness.util';
+import { MSG_MENOR_RESPONSAVEL_OBRIGATORIO } from './menoridade.util';
 
 describe('CandidaturasService', () => {
   let service: CandidaturasService;
@@ -30,6 +32,10 @@ describe('CandidaturasService', () => {
   };
 
   const ofertaRepo = {
+    findOne: jest.fn(),
+  };
+
+  const userRepo = {
     findOne: jest.fn(),
   };
 
@@ -54,6 +60,18 @@ describe('CandidaturasService', () => {
     id_campus: 1,
   } as Oferta;
 
+  const adultUser = {
+    id: 1,
+    data_nascimento: '1990-05-10',
+  } as User;
+
+  const minorUser = {
+    id: 2,
+    data_nascimento: '2012-03-01',
+  } as User;
+
+  const docB64 = Buffer.from('%PDF-menor').toString('base64');
+
   beforeEach(async () => {
     jest.clearAllMocks();
     socioeconomicoService.applyForCandidatura.mockResolvedValue(null);
@@ -68,6 +86,7 @@ describe('CandidaturasService', () => {
       etapa: { tipo: 'INSCRICAO' },
     });
     ofertaRepo.findOne.mockResolvedValue(oferta);
+    userRepo.findOne.mockResolvedValue(adultUser);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -77,6 +96,7 @@ describe('CandidaturasService', () => {
           useValue: candidaturaRepo,
         },
         { provide: getRepositoryToken(Oferta), useValue: ofertaRepo },
+        { provide: getRepositoryToken(User), useValue: userRepo },
         { provide: CronogramaService, useValue: cronogramaService },
         { provide: SocioeconomicoService, useValue: socioeconomicoService },
       ],
@@ -129,6 +149,7 @@ describe('CandidaturasService', () => {
       });
 
       expect(result.id).toBe(99);
+      expect(result.menor_idade).toBe(false);
       expect(cronogramaService.getJanelaInscricao).toHaveBeenCalledWith(10);
       expect(candidaturaRepo.find).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -272,6 +293,142 @@ describe('CandidaturasService', () => {
     });
   });
 
+  describe('create — menor / responsável (REQ-2.4)', () => {
+    beforeEach(() => {
+      candidaturaRepo.find.mockResolvedValue([]);
+      candidaturaRepo.save.mockImplementation(async (row) => ({
+        id: 50,
+        ...row,
+      }));
+    });
+
+    it('adult creates without responsável payload', async () => {
+      userRepo.findOne.mockResolvedValue(adultUser);
+
+      const result = await service.create({
+        id_usuario: 1,
+        id_oferta: 5,
+        id_edital: 10,
+        data_inscricao: '2026-07-27',
+      });
+
+      expect(result.menor_idade).toBe(false);
+      expect(result.responsavel_nome).toBeNull();
+      expect(candidaturaRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          menor_idade: false,
+          responsavel_aceite: false,
+          responsavel_documento: null,
+        }),
+      );
+    });
+
+    it('adult ignores responsável payload', async () => {
+      userRepo.findOne.mockResolvedValue(adultUser);
+
+      await service.create({
+        id_usuario: 1,
+        id_oferta: 5,
+        id_edital: 10,
+        data_inscricao: '2026-07-27',
+        responsavel_nome: 'Ignored',
+        responsavel_cpf: '11144477735',
+        responsavel_aceite: true,
+        responsavel_documento_base64: docB64,
+        responsavel_documento_nome: 'rg.pdf',
+      });
+
+      expect(candidaturaRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          menor_idade: false,
+          responsavel_nome: null,
+          responsavel_documento: null,
+        }),
+      );
+    });
+
+    it('rejects minor without responsável fields', async () => {
+      userRepo.findOne.mockResolvedValue(minorUser);
+
+      await expect(
+        service.create({
+          id_usuario: 2,
+          id_oferta: 5,
+          id_edital: 10,
+          data_inscricao: '2026-07-27',
+        }),
+      ).rejects.toThrow(MSG_MENOR_RESPONSAVEL_OBRIGATORIO);
+      expect(candidaturaRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('rejects minor when aceite is false', async () => {
+      userRepo.findOne.mockResolvedValue(minorUser);
+
+      await expect(
+        service.create({
+          id_usuario: 2,
+          id_oferta: 5,
+          id_edital: 10,
+          data_inscricao: '2026-07-27',
+          responsavel_nome: 'Maria Responsável',
+          responsavel_cpf: '11144477735',
+          responsavel_aceite: false,
+          responsavel_documento_base64: docB64,
+          responsavel_documento_nome: 'rg.pdf',
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('rejects minor without document upload', async () => {
+      userRepo.findOne.mockResolvedValue(minorUser);
+
+      await expect(
+        service.create({
+          id_usuario: 2,
+          id_oferta: 5,
+          id_edital: 10,
+          data_inscricao: '2026-07-27',
+          responsavel_nome: 'Maria Responsável',
+          responsavel_cpf: '11144477735',
+          responsavel_aceite: true,
+          responsavel_documento_nome: 'rg.pdf',
+        }),
+      ).rejects.toThrow(MSG_MENOR_RESPONSAVEL_OBRIGATORIO);
+    });
+
+    it('creates minor with complete responsável payload', async () => {
+      userRepo.findOne.mockResolvedValue(minorUser);
+
+      const result = await service.create({
+        id_usuario: 2,
+        id_oferta: 5,
+        id_edital: 10,
+        data_inscricao: '2026-07-27',
+        responsavel_nome: 'Maria Responsável',
+        responsavel_cpf: '111.444.777-35',
+        responsavel_aceite: true,
+        responsavel_documento_base64: docB64,
+        responsavel_documento_nome: 'rg-responsavel.pdf',
+      });
+
+      expect(result.menor_idade).toBe(true);
+      expect(result.responsavel_nome).toBe('Maria Responsável');
+      expect(result.responsavel_cpf).toBe('11144477735');
+      expect(result.responsavel_aceite).toBe(true);
+      expect(result.responsavel_documento_nome).toBe('rg-responsavel.pdf');
+      expect(
+        (result as Candidatura & { responsavel_documento?: Buffer })
+          .responsavel_documento,
+      ).toBeUndefined();
+      expect(candidaturaRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          menor_idade: true,
+          responsavel_documento: expect.any(Buffer),
+        }),
+      );
+    });
+  });
+
   describe('cancel — Inscrição window (REQ-2.2)', () => {
     const active: Candidatura = {
       id: 7,
@@ -281,6 +438,8 @@ describe('CandidaturasService', () => {
       data_inscricao: '2026-01-01',
       status: StatusCandidatura.INSCRICAO_RECEBIDA,
       tipo_vaga: TipoVagaCandidatura.AC,
+      menor_idade: false,
+      responsavel_aceite: false,
     };
 
     it('sets status to cancelada when window open', async () => {

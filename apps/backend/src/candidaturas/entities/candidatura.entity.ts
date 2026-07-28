@@ -80,6 +80,25 @@ export class Candidatura {
   @Column({ type: 'varchar', length: 255, nullable: true })
   protocolo?: string | null;
 
+  /** Snapshot: menor na data_inscricao (REQ-2.4). */
+  @Column({ type: 'boolean', default: false })
+  menor_idade: boolean;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  responsavel_nome?: string | null;
+
+  @Column({ type: 'varchar', length: 14, nullable: true })
+  responsavel_cpf?: string | null;
+
+  @Column({ type: 'boolean', default: false })
+  responsavel_aceite: boolean;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  responsavel_documento_nome?: string | null;
+
+  @Column({ type: 'bytea', nullable: true, select: false })
+  responsavel_documento?: Buffer | null;
+
   @ManyToOne(() => User, (user) => user.candidaturas)
   @JoinColumn({ name: 'id_usuario' })
   usuario?: User;
