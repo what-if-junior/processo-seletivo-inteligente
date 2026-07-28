@@ -5,6 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { StatusCandidatura, TipoVagaCandidatura } from '@repo/types';
@@ -12,7 +13,6 @@ import { Candidatura } from './entities/candidatura.entity';
 import { CreateCandidaturaDto } from './dto/create-candidatura.dto';
 import { User } from '../user/entities/user.entity';
 import { Oferta } from '../ofertas/entities/oferta.entity';
-import { Edital } from '../editais/entities/edital.entity';
 import { CronogramaService } from '../cronograma/cronograma.service';
 import { SocioeconomicoService } from '../socioeconomico/socioeconomico.service';
 import { UpdateTipoVagaDto } from '../socioeconomico/dto/socioeconomico.dto';
@@ -32,6 +32,15 @@ import {
   MSG_MENOR_RESPONSAVEL_OBRIGATORIO,
   MSG_MENOR_SEM_NASCIMENTO,
 } from './menoridade.util';
+import {
+  cursoCodigoFromId,
+  formatProtocolo,
+  parseEditalNumeroAno,
+} from './protocolo.util';
+import {
+  buildComprovantePdf,
+  buildProtocoloValidateUrl,
+} from './comprovante-pdf.util';
 
 const UNIQUE_VIOLATION = '23505';
 
@@ -46,12 +55,25 @@ export class CandidaturasService {
     private readonly userRepository: Repository<User>,
     private readonly cronogramaService: CronogramaService,
     private readonly socioeconomicoService: SocioeconomicoService,
+    private readonly configService: ConfigService,
   ) {}
 
   async findAll(): Promise<Candidatura[]> {
     return this.candidaturaRepository.find({
       relations: { usuario: true, oferta: { curso: true, campus: true } },
       order: { id: 'ASC' },
+    });
+  }
+
+  async findByProtocolo(protocolo: string): Promise<Candidatura | null> {
+    const normalized = protocolo.trim();
+    if (!normalized) return null;
+    return this.candidaturaRepository.findOne({
+      where: { protocolo: normalized },
+      relations: {
+        usuario: true,
+        oferta: { curso: true, campus: true, edital: true },
+      },
     });
   }
 
@@ -126,6 +148,31 @@ export class CandidaturasService {
     throw new ConflictException(MSG_ACTIVE_DUPLICATE);
   }
 
+  /** Next SEQ for protocol within an edital (includes cancelled rows). */
+  private async nextProtocoloSeq(idEdital: number): Promise<number> {
+    const count = await this.candidaturaRepository.count({
+      where: { id_edital: idEdital },
+    });
+    return count + 1;
+  }
+
+  private buildProtocoloForOferta(
+    oferta: Oferta,
+    idUsuario: number,
+    seq: number,
+  ): string {
+    const numeroAno = oferta.edital?.numero_ano ?? String(oferta.id_edital);
+    const { editalCodigo, ano } = parseEditalNumeroAno(numeroAno);
+    const idCurso = oferta.id_curso ?? oferta.curso?.id ?? 0;
+    return formatProtocolo({
+      editalCodigo,
+      cursoCodigo: cursoCodigoFromId(Number(idCurso)),
+      ano,
+      seq,
+      idAluno: idUsuario,
+    });
+  }
+
   async create(dto: CreateCandidaturaDto): Promise<
     Candidatura & {
       socioeconomico?: Awaited<
@@ -135,6 +182,7 @@ export class CandidaturasService {
   > {
     const oferta = await this.ofertaRepository.findOne({
       where: { id: dto.id_oferta },
+      relations: { edital: true, curso: true },
     });
     if (!oferta) {
       throw new NotFoundException(`Oferta ${dto.id_oferta} não encontrada`);
@@ -154,21 +202,44 @@ export class CandidaturasService {
     const dataInscricao =
       dto.data_inscricao ?? new Date().toISOString().slice(0, 10);
     const menorFields = await this.resolveMenorResponsavel(dto, dataInscricao);
+    const seq = await this.nextProtocoloSeq(idEdital);
+    const protocolo = this.buildProtocoloForOferta(
+      oferta,
+      dto.id_usuario,
+      seq,
+    );
+    const tipoIngresso = dto.tipo_ingresso ?? null;
 
-    const candidatura = this.candidaturaRepository.create({
-      data_inscricao: dataInscricao,
-      tipo_ingresso: dto.tipo_ingresso ?? null,
-      tipo_vaga: tipoVaga,
-      status: StatusCandidatura.INSCRICAO_RECEBIDA,
-      usuario: { id: dto.id_usuario } as User,
-      oferta: { id: dto.id_oferta } as Oferta,
-      edital: { id: idEdital } as Edital,
-      ...menorFields,
-    });
-
-    let saved: Candidatura;
+    let savedId: number;
     try {
-      saved = await this.candidaturaRepository.save(candidatura);
+      // FK scalars are insert:false on the entity; insert via SQL so JoinColumns
+      // and protocolo/menor fields are always written.
+      const rows: Array<{ id: number }> = await this.candidaturaRepository.query(
+        `INSERT INTO "Candidaturas"
+          ("id_usuario", "id_oferta", "id_edital", "data_inscricao", "status",
+           "tipo_ingresso", "tipo_vaga", "protocolo",
+           "menor_idade", "responsavel_nome", "responsavel_cpf",
+           "responsavel_aceite", "responsavel_documento_nome", "responsavel_documento")
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+         RETURNING id`,
+        [
+          dto.id_usuario,
+          dto.id_oferta,
+          idEdital,
+          dataInscricao,
+          StatusCandidatura.INSCRICAO_RECEBIDA,
+          tipoIngresso,
+          tipoVaga,
+          protocolo,
+          menorFields.menor_idade,
+          menorFields.responsavel_nome,
+          menorFields.responsavel_cpf,
+          menorFields.responsavel_aceite,
+          menorFields.responsavel_documento_nome,
+          menorFields.responsavel_documento,
+        ],
+      );
+      savedId = Number(rows[0].id);
     } catch (error) {
       if ((error as { code?: string }).code === UNIQUE_VIOLATION) {
         throw new ConflictException(MSG_ACTIVE_DUPLICATE);
@@ -176,8 +247,12 @@ export class CandidaturasService {
       throw error;
     }
 
-    delete (saved as Candidatura & { responsavel_documento?: Buffer })
-      .responsavel_documento;
+    const saved = await this.candidaturaRepository.findOne({
+      where: { id: savedId },
+    });
+    if (!saved) {
+      throw new NotFoundException(`Candidatura ${savedId} não encontrada`);
+    }
 
     await this.socioeconomicoService.applyForCandidatura(
       saved,
@@ -185,9 +260,7 @@ export class CandidaturasService {
       dto.socioeconomico,
     );
 
-    const socioeconomico =
-      await this.socioeconomicoService.findByCandidatura(saved.id);
-    return Object.assign(saved, { socioeconomico });
+    return this.findOne(savedId);
   }
 
   /** REQ-2.3: change cota — previous socio answers stay archived. */
@@ -291,6 +364,10 @@ export class CandidaturasService {
     };
   }
 
+  /**
+   * Candidate cancel → `cancelada` only while effective Inscrição window is open
+   * (REQ-0.1 / 1.2 / 2.2). Protocol string is kept; QR validation fails (REQ-2.5).
+   */
   async cancel(id: number): Promise<Candidatura> {
     const candidatura = await this.candidaturaRepository.findOne({
       where: { id },
@@ -306,5 +383,47 @@ export class CandidaturasService {
 
     candidatura.status = StatusCandidatura.CANCELADA;
     return this.candidaturaRepository.save(candidatura);
+  }
+
+  /** REQ-2.5: on-demand comprovante PDF with validation QR. */
+  async getComprovantePdf(id: number): Promise<{
+    buffer: Buffer;
+    protocolo: string;
+    filename: string;
+  }> {
+    const candidatura = await this.findOne(id);
+    if (!candidatura.protocolo) {
+      throw new BadRequestException(
+        'Candidatura sem protocolo; não é possível emitir comprovante',
+      );
+    }
+
+    const publicBase =
+      this.configService.get<string>('PUBLIC_API_URL') ??
+      this.configService.get<string>('API_PUBLIC_URL') ??
+      `http://localhost:${this.configService.get('PORT') ?? 5005}`;
+
+    const validateUrl = buildProtocoloValidateUrl(
+      publicBase,
+      candidatura.protocolo,
+    );
+
+    const buffer = await buildComprovantePdf({
+      protocolo: candidatura.protocolo,
+      validateUrl,
+      candidato:
+        candidatura.usuario?.nome_completo ?? `Usuário #${candidatura.id_usuario}`,
+      curso:
+        candidatura.oferta?.curso?.nome ?? `Oferta #${candidatura.id_oferta}`,
+      campus: candidatura.oferta?.campus?.nome ?? '—',
+      dataInscricao: candidatura.data_inscricao,
+      status: candidatura.status,
+    });
+
+    return {
+      buffer,
+      protocolo: candidatura.protocolo,
+      filename: `comprovante-${candidatura.protocolo}.pdf`,
+    };
   }
 }

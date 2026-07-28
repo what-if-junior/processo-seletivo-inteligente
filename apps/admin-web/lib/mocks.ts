@@ -123,6 +123,7 @@ export const MOCK_INSCRICOES: AdminInscricao[] = [
     data_inscricao: "2025-06-10",
     status: StatusCandidatura.APROVADO,
     tipo_vaga: TipoVagaCandidatura.AC,
+    protocolo: "001-C1-2025-00001-1",
     usuario: mockUsers[0],
     oferta: ofertaInfo(
       1,
@@ -146,6 +147,7 @@ export const MOCK_INSCRICOES: AdminInscricao[] = [
     data_inscricao: "2025-06-12",
     status: StatusCandidatura.ANALISE_DOCUMENTAL,
     tipo_vaga: TipoVagaCandidatura.PPI,
+    protocolo: "001-C2-2025-00002-2",
     usuario: mockUsers[1],
     oferta: ofertaInfo(
       2,
@@ -169,6 +171,7 @@ export const MOCK_INSCRICOES: AdminInscricao[] = [
     data_inscricao: "2025-06-14",
     status: StatusCandidatura.REPROVADO,
     tipo_vaga: TipoVagaCandidatura.PCD,
+    protocolo: "001-C1-2025-00003-3",
     usuario: mockUsers[2],
     oferta: ofertaInfo(
       1,
@@ -192,6 +195,7 @@ export const MOCK_INSCRICOES: AdminInscricao[] = [
     data_inscricao: "2025-07-01",
     status: StatusCandidatura.INSCRICAO_RECEBIDA,
     tipo_vaga: TipoVagaCandidatura.ESCOLA_PUBLICA,
+    protocolo: "001-C3-2025-00004-1",
     usuario: mockUsers[0],
     oferta: ofertaInfo(
       3,

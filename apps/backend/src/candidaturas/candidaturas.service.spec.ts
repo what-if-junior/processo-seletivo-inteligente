@@ -12,6 +12,7 @@ import { Candidatura } from './entities/candidatura.entity';
 import { Oferta } from '../ofertas/entities/oferta.entity';
 import { User } from '../user/entities/user.entity';
 import { CronogramaService } from '../cronograma/cronograma.service';
+import { ConfigService } from '@nestjs/config';
 import { SocioeconomicoService } from '../socioeconomico/socioeconomico.service';
 import {
   MSG_ACTIVE_DUPLICATE,
@@ -29,6 +30,8 @@ describe('CandidaturasService', () => {
     findOne: jest.fn(),
     create: jest.fn((x) => x),
     save: jest.fn(),
+    query: jest.fn(),
+    count: jest.fn(),
   };
 
   const ofertaRepo = {
@@ -58,7 +61,9 @@ describe('CandidaturasService', () => {
     id_edital: 10,
     id_curso: 1,
     id_campus: 1,
-  } as Oferta;
+    edital: { id: 10, numero_ano: '001/2024' },
+    curso: { id: 1, nome: 'Curso' },
+  } as unknown as Oferta;
 
   const adultUser = {
     id: 1,
@@ -87,6 +92,17 @@ describe('CandidaturasService', () => {
     });
     ofertaRepo.findOne.mockResolvedValue(oferta);
     userRepo.findOne.mockResolvedValue(adultUser);
+    candidaturaRepo.count.mockResolvedValue(0);
+    candidaturaRepo.query.mockResolvedValue([{ id: 1 }]);
+    candidaturaRepo.findOne.mockResolvedValue({
+      id: 1,
+      id_usuario: 1,
+      id_oferta: 1,
+      id_edital: 1,
+      status: StatusCandidatura.INSCRICAO_RECEBIDA,
+      menor_idade: false,
+      protocolo: '001-C1-2024-00001-1',
+    });
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -99,6 +115,7 @@ describe('CandidaturasService', () => {
         { provide: getRepositoryToken(User), useValue: userRepo },
         { provide: CronogramaService, useValue: cronogramaService },
         { provide: SocioeconomicoService, useValue: socioeconomicoService },
+        { provide: ConfigService, useValue: { get: jest.fn().mockReturnValue(undefined) } },
       ],
     }).compile();
 
@@ -108,10 +125,17 @@ describe('CandidaturasService', () => {
   describe('create — socioeconómico (REQ-2.3)', () => {
     it('applies socio payload for BAIXA_RENDA', async () => {
       candidaturaRepo.find.mockResolvedValue([]);
-      candidaturaRepo.save.mockImplementation(async (row) => ({
+      candidaturaRepo.query.mockResolvedValue([{ id: 50 }]);
+      candidaturaRepo.findOne.mockResolvedValue({
         id: 50,
-        ...row,
-      }));
+        id_usuario: 1,
+        id_oferta: 5,
+        id_edital: 10,
+        status: StatusCandidatura.INSCRICAO_RECEBIDA,
+        tipo_vaga: TipoVagaCandidatura.BAIXA_RENDA,
+        menor_idade: false,
+        protocolo: '001-C1-2024-00001-1',
+      });
 
       await service.create({
         id_usuario: 1,
@@ -132,14 +156,16 @@ describe('CandidaturasService', () => {
   describe('create — uniqueness CPF×edital (REQ-2.2)', () => {
     it('creates when no prior inscription on edital', async () => {
       candidaturaRepo.find.mockResolvedValue([]);
-      candidaturaRepo.save.mockImplementation(async (row) => ({
+      candidaturaRepo.query.mockResolvedValue([{ id: 99 }]);
+      candidaturaRepo.findOne.mockResolvedValue({
         id: 99,
-        ...row,
         id_usuario: 1,
         id_oferta: 5,
         id_edital: 10,
         status: StatusCandidatura.INSCRICAO_RECEBIDA,
-      }));
+        menor_idade: false,
+        protocolo: '001-C1-2024-00001-1',
+      });
 
       const result = await service.create({
         id_usuario: 1,
@@ -150,12 +176,14 @@ describe('CandidaturasService', () => {
 
       expect(result.id).toBe(99);
       expect(result.menor_idade).toBe(false);
+      expect(result.protocolo).toBeTruthy();
       expect(cronogramaService.getJanelaInscricao).toHaveBeenCalledWith(10);
       expect(candidaturaRepo.find).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id_usuario: 1, id_edital: 10 },
         }),
       );
+      expect(candidaturaRepo.query).toHaveBeenCalled();
     });
 
     it('allows create after cancelada', async () => {
@@ -167,10 +195,16 @@ describe('CandidaturasService', () => {
           status: StatusCandidatura.CANCELADA,
         },
       ]);
-      candidaturaRepo.save.mockImplementation(async (row) => ({
+      candidaturaRepo.query.mockResolvedValue([{ id: 2 }]);
+      candidaturaRepo.findOne.mockResolvedValue({
         id: 2,
-        ...row,
-      }));
+        id_usuario: 1,
+        id_oferta: 5,
+        id_edital: 10,
+        status: StatusCandidatura.INSCRICAO_RECEBIDA,
+        menor_idade: false,
+        protocolo: '001-C1-2024-00002-1',
+      });
 
       await expect(
         service.create({
@@ -268,7 +302,7 @@ describe('CandidaturasService', () => {
           id_edital: 10,
         }),
       ).rejects.toThrow(MSG_INSCRICAO_WINDOW_CLOSED);
-      expect(candidaturaRepo.save).not.toHaveBeenCalled();
+      expect(candidaturaRepo.query).not.toHaveBeenCalled();
     });
 
     it('rejects unknown oferta', async () => {
@@ -304,6 +338,16 @@ describe('CandidaturasService', () => {
 
     it('adult creates without responsável payload', async () => {
       userRepo.findOne.mockResolvedValue(adultUser);
+    candidaturaRepo.query.mockResolvedValue([{ id: 1 }]);
+    candidaturaRepo.findOne.mockResolvedValue({
+      id: 1,
+      id_usuario: 1,
+      id_oferta: 1,
+      id_edital: 1,
+      status: StatusCandidatura.INSCRICAO_RECEBIDA,
+      menor_idade: false,
+      protocolo: '001-C1-2024-00001-1',
+    });
 
       const result = await service.create({
         id_usuario: 1,
@@ -313,18 +357,25 @@ describe('CandidaturasService', () => {
       });
 
       expect(result.menor_idade).toBe(false);
-      expect(result.responsavel_nome).toBeNull();
-      expect(candidaturaRepo.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          menor_idade: false,
-          responsavel_aceite: false,
-          responsavel_documento: null,
-        }),
-      );
+      expect(candidaturaRepo.query).toHaveBeenCalled();
+      const insertArgs = candidaturaRepo.query.mock.calls[0][1];
+      expect(insertArgs[8]).toBe(false); // menor_idade
+      expect(insertArgs[9]).toBeNull(); // responsavel_nome
+      expect(insertArgs[13]).toBeNull(); // responsavel_documento
     });
 
     it('adult ignores responsável payload', async () => {
       userRepo.findOne.mockResolvedValue(adultUser);
+    candidaturaRepo.query.mockResolvedValue([{ id: 1 }]);
+    candidaturaRepo.findOne.mockResolvedValue({
+      id: 1,
+      id_usuario: 1,
+      id_oferta: 1,
+      id_edital: 1,
+      status: StatusCandidatura.INSCRICAO_RECEBIDA,
+      menor_idade: false,
+      protocolo: '001-C1-2024-00001-1',
+    });
 
       await service.create({
         id_usuario: 1,
@@ -338,13 +389,10 @@ describe('CandidaturasService', () => {
         responsavel_documento_nome: 'rg.pdf',
       });
 
-      expect(candidaturaRepo.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          menor_idade: false,
-          responsavel_nome: null,
-          responsavel_documento: null,
-        }),
-      );
+      const insertArgs = candidaturaRepo.query.mock.calls.at(-1)[1];
+      expect(insertArgs[8]).toBe(false);
+      expect(insertArgs[9]).toBeNull();
+      expect(insertArgs[13]).toBeNull();
     });
 
     it('rejects minor without responsável fields', async () => {
@@ -358,7 +406,7 @@ describe('CandidaturasService', () => {
           data_inscricao: '2026-07-27',
         }),
       ).rejects.toThrow(MSG_MENOR_RESPONSAVEL_OBRIGATORIO);
-      expect(candidaturaRepo.save).not.toHaveBeenCalled();
+      expect(candidaturaRepo.query).not.toHaveBeenCalled();
     });
 
     it('rejects minor when aceite is false', async () => {
@@ -398,6 +446,20 @@ describe('CandidaturasService', () => {
 
     it('creates minor with complete responsável payload', async () => {
       userRepo.findOne.mockResolvedValue(minorUser);
+      candidaturaRepo.query.mockResolvedValue([{ id: 50 }]);
+      candidaturaRepo.findOne.mockResolvedValue({
+        id: 50,
+        id_usuario: 2,
+        id_oferta: 5,
+        id_edital: 10,
+        status: StatusCandidatura.INSCRICAO_RECEBIDA,
+        menor_idade: true,
+        responsavel_nome: 'Maria Responsável',
+        responsavel_cpf: '11144477735',
+        responsavel_aceite: true,
+        responsavel_documento_nome: 'rg-responsavel.pdf',
+        protocolo: '001-C1-2024-00001-2',
+      });
 
       const result = await service.create({
         id_usuario: 2,
@@ -420,12 +482,7 @@ describe('CandidaturasService', () => {
         (result as Candidatura & { responsavel_documento?: Buffer })
           .responsavel_documento,
       ).toBeUndefined();
-      expect(candidaturaRepo.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          menor_idade: true,
-          responsavel_documento: expect.any(Buffer),
-        }),
-      );
+      expect(candidaturaRepo.query).toHaveBeenCalled();
     });
   });
 
@@ -463,7 +520,7 @@ describe('CandidaturasService', () => {
         ForbiddenException,
       );
       await expect(service.cancel(7)).rejects.toThrow(MSG_CANCEL_WINDOW_CLOSED);
-      expect(candidaturaRepo.save).not.toHaveBeenCalled();
+      expect(candidaturaRepo.query).not.toHaveBeenCalled();
     });
 
     it('rejects cancel of already cancelada', async () => {

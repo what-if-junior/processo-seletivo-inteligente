@@ -133,7 +133,7 @@ OVERRIDING SYSTEM VALUE VALUES
 INSERT INTO "Candidaturas"
 ("id", "id_usuario", "id_oferta", "id_edital", "data_inscricao", "status", "tipo_ingresso", "tipo_vaga", "protocolo")
 OVERRIDING SYSTEM VALUE VALUES
-(1, 1, 1, 1, '2024-05-21', 'inscricao_recebida', 'sorteio', 'AC', NULL);
+(1, 1, 1, 1, '2024-05-21', 'inscricao_recebida', 'sorteio', 'AC', '001-C1-2024-00001-1');
 
 INSERT INTO "Documentos"
 ("id_candidatura", "tipo_documento", "nome_arquivo", "arquivo", "status_documento", "criado_em")

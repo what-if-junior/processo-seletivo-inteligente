@@ -19,6 +19,7 @@ import { FaixasModule } from './faixas/faixas.module';
 import { SocioeconomicoModule } from './socioeconomico/socioeconomico.module';
 import { SchemaExtrasModule } from './schema-extras/schema-extras.module';
 import { SchemaFoundationModule } from './schema-foundation/schema-foundation.module';
+import { ProtocolosModule } from './protocolos/protocolos.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { JwtAuthGuard } from './auth/guards/jwt.guard';
@@ -50,6 +51,7 @@ import { JwtAuthGuard } from './auth/guards/jwt.guard';
     UserModule,
     AuthModule,
     CandidaturasModule,
+    ProtocolosModule,
     DocumentosModule,
     EditaisModule,
     OfertasModule,

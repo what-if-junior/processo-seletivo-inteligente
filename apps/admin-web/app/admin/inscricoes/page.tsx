@@ -24,7 +24,12 @@ export default function InscricoesPage() {
       if (!term) return true;
       const nome = item.usuario?.nome_completo?.toLowerCase() ?? "";
       const processo = item.oferta?.curso?.nome?.toLowerCase() ?? "";
-      return nome.includes(term) || processo.includes(term);
+      const protocolo = (item.protocolo ?? "").toLowerCase();
+      return (
+        nome.includes(term) ||
+        processo.includes(term) ||
+        protocolo.includes(term)
+      );
     });
   }, [data, q, status]);
 
@@ -49,7 +54,7 @@ export default function InscricoesPage() {
       <div className="flex flex-col gap-3 sm:flex-row">
         <input
           type="search"
-          placeholder="Buscar por nome ou processo…"
+          placeholder="Buscar por nome, processo ou protocolo…"
           value={q}
           onChange={(e) => setQ(e.target.value)}
           className="w-full flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#2f9e41]"
@@ -72,6 +77,7 @@ export default function InscricoesPage() {
       ) : (
         <DataTable
           headers={[
+            "Protocolo",
             "Candidato",
             "Processo",
             "Status",
@@ -89,6 +95,9 @@ export default function InscricoesPage() {
         >
           {filtered.map((item) => (
             <tr key={item.id} className="hover:bg-slate-50">
+              <td className="px-4 py-3 font-mono text-xs text-slate-700">
+                {item.protocolo ?? "—"}
+              </td>
               <td className="px-4 py-3 font-medium text-slate-900">
                 {item.usuario?.nome_completo ?? `Usuário #${item.id_usuario}`}
               </td>
