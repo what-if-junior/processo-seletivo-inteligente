@@ -24,6 +24,12 @@ import {
   MSG_INSCRICAO_WINDOW_CLOSED,
   occupiesEditalSlot,
 } from './candidatura-uniqueness.util';
+import {
+  decodeDocumentoBase64,
+  isMenorNaData,
+  MSG_MENOR_RESPONSAVEL_OBRIGATORIO,
+  MSG_MENOR_SEM_NASCIMENTO,
+} from './menoridade.util';
 
 const UNIQUE_VIOLATION = '23505';
 
@@ -34,6 +40,8 @@ export class CandidaturasService {
     private readonly candidaturaRepository: Repository<Candidatura>,
     @InjectRepository(Oferta)
     private readonly ofertaRepository: Repository<Oferta>,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
     private readonly cronogramaService: CronogramaService,
   ) {}
 
@@ -111,7 +119,7 @@ export class CandidaturasService {
     throw new ConflictException(MSG_ACTIVE_DUPLICATE);
   }
 
-  /** RS02: uma unica candidatura ativa por usuario em cada edital. */
+  /** RS02 / REQ-2.4: unicidade + menoridade na data do submit. */
   async create(dto: CreateCandidaturaDto): Promise<Candidatura> {
     const oferta = await this.ofertaRepository.findOne({
       where: { id: dto.id_oferta },
@@ -130,24 +138,95 @@ export class CandidaturasService {
     await this.assertJanelaInscricaoAberta(idEdital);
     await this.assertUnicidadeUsuarioEdital(dto.id_usuario, idEdital);
 
+    const dataInscricao =
+      dto.data_inscricao ?? new Date().toISOString().slice(0, 10);
+    const menorFields = await this.resolveMenorResponsavel(dto, dataInscricao);
+
     const candidatura = this.candidaturaRepository.create({
-      data_inscricao: dto.data_inscricao ?? new Date().toISOString().slice(0, 10),
+      data_inscricao: dataInscricao,
       tipo_ingresso: dto.tipo_ingresso ?? null,
       tipo_vaga: dto.tipo_vaga ?? TipoVagaCandidatura.AC,
       status: StatusCandidatura.INSCRICAO_RECEBIDA,
       usuario: { id: dto.id_usuario } as User,
       oferta: { id: dto.id_oferta } as Oferta,
       edital: { id: idEdital } as Edital,
+      ...menorFields,
     });
 
     try {
-      return await this.candidaturaRepository.save(candidatura);
+      const saved = await this.candidaturaRepository.save(candidatura);
+      delete (saved as Candidatura & { responsavel_documento?: Buffer })
+        .responsavel_documento;
+      return saved;
     } catch (error) {
       if ((error as { code?: string }).code === UNIQUE_VIOLATION) {
         throw new ConflictException(MSG_ACTIVE_DUPLICATE);
       }
       throw error;
     }
+  }
+
+  /**
+   * REQ-2.4: age at submit date from Usuarios.data_nascimento.
+   * Adults ignore responsável payload; minors must supply nome+CPF+aceite+doc.
+   */
+  private async resolveMenorResponsavel(
+    dto: CreateCandidaturaDto,
+    dataInscricao: string,
+  ): Promise<{
+    menor_idade: boolean;
+    responsavel_nome: string | null;
+    responsavel_cpf: string | null;
+    responsavel_aceite: boolean;
+    responsavel_documento_nome: string | null;
+    responsavel_documento: Buffer | null;
+  }> {
+    const user = await this.userRepository.findOne({
+      where: { id: dto.id_usuario },
+    });
+    if (!user) {
+      throw new NotFoundException(`Usuário ${dto.id_usuario} não encontrado`);
+    }
+    if (!user.data_nascimento) {
+      throw new BadRequestException(MSG_MENOR_SEM_NASCIMENTO);
+    }
+
+    let menor: boolean;
+    try {
+      menor = isMenorNaData(user.data_nascimento, dataInscricao);
+    } catch {
+      throw new BadRequestException(MSG_MENOR_SEM_NASCIMENTO);
+    }
+
+    if (!menor) {
+      return {
+        menor_idade: false,
+        responsavel_nome: null,
+        responsavel_cpf: null,
+        responsavel_aceite: false,
+        responsavel_documento_nome: null,
+        responsavel_documento: null,
+      };
+    }
+
+    const nome = dto.responsavel_nome?.trim() ?? '';
+    const cpfDigits = (dto.responsavel_cpf ?? '').replace(/\D/g, '');
+    const aceite = dto.responsavel_aceite === true;
+    const doc = decodeDocumentoBase64(dto.responsavel_documento_base64);
+    const docNome = dto.responsavel_documento_nome?.trim() ?? '';
+
+    if (!nome || cpfDigits.length < 11 || !aceite || !doc || !docNome) {
+      throw new BadRequestException(MSG_MENOR_RESPONSAVEL_OBRIGATORIO);
+    }
+
+    return {
+      menor_idade: true,
+      responsavel_nome: nome,
+      responsavel_cpf: cpfDigits.slice(0, 14),
+      responsavel_aceite: true,
+      responsavel_documento_nome: docNome,
+      responsavel_documento: doc,
+    };
   }
 
   /**
