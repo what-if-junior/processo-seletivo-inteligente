@@ -6,15 +6,17 @@ import { StatusBadge } from "../../../components/StatusBadge";
 import { useToast } from "../../../components/ToastProvider";
 import { downloadTextFile, formatDate, toCsv } from "../../../lib/format";
 import { useCandidatos } from "../../../lib/hooks";
+import { updateUsuarioAtivo } from "../../../lib/w20-w25-api";
 
 export default function CandidatosPage() {
-  const { data, source, loading, error } = useCandidatos();
+  const { data, source, loading, error, reload } = useCandidatos();
   const { push } = useToast();
   const [q, setQ] = useState("");
   const [statusFilter, setStatusFilter] = useState<"todos" | "ativo" | "inativo">(
     "todos",
   );
   const [showFilters, setShowFilters] = useState(false);
+  const [busyId, setBusyId] = useState<number | null>(null);
 
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
@@ -27,6 +29,26 @@ export default function CandidatosPage() {
       );
     });
   }, [data, q, statusFilter]);
+
+  async function toggleAtivo(c: (typeof data)[number]) {
+    setBusyId(c.id);
+    try {
+      await updateUsuarioAtivo(c.id, c.status !== "ativo");
+      push(
+        c.status === "ativo"
+          ? "Acesso desativado (inscrições mantidas)."
+          : "Acesso reativado.",
+      );
+      reload();
+    } catch (e) {
+      push(
+        e instanceof Error ? e.message : "Falha ao atualizar ativo/inativo.",
+        "error",
+      );
+    } finally {
+      setBusyId(null);
+    }
+  }
 
   function exportCsv() {
     const csv = toCsv(
@@ -136,27 +158,11 @@ export default function CandidatosPage() {
                 <div className="flex gap-2">
                   <button
                     type="button"
-                    className="text-sm text-blue-600 hover:underline"
-                    onClick={() =>
-                      push(
-                        "Edição de candidato via admin ainda não implementada (usar PATCH /user/:id).",
-                        "info",
-                      )
-                    }
+                    disabled={busyId === c.id || source === "mock"}
+                    className="text-sm text-blue-600 hover:underline disabled:opacity-50"
+                    onClick={() => toggleAtivo(c)}
                   >
-                    Editar
-                  </button>
-                  <button
-                    type="button"
-                    className="text-sm text-red-600 hover:underline"
-                    onClick={() =>
-                      push(
-                        "Exclusão de candidato desabilitada nesta fase — DELETE /user/:id existe na API.",
-                        "info",
-                      )
-                    }
-                  >
-                    Excluir
+                    {c.status === "ativo" ? "Desativar" : "Ativar"}
                   </button>
                 </div>
               </td>

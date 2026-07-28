@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
+  ApiBody,
   ApiOperation,
   ApiTags,
   ApiUnauthorizedResponse,
@@ -58,6 +59,27 @@ export class UserController {
     @Body() updateUserDto: UpdateUserDto,
   ) {
     return this.userService.update(id, updateUserDto);
+  }
+
+  @Patch(':id/ativo')
+  @ApiBearerAuth()
+  @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['ativo'],
+      properties: { ativo: { type: 'boolean' } },
+    },
+  })
+  @ApiOperation({
+    summary:
+      'Habilita/desabilita o acesso do usuário (requer JWT). As inscrições são mantidas.',
+  })
+  setAtivo(
+    @Param('id', ParseIntPipe) id: number,
+    @Body('ativo') ativo: boolean,
+  ) {
+    return this.userService.setAtivo(id, ativo !== false);
   }
 
   @Delete(':id')

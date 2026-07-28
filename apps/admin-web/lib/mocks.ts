@@ -37,6 +37,7 @@ const mockUsers: Usuario[] = [
     data_nascimento: "2000-05-12",
     telefone: "(61) 99999-1111",
     pcd: false,
+    ativo: true,
     criado_em: new Date("2025-01-10"),
   },
   {
@@ -47,6 +48,7 @@ const mockUsers: Usuario[] = [
     data_nascimento: "1999-08-21",
     telefone: "(61) 98888-2222",
     pcd: false,
+    ativo: true,
     criado_em: new Date("2025-02-03"),
   },
   {
@@ -57,6 +59,7 @@ const mockUsers: Usuario[] = [
     data_nascimento: "2001-11-02",
     telefone: "(61) 97777-3333",
     pcd: true,
+    ativo: true,
     criado_em: new Date("2025-03-15"),
   },
 ];

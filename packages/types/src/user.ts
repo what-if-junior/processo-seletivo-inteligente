@@ -26,6 +26,8 @@ export interface Usuario {
   foto_alt?: string | null;
   ppi?: Etnia | null;
   pcd: boolean;
+  /** REQ-2.8: inativo bloqueia o login mas mantem as inscricoes. */
+  ativo: boolean;
   criado_em?: Date;
   atualizado_em?: Date;
   enderecos?: Endereco[];

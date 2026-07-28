@@ -16,6 +16,9 @@ import { TiposDocumentoModule } from './tipos-documento/tipos-documento.module';
 import { TiposDocumentoBaseModule } from './tipos-documento-base/tipos-documento-base.module';
 import { EntregaDocumentalModule } from './entrega-documental/entrega-documental.module';
 import { FaixasModule } from './faixas/faixas.module';
+import { LotesModule } from './lotes/lotes.module';
+import { ChamadasModule } from './chamadas/chamadas.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 import { SchemaExtrasModule } from './schema-extras/schema-extras.module';
 import { SchemaFoundationModule } from './schema-foundation/schema-foundation.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -57,6 +60,9 @@ import { JwtAuthGuard } from './auth/guards/jwt.guard';
     TiposDocumentoBaseModule,
     EntregaDocumentalModule,
     FaixasModule,
+    LotesModule,
+    ChamadasModule,
+    DashboardModule,
     GestoresModule,
     EtapasProcessoModule,
     RecursosModule,

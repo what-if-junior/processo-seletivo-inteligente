@@ -111,3 +111,15 @@ export async function apiUpload<T>(
 ): Promise<T> {
   return apiFetch<T>(path, { method: "POST", body: formData });
 }
+
+/** Binary/text download (CSV export). */
+export async function apiFetchBlob(path: string): Promise<Blob> {
+  const headers = new Headers();
+  const token = getAccessToken();
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  const res = await fetch(`${getApiBaseUrl()}${path}`, { headers });
+  if (!res.ok) {
+    throw new ApiError(res.status, `API ${res.status} ${path}`);
+  }
+  return res.blob();
+}

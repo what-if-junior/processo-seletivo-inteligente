@@ -5,6 +5,8 @@ import { useToast } from "../../../components/ToastProvider";
 import { downloadTextFile, formatNumber, toCsv } from "../../../lib/format";
 import { useCandidatos, useInscricoes } from "../../../lib/hooks";
 import { statusBucket, statusLabel } from "../../../lib/status";
+import { downloadDashboardExport } from "../../../lib/w20-w25-api";
+import { ApiError } from "../../../lib/api";
 
 const REPORTS = [
   {
@@ -125,6 +127,37 @@ export default function RelatoriosPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
+        <article className="flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div>
+            <h2 className="text-base font-semibold text-slate-900">
+              Dashboard CSV (API)
+            </h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Export filtrável via GET /dashboard/export.csv (REQ-3.5).
+            </p>
+          </div>
+          <div className="mt-4">
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  await downloadDashboardExport({});
+                  push("CSV do dashboard baixado da API.");
+                } catch (e) {
+                  push(
+                    e instanceof ApiError
+                      ? e.message
+                      : "API indisponível para export.",
+                    "error",
+                  );
+                }
+              }}
+              className="rounded-lg bg-[#2f9e41] px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+            >
+              Baixar CSV (API)
+            </button>
+          </div>
+        </article>
         {REPORTS.map((r) => (
           <article
             key={r.id}
