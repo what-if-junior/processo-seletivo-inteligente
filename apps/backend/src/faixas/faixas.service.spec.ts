@@ -4,10 +4,15 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { FaixasService } from './faixas.service';
 import { FaixaSalarioMinimo } from './entities/faixa-salario-minimo.entity';
 import { ConfiguracaoGlobal } from './entities/configuracao-global.entity';
+import { SocioeconomicoService } from '../socioeconomico/socioeconomico.service';
 
 describe('FaixasService', () => {
   let service: FaixasService;
   let liveConfig: ConfiguracaoGlobal;
+
+  const socioService = {
+    hasAnyAnswers: jest.fn().mockResolvedValue(false),
+  };
 
   const faixaRepo = {
     find: jest.fn(),
@@ -33,6 +38,7 @@ describe('FaixasService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    socioService.hasAnyAnswers.mockResolvedValue(false);
     liveConfig = {
       id: 1,
       salario_minimo_referencia: 1518,
@@ -51,9 +57,21 @@ describe('FaixasService', () => {
           provide: getRepositoryToken(ConfiguracaoGlobal),
           useValue: configRepo,
         },
+        { provide: SocioeconomicoService, useValue: socioService },
       ],
     }).compile();
     service = module.get(FaixasService);
+  });
+
+  it('gestao warns FAIXAS_COM_RESPOSTAS when socio answers exist', async () => {
+    socioService.hasAnyAnswers.mockResolvedValueOnce(true);
+    faixaRepo.find.mockResolvedValue([
+      { id: 1, ativo: true, ordem: 1, rotulo: 'Até 1 SM' },
+    ]);
+    const result = await service.findGestao();
+    expect(result.warnings.some((w) => w.code === 'FAIXAS_COM_RESPOSTAS')).toBe(
+      true,
+    );
   });
 
   it('public list: regra B true when no active bands', async () => {

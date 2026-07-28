@@ -32,6 +32,9 @@ import {
   documentoToDocUiRow,
   messageFromInscricaoApiError,
   AVISO_UM_CURSO_POR_EDITAL,
+  socioWizardIssues,
+  buildSocioPayload,
+  isBaixaRendaCota,
 } from "./index";
 import { ApiError } from "../api";
 
@@ -320,5 +323,70 @@ describe("documentoToDocUiRow", () => {
       tipo: "camera",
       obrigatorio: true,
     });
+  });
+});
+
+describe("socioeconomico (REQ-2.3)", () => {
+  it("validates faixa + pessoas only for renda when not regra B", () => {
+    expect(
+      socioWizardIssues({
+        cota: "ppi",
+        regraB: false,
+        idFaixa: "",
+        numeroPessoas: "",
+      }),
+    ).toEqual([]);
+    expect(
+      socioWizardIssues({
+        cota: "renda",
+        regraB: true,
+        idFaixa: "",
+        numeroPessoas: "",
+      }),
+    ).toEqual([]);
+    expect(
+      socioWizardIssues({
+        cota: "renda",
+        regraB: false,
+        idFaixa: "",
+        numeroPessoas: "0",
+      }).length,
+    ).toBeGreaterThan(0);
+    expect(
+      socioWizardIssues({
+        cota: "renda",
+        regraB: false,
+        idFaixa: "2",
+        numeroPessoas: "3",
+      }),
+    ).toEqual([]);
+  });
+
+  it("builds payload only for baixa renda", () => {
+    expect(
+      buildSocioPayload({
+        cota: "nenhuma",
+        regraB: false,
+        idFaixa: "1",
+        numeroPessoas: "2",
+      }),
+    ).toBeUndefined();
+    expect(
+      buildSocioPayload({
+        cota: "renda",
+        regraB: true,
+        idFaixa: "",
+        numeroPessoas: "",
+      }),
+    ).toEqual({});
+    expect(
+      buildSocioPayload({
+        cota: "renda",
+        regraB: false,
+        idFaixa: "9",
+        numeroPessoas: "4",
+      }),
+    ).toEqual({ id_faixa: 9, numero_pessoas: 4 });
+    expect(isBaixaRendaCota("renda")).toBe(true);
   });
 });

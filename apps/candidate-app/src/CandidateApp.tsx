@@ -22,6 +22,10 @@ import {
   filterEditalCards,
   uniqueEditaisFromCards,
   uniqueCampusesFromCards,
+  isBaixaRendaCota,
+  socioWizardIssues,
+  buildSocioPayload,
+  type FaixasSmPublicEnvelope,
 } from "./lib/mappers"
 import {
   MOCK_PROFILE,
@@ -102,6 +106,7 @@ function badgeCls(s: string) {
     reprovado: "bg-red-600 text-white",
     encerrado: "bg-gray-400 text-white",
     pendente: "bg-red-100 text-red-700 ring-1 ring-red-200",
+    pendente_docs: "bg-amber-100 text-amber-800 ring-1 ring-amber-200",
     enviado: "bg-emerald-100 text-emerald-800",
     superior: "bg-blue-600 text-white",
     técnico: "bg-[#2A7B3E] text-white",
@@ -116,7 +121,7 @@ function badgeLabel(s: string) {
   const map: Record<string, string> = {
     aberto: "Aberto", analise: "Em Análise", andamento: "Em Andamento",
     aprovado: "Aprovado", reprovado: "Reprovado", encerrado: "Encerrado",
-    pendente: "Pendente", enviado: "Enviado ✓", superior: "Superior",
+    pendente: "Pendente", pendente_docs: "Documentação Pendente", enviado: "Enviado ✓", superior: "Superior",
     técnico: "Técnico", médio: "Médio", sorteio: "Sorteio", na: "N/A",
   }
   return map[s.toLowerCase()] ?? s
@@ -850,7 +855,6 @@ function WizardScreen({
   const [step, setStep] = useState<WizardStep>(1)
   const [escola, setEscola] = useState("")
   const [cota, setCota] = useState("")
-  const [bolsa, setBolsa] = useState("")
   const [confirmed, setConfirmed] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
@@ -859,11 +863,17 @@ function WizardScreen({
   const [nascimento, setNascimento] = useState("")
   const [email, setEmail] = useState("")
   const [telefone, setTelefone] = useState("")
+  const [faixasEnv, setFaixasEnv] = useState<FaixasSmPublicEnvelope | null>(null)
+  const [faixasLoading, setFaixasLoading] = useState(false)
+  const [idFaixa, setIdFaixa] = useState("")
+  const [numeroPessoas, setNumeroPessoas] = useState("")
+  const [stepError, setStepError] = useState<string | null>(null)
 
   const STEPS = ["Dados Pessoais", "Cotas", "Socioeconômico", "Revisão"]
   const cursoLabel = edital
     ? `${edital.titulo} — ${edital.campus}`
     : "Técnico em Informática — Campus Brasília"
+  const regraB = faixasEnv?.regra_b_socioeconomico === true
 
   useEffect(() => {
     if (shouldUseMocks()) {
@@ -885,6 +895,56 @@ function WizardScreen({
     })
   }, [goto])
 
+  useEffect(() => {
+    if (!isBaixaRendaCota(cota)) {
+      setFaixasEnv(null)
+      setIdFaixa("")
+      setNumeroPessoas("")
+      return
+    }
+    if (shouldUseMocks()) {
+      setFaixasEnv({
+        salario_minimo_referencia: 1518,
+        faixas: [
+          { id: 1, ordem: 1, rotulo: "Até 1 SM" },
+          { id: 2, ordem: 2, rotulo: "Até 1,5 SM" },
+        ],
+        regra_b_socioeconomico: false,
+      })
+      return
+    }
+    setFaixasLoading(true)
+    void apiFetch<FaixasSmPublicEnvelope>("/faixas-sm")
+      .then((env) => {
+        setFaixasEnv(env)
+      })
+      .catch(() => {
+        setFaixasEnv({
+          salario_minimo_referencia: 0,
+          faixas: [],
+          regra_b_socioeconomico: true,
+        })
+      })
+      .finally(() => setFaixasLoading(false))
+  }, [cota])
+
+  function tryAdvanceFromStep() {
+    setStepError(null)
+    if (step === 3 && isBaixaRendaCota(cota)) {
+      const issues = socioWizardIssues({
+        cota,
+        regraB,
+        idFaixa,
+        numeroPessoas,
+      })
+      if (issues.length) {
+        setStepError(issues.join(" "))
+        return
+      }
+    }
+    setStep((step + 1) as WizardStep)
+  }
+
   async function confirmInscricao() {
     if (submitting) return
     setSubmitting(true)
@@ -905,6 +965,14 @@ function WizardScreen({
       if (!telefone.trim()) issues.push("Telefone é obrigatório no formulário.")
       if (!nascimento) issues.push("Data de nascimento é obrigatória no formulário.")
       if (!email.trim()) issues.push("E-mail é obrigatório no formulário.")
+      issues.push(
+        ...socioWizardIssues({
+          cota: cota || "nenhuma",
+          regraB,
+          idFaixa,
+          numeroPessoas,
+        }),
+      )
       if (issues.length) {
         setSubmitError(
           `${issues.join(" ")} Complete em Meus Dados se faltar endereço.`,
@@ -925,6 +993,12 @@ function WizardScreen({
         return
       }
       try {
+        const socio = buildSocioPayload({
+          cota: cota || "nenhuma",
+          regraB,
+          idFaixa,
+          numeroPessoas,
+        })
         const created = await apiFetch<{ id: number }>("/candidaturas", {
           method: "POST",
           body: JSON.stringify({
@@ -932,6 +1006,7 @@ function WizardScreen({
             id_oferta: idOferta,
             id_edital: idEdital,
             tipo_vaga: tipoVagaFromWizard(cota || "nenhuma", escola),
+            ...(socio != null ? { socioeconomico: socio } : {}),
           }),
         })
         onCandidaturaCreated(created.id)
@@ -1011,24 +1086,76 @@ function WizardScreen({
     ),
     3: (
       <div className="flex flex-col gap-4">
-        <SelectField label="Renda Familiar Bruta (mensal)" required
-          options={["Selecione…", "Até R$ 1.320 (1 SM)", "R$ 1.321 a R$ 2.640 (até 2 SM)", "R$ 2.641 a R$ 5.280 (até 4 SM)", "Acima de R$ 5.280"]} />
-        <Field label="Número de pessoas na residência" type="number" placeholder="Ex: 4" required />
-        <SelectField label="Situação de moradia" required
-          options={["Selecione…", "Casa própria quitada", "Casa financiada", "Alugada", "Cedida/emprestada", "Outra"]} />
-
-        <div className="border-t border-[#E4EBE6] pt-4">
-          <p className="text-sm font-bold text-[#0D1E12] mb-3">Programas sociais</p>
-          {[
-            { value: "bolsa", label: "Bolsa Família / CadÚnico" },
-            { value: "bpc", label: "BPC - Benefício de Prestação Continuada" },
-            { value: "nenhum", label: "Nenhum" },
-          ].map(o => (
-            <div key={o.value} className="mb-2.5">
-              <RadioOpt label={o.label} checked={bolsa === o.value} onClick={() => setBolsa(o.value)} />
+        {!isBaixaRendaCota(cota) ? (
+          <div className="bg-[#E7F4EA] border border-[#D1E8D7] rounded-xl p-4 flex gap-2.5">
+            <Info className="w-4 h-4 text-[#2A7B3E] flex-shrink-0 mt-0.5" />
+            <p className="text-[#0D1E12] text-sm leading-relaxed">
+              O formulário socioeconómico aplica-se apenas à cota de renda familiar baixa.
+              Pode continuar para a revisão.
+            </p>
+          </div>
+        ) : faixasLoading ? (
+          <p className="text-sm text-[#4E6859] flex items-center gap-2">
+            <Loader2 className="w-4 h-4 animate-spin" /> A carregar faixas de salário mínimo…
+          </p>
+        ) : regraB ? (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 flex gap-2.5">
+            <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+            <div className="text-amber-900 text-xs leading-relaxed space-y-1">
+              <p className="font-semibold">Bloco socioeconómico incompleto (regra B)</p>
+              <p>
+                Não há faixas de salário mínimo ativas. A inscrição em baixa renda é permitida;
+                a situação ficará como Documentação Pendente até o gestor configurar as faixas.
+              </p>
             </div>
-          ))}
-        </div>
+          </div>
+        ) : (
+          <>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-semibold text-[#0D1E12]">
+                Faixa de renda familiar<span className="text-red-500 ml-0.5">*</span>
+              </label>
+              <select
+                className={inputCls}
+                value={idFaixa}
+                onChange={(e) => setIdFaixa(e.target.value)}
+                aria-label="Faixa de renda familiar"
+              >
+                <option value="">Selecione…</option>
+                {(faixasEnv?.faixas ?? []).map((f) => (
+                  <option key={f.id} value={String(f.id)}>
+                    {f.rotulo}
+                    {faixasEnv?.salario_minimo_referencia
+                      ? ` (ref. SM R$ ${faixasEnv.salario_minimo_referencia})`
+                      : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-semibold text-[#0D1E12]">
+                Número de pessoas na residência<span className="text-red-500 ml-0.5">*</span>
+              </label>
+              <input
+                className={inputCls}
+                type="number"
+                min={1}
+                step={1}
+                placeholder="Ex: 4"
+                value={numeroPessoas}
+                onChange={(e) => setNumeroPessoas(e.target.value)}
+                aria-label="Número de pessoas na residência"
+              />
+            </div>
+            <p className="text-[11px] text-[#4E6859] leading-relaxed">
+              Campos e templates documentais adicionais configurados pelo admin (construtor)
+              podem ser pedidos na etapa de documentos.
+            </p>
+          </>
+        )}
+        {stepError && (
+          <p className="text-xs text-red-700 leading-relaxed">{stepError}</p>
+        )}
       </div>
     ),
     4: (
@@ -1042,6 +1169,18 @@ function WizardScreen({
             ["E-mail", email || "—"],
             ["Escola de Origem", escola === "pub" ? "Pública" : escola === "priv" ? "Privada" : "Não informado"],
             ["Modalidade", cota || "Não selecionado"],
+            ...(isBaixaRendaCota(cota)
+              ? [
+                  [
+                    "Socioeconómico",
+                    regraB
+                      ? "Incompleto (regra B — Documentação Pendente)"
+                      : idFaixa
+                        ? `Faixa #${idFaixa} · ${numeroPessoas || "—"} pessoa(s)`
+                        : "Pendente",
+                  ] as [string, string],
+                ]
+              : []),
           ].map(([k, v]) => (
             <div key={k} className="flex justify-between py-2 border-b border-[#D1E8D7] last:border-0">
               <span className="text-xs text-[#4E6859] font-medium">{k}</span>
@@ -1119,7 +1258,7 @@ function WizardScreen({
             </Btn>
           )}
           {step < 4 ? (
-            <Btn v="primary" cls="flex-1 h-12" onClick={() => setStep((step + 1) as WizardStep)}>
+            <Btn v="primary" cls="flex-1 h-12" onClick={() => tryAdvanceFromStep()}>
               Continuar <ChevronRight className="w-4 h-4" />
             </Btn>
           ) : (
