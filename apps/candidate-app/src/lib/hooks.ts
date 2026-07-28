@@ -1,10 +1,17 @@
 import { useEffect, useState } from "react";
-import type { Candidatura, Cursos, Documento, Usuario } from "@repo/types";
+import type {
+  Candidatura,
+  Cursos,
+  Documento,
+  Oferta,
+  Usuario,
+} from "@repo/types";
 import { apiFetch } from "./api";
 import {
   cursoToEditalCard,
   documentoToDocUiRow,
   isTerminalCandidaturaStatus,
+  ofertaToEditalCard,
   statusCandidaturaToBadge,
   type DocUiRow,
   type EditalCard,
@@ -39,6 +46,47 @@ export function useCursos(fallback: EditalCard[]) {
           setSource("mock");
         } else {
           setEditais(list.map((c) => cursoToEditalCard(c)));
+          setSource("api");
+        }
+      } catch {
+        if (cancelled) return;
+        setEditais(fallback);
+        setSource("mock");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [fallback]);
+
+  return { editais, source, loading };
+}
+
+/** Home / Processos: public `GET /ofertas` with mock EDITAIS fallback (W16 / M-06). */
+export function useOfertas(fallback: EditalCard[]) {
+  const [editais, setEditais] = useState<EditalCard[]>(fallback);
+  const [source, setSource] = useState<DataSource>("mock");
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (shouldUseMocks()) {
+      setEditais(fallback);
+      setSource("mock");
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const list = await apiFetch<Oferta[]>("/ofertas");
+        if (cancelled) return;
+        if (!list.length) {
+          setEditais(fallback);
+          setSource("mock");
+        } else {
+          setEditais(list.map((o) => ofertaToEditalCard(o)));
           setSource("api");
         }
       } catch {

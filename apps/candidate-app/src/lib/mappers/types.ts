@@ -5,10 +5,20 @@ export type EditalCardStatus = "aberto" | "encerrado";
 export type EditalCardTipo = "Técnico" | "Superior" | "Médio" | string;
 
 export type EditalCard = {
+  /** UI key — prefer oferta id when from `/ofertas`. */
   id: string;
+  /** Real Ofertas.id for POST /candidaturas (M-06). */
+  id_oferta: number;
+  /** Real Editais.id for POST /candidaturas (M-06). */
+  id_edital: number;
   titulo: string;
+  /** Edital pai / processo label (numero_ano). */
+  editalLabel: string;
   sub: string;
   campus: string;
+  id_campus?: number;
+  turno: string;
+  area_conhecimento: string;
   vagas: number;
   prazo: string;
   status: EditalCardStatus;

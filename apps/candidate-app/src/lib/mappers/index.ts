@@ -10,6 +10,14 @@ export {
   inferCursoTipo,
   formatPrazoBr,
 } from "./curso";
+export {
+  ofertaToEditalCard,
+  filterEditalCards,
+  uniqueEditaisFromCards,
+  uniqueCampusesFromCards,
+  formatTurnoLabel,
+} from "./oferta";
+export type { EditalCardFilter } from "./oferta";
 export { tipoVagaFromWizard } from "./tipo-vaga";
 export {
   etapaProcessoToCronogramaRow,

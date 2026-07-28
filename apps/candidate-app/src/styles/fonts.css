@@ -3,8 +3,14 @@
 :root {
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
   --font-mono: 'DM Mono', 'Courier New', monospace;
+  /* REQ-2.7 / W16 — dates & cronograma (not monospace) */
+  --font-rawline: rawline, helvetica, arial, sans-serif;
 }
 
 body {
   font-family: var(--font-sans);
+}
+
+.font-rawline {
+  font-family: var(--font-rawline);
 }

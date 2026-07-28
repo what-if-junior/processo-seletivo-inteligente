@@ -12,13 +12,16 @@ import {
 } from "lucide-react"
 import { login, logout, loginPayloadFromIdentifier } from "./lib/auth"
 import { apiFetch, getAccessToken } from "./lib/api"
-import { useCursos, useDocumentos, useInscricoes, useProfile } from "./lib/hooks"
+import { useDocumentos, useInscricoes, useOfertas, useProfile } from "./lib/hooks"
 import {
   tipoVagaFromWizard,
   type DocUiRow,
   type EditalCard as EditalCardData,
   AVISO_UM_CURSO_POR_EDITAL,
   messageFromInscricaoApiError,
+  filterEditalCards,
+  uniqueEditaisFromCards,
+  uniqueCampusesFromCards,
 } from "./lib/mappers"
 import {
   MOCK_PROFILE,
@@ -47,12 +50,12 @@ type NavTab = "home" | "inscricoes" | "notificacoes" | "perfil"
 type WizardStep = 1 | 2 | 3 | 4
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────
-const EDITAIS = [
-  { id: "1", titulo: "Técnico em Informática", sub: "Integrado ao Ensino Médio", campus: "Campus Brasília", vagas: 40, prazo: "10/01/2025", status: "aberto", tipo: "Técnico" },
-  { id: "2", titulo: "Superior em Computação", sub: "Bacharelado", campus: "Campus Taguatinga", vagas: 30, prazo: "15/01/2025", status: "aberto", tipo: "Superior" },
-  { id: "3", titulo: "Técnico em Hotelaria", sub: "Subsequente", campus: "Campus Planaltina", vagas: 35, prazo: "Encerrado", status: "encerrado", tipo: "Técnico" },
-  { id: "4", titulo: "Técnico em Moda", sub: "Integrado ao Ensino Médio", campus: "Campus Samambaia", vagas: 25, prazo: "12/01/2025", status: "aberto", tipo: "Técnico" },
-  { id: "5", titulo: "Ensino Médio Integrado", sub: "Regular", campus: "Campus Gama", vagas: 60, prazo: "08/01/2025", status: "aberto", tipo: "Médio" },
+const EDITAIS: EditalCardData[] = [
+  { id: "1", id_oferta: 1, id_edital: 1, id_campus: 1, titulo: "Técnico em Informática", editalLabel: "2025.1-IFB", sub: "Integrado ao Ensino Médio", campus: "Campus Brasília", turno: "Integral", area_conhecimento: "Informática", vagas: 40, prazo: "10/01/2025", status: "aberto", tipo: "Técnico" },
+  { id: "2", id_oferta: 2, id_edital: 1, id_campus: 2, titulo: "Superior em Computação", editalLabel: "2025.1-IFB", sub: "Bacharelado", campus: "Campus Taguatinga", turno: "Noturno", area_conhecimento: "Computação", vagas: 30, prazo: "15/01/2025", status: "aberto", tipo: "Superior" },
+  { id: "3", id_oferta: 3, id_edital: 2, id_campus: 3, titulo: "Técnico em Hotelaria", editalLabel: "2024.2-IFB", sub: "Subsequente", campus: "Campus Planaltina", turno: "Matutino", area_conhecimento: "Turismo e Hospitalidade", vagas: 35, prazo: "Encerrado", status: "encerrado", tipo: "Técnico" },
+  { id: "4", id_oferta: 4, id_edital: 1, id_campus: 4, titulo: "Técnico em Moda", editalLabel: "2025.1-IFB", sub: "Integrado ao Ensino Médio", campus: "Campus Samambaia", turno: "Vespertino", area_conhecimento: "Design", vagas: 25, prazo: "12/01/2025", status: "aberto", tipo: "Técnico" },
+  { id: "5", id_oferta: 5, id_edital: 1, id_campus: 5, titulo: "Ensino Médio Integrado", editalLabel: "2025.1-IFB", sub: "Regular", campus: "Campus Gama", turno: "Integral", area_conhecimento: "Ensino Médio", vagas: 60, prazo: "08/01/2025", status: "aberto", tipo: "Médio" },
 ]
 
 const CRONOGRAMA = [
@@ -382,25 +385,111 @@ function EditalCard({ e, onClick }: { e: EditalCardData; onClick: () => void }) 
       <div className={`w-1.5 flex-shrink-0 ${accent}`} />
       <div className="flex-1 p-4">
         <div className="flex items-start justify-between gap-3 mb-2">
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
             <p className="text-[15px] font-bold text-[#0D1E12] leading-snug">{e.titulo}</p>
+            <p className="text-xs text-[#4E6859] mt-0.5">{e.editalLabel}</p>
             <p className="text-xs text-[#4E6859] mt-0.5">{e.sub}</p>
           </div>
           <Badge s={e.status} />
         </div>
-        <div className="flex items-center gap-3 text-xs text-[#4E6859]">
-          <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{e.campus}</span>
-          <span className="flex items-center gap-1"><User className="w-3 h-3" />{e.vagas} vagas</span>
+        {/* Mobile field order: campus → turno → vagas → área → prazo */}
+        <div className="flex flex-col gap-1.5 text-xs text-[#4E6859]">
+          <span className="flex items-center gap-1"><MapPin className="w-3 h-3 flex-shrink-0" />{e.campus}</span>
+          <span>Turno: <span className="font-semibold text-[#0D1E12]">{e.turno}</span></span>
+          <span className="flex items-center gap-1"><User className="w-3 h-3 flex-shrink-0" />{e.vagas} vagas</span>
+          <span>Área: <span className="font-semibold text-[#0D1E12]">{e.area_conhecimento}</span></span>
         </div>
         <div className="mt-3 pt-3 border-t border-[#E4EBE6] flex items-center justify-between">
           <div className="flex items-center gap-1 text-xs text-[#4E6859]">
             <Calendar className="w-3 h-3" />
-            <span>Prazo: <span className="font-semibold text-[#0D1E12]">{e.prazo}</span></span>
+            <span>Prazo: <span className="font-rawline font-semibold text-[#0D1E12]">{e.prazo}</span></span>
           </div>
           <ChevronRight className="w-4 h-4 text-[#A8C4B0]" />
         </div>
       </div>
     </button>
+  )
+}
+
+function OfertaFiltersBar({
+  editais,
+  search,
+  setSearch,
+  filterTipo,
+  setFilterTipo,
+  filterEditalId,
+  setFilterEditalId,
+  filterCampusId,
+  setFilterCampusId,
+  tipos = ["Todos", "Técnico", "Superior", "Médio"],
+}: {
+  editais: EditalCardData[]
+  search: string
+  setSearch: (v: string) => void
+  filterTipo: string
+  setFilterTipo: (v: string) => void
+  filterEditalId: number | null
+  setFilterEditalId: (v: number | null) => void
+  filterCampusId: number | null
+  setFilterCampusId: (v: number | null) => void
+  tipos?: string[]
+}) {
+  const processos = useMemo(() => uniqueEditaisFromCards(editais), [editais])
+  const campuses = useMemo(() => uniqueCampusesFromCards(editais), [editais])
+  const selectCls =
+    "w-full h-10 px-3 rounded-xl bg-white border border-[#D1E8D7] text-sm text-[#0D1E12] focus:border-[#2A7B3E] focus:ring-4 focus:ring-[#2A7B3E]/10 focus:outline-none"
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#A8C4B0]" />
+        <input
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Buscar curso, campus, área…"
+          className="w-full h-11 pl-10 pr-3 rounded-xl bg-white border border-[#D1E8D7] text-base text-[#0D1E12] placeholder:text-[#A8C4B0] focus:border-[#2A7B3E] focus:ring-4 focus:ring-[#2A7B3E]/10 focus:outline-none"
+          aria-label="Buscar cursos"
+        />
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <label className="flex flex-col gap-1">
+          <span className="text-[11px] font-bold tracking-wide uppercase text-[#4E6859]">Processo / edital</span>
+          <select
+            className={selectCls}
+            value={filterEditalId ?? ""}
+            onChange={e => setFilterEditalId(e.target.value ? Number(e.target.value) : null)}
+            aria-label="Filtrar por processo ou edital"
+          >
+            <option value="">Todos os processos</option>
+            {processos.map(p => (
+              <option key={p.id} value={p.id}>{p.label}</option>
+            ))}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="text-[11px] font-bold tracking-wide uppercase text-[#4E6859]">Campus</span>
+          <select
+            className={selectCls}
+            value={filterCampusId ?? ""}
+            onChange={e => setFilterCampusId(e.target.value ? Number(e.target.value) : null)}
+            aria-label="Filtrar por campus"
+          >
+            <option value="">Todos os campi</option>
+            {campuses.map(c => (
+              <option key={c.id} value={c.id}>{c.label}</option>
+            ))}
+          </select>
+        </label>
+      </div>
+      <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+        {tipos.map(t => (
+          <button key={t} type="button" onClick={() => setFilterTipo(t)}
+            className={`flex-shrink-0 px-4 h-8 rounded-full text-sm font-semibold transition-all focus-visible:outline-2 focus-visible:outline-[#2A7B3E] ${filterTipo === t ? "bg-[#2A7B3E] text-white" : "bg-white border border-[#D1E8D7] text-[#4E6859] hover:border-[#2A7B3E]/40"}`}>
+            {t}
+          </button>
+        ))}
+      </div>
+    </div>
   )
 }
 
@@ -412,13 +501,24 @@ function HomeScreen({
   setNav: (t: NavTab) => void
   onSelectEdital: (e: EditalCardData) => void
 }) {
-  const [filter, setFilter] = useState("Todos")
-  const tipos = ["Todos", "Técnico", "Superior", "Médio"]
-  const fallback = useMemo(() => EDITAIS as EditalCardData[], [])
-  const { editais } = useCursos(fallback)
+  const [filterTipo, setFilterTipo] = useState("Todos")
+  const [search, setSearch] = useState("")
+  const [filterEditalId, setFilterEditalId] = useState<number | null>(null)
+  const [filterCampusId, setFilterCampusId] = useState<number | null>(null)
+  const fallback = useMemo(() => EDITAIS, [])
+  const { editais } = useOfertas(fallback)
   const { user, authed } = useProfile()
   const greetName = authed && user ? firstNameFrom(user.nome_completo) : MOCK_PROFILE.firstName
-  const shown = filter === "Todos" ? editais : editais.filter(e => e.tipo === filter)
+  const shown = useMemo(
+    () =>
+      filterEditalCards(editais, {
+        tipo: filterTipo,
+        search,
+        id_edital: filterEditalId,
+        id_campus: filterCampusId,
+      }),
+    [editais, filterTipo, search, filterEditalId, filterCampusId],
+  )
 
   return (
     <div>
@@ -451,29 +551,39 @@ function HomeScreen({
         ))}
       </div>
 
-      {/* Category filter */}
+      {/* Filters + list */}
       <div className="px-4 pt-5">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-[#0D1E12] text-base font-bold">Processos Disponíveis</h3>
+          <h3 className="text-[#0D1E12] text-base font-bold">Cursos disponíveis</h3>
           <button onClick={() => goto("processos")} className="text-[#2A7B3E] text-sm font-semibold focus-visible:outline-2 focus-visible:outline-[#2A7B3E] rounded">
             Ver todos
           </button>
         </div>
-        <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
-          {tipos.map(t => (
-            <button key={t} onClick={() => setFilter(t)}
-              className={`flex-shrink-0 px-4 h-8 rounded-full text-sm font-semibold transition-all focus-visible:outline-2 focus-visible:outline-[#2A7B3E] ${filter === t ? "bg-[#2A7B3E] text-white" : "bg-white border border-[#D1E8D7] text-[#4E6859] hover:border-[#2A7B3E]/40"}`}>
-              {t}
-            </button>
-          ))}
+        <OfertaFiltersBar
+          editais={editais}
+          search={search}
+          setSearch={setSearch}
+          filterTipo={filterTipo}
+          setFilterTipo={setFilterTipo}
+          filterEditalId={filterEditalId}
+          setFilterEditalId={setFilterEditalId}
+          filterCampusId={filterCampusId}
+          setFilterCampusId={setFilterCampusId}
+        />
+        <div className="mt-3 mb-1 bg-amber-50 border border-amber-200 rounded-xl p-3 flex gap-2.5">
+          <Info className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+          <p className="text-amber-800 text-xs leading-relaxed">{AVISO_UM_CURSO_POR_EDITAL}</p>
         </div>
       </div>
 
-      {/* Editais list */}
       <div className="px-4 pt-3 pb-4 flex flex-col gap-3">
-        {shown.map(e => (
-          <EditalCard key={e.id} e={e} onClick={() => { onSelectEdital(e); goto("edital") }} />
-        ))}
+        {shown.length === 0 ? (
+          <p className="text-sm text-[#4E6859] text-center py-6">Nenhum curso encontrado com estes filtros.</p>
+        ) : (
+          shown.map(e => (
+            <EditalCard key={e.id} e={e} onClick={() => { onSelectEdital(e); goto("edital") }} />
+          ))
+        )}
       </div>
 
       {/* Quick actions */}
@@ -512,29 +622,54 @@ function ProcessosScreen({
   onBack: () => void
   onSelectEdital: (e: EditalCardData) => void
 }) {
-  const [filter, setFilter] = useState("Todos")
-  const tipos = ["Todos", "Técnico", "Superior", "Médio"]
-  const fallback = useMemo(() => EDITAIS as EditalCardData[], [])
-  const { editais } = useCursos(fallback)
-  const shown = filter === "Todos" ? editais : editais.filter(e => e.tipo === filter)
+  const [filterTipo, setFilterTipo] = useState("Todos")
+  const [search, setSearch] = useState("")
+  const [filterEditalId, setFilterEditalId] = useState<number | null>(null)
+  const [filterCampusId, setFilterCampusId] = useState<number | null>(null)
+  const fallback = useMemo(() => EDITAIS, [])
+  const { editais } = useOfertas(fallback)
+  const shown = useMemo(
+    () =>
+      filterEditalCards(editais, {
+        tipo: filterTipo,
+        search,
+        id_edital: filterEditalId,
+        id_campus: filterCampusId,
+      }),
+    [editais, filterTipo, search, filterEditalId, filterCampusId],
+  )
+  const abertos = editais.filter(e => e.status === "aberto").length
 
   return (
     <div>
       <BackHeader title="Processos Abertos" onBack={onBack} />
       <div className="px-4 pt-4">
-        <p className="text-[#4E6859] text-sm mb-4">{editais.filter(e => e.status === "aberto").length} editais com inscrições abertas</p>
-        <div className="flex gap-2 overflow-x-auto pb-1 mb-4" style={{ scrollbarWidth: "none" }}>
-          {tipos.map(t => (
-            <button key={t} onClick={() => setFilter(t)}
-              className={`flex-shrink-0 px-4 h-8 rounded-full text-sm font-semibold transition-all focus-visible:outline-2 focus-visible:outline-[#2A7B3E] ${filter === t ? "bg-[#2A7B3E] text-white" : "bg-white border border-[#D1E8D7] text-[#4E6859] hover:border-[#2A7B3E]/40"}`}>
-              {t}
-            </button>
-          ))}
+        <p className="text-[#4E6859] text-sm mb-3">
+          <span className="font-rawline font-semibold text-[#0D1E12]">{abertos}</span> cursos com inscrições abertas
+        </p>
+        <OfertaFiltersBar
+          editais={editais}
+          search={search}
+          setSearch={setSearch}
+          filterTipo={filterTipo}
+          setFilterTipo={setFilterTipo}
+          filterEditalId={filterEditalId}
+          setFilterEditalId={setFilterEditalId}
+          filterCampusId={filterCampusId}
+          setFilterCampusId={setFilterCampusId}
+        />
+        <div className="mt-3 mb-3 bg-amber-50 border border-amber-200 rounded-xl p-3 flex gap-2.5">
+          <Info className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+          <p className="text-amber-800 text-xs leading-relaxed">{AVISO_UM_CURSO_POR_EDITAL}</p>
         </div>
         <div className="flex flex-col gap-3 pb-4">
-          {shown.map(e => (
-            <EditalCard key={e.id} e={e} onClick={() => { onSelectEdital(e); goto("edital") }} />
-          ))}
+          {shown.length === 0 ? (
+            <p className="text-sm text-[#4E6859] text-center py-6">Nenhum curso encontrado com estes filtros.</p>
+          ) : (
+            shown.map(e => (
+              <EditalCard key={e.id} e={e} onClick={() => { onSelectEdital(e); goto("edital") }} />
+            ))
+          )}
         </div>
       </div>
     </div>
@@ -554,6 +689,9 @@ function EditalScreen({
   const title = edital?.titulo ?? "Técnico em Informática"
   const campus = edital?.campus ?? "Campus Brasília"
   const vagas = edital?.vagas ?? 40
+  const turno = edital?.turno ?? "—"
+  const area = edital?.area_conhecimento ?? "—"
+  const editalLabel = edital?.editalLabel ?? "—"
 
   function requireLoginThen(next: Screen) {
     if (!shouldUseMocks() && getSessionUserId() == null) {
@@ -624,13 +762,22 @@ function EditalScreen({
         </div>
       )}
 
-      {/* Info chips */}
+      {/* Info chips — mobile order */}
       <div className="px-4 pt-4 flex gap-2 flex-wrap">
+        <span className="flex items-center gap-1 bg-white border border-[#D1E8D7] rounded-full px-3 py-1.5 text-xs font-semibold text-[#4E6859]">
+          {editalLabel}
+        </span>
         <span className="flex items-center gap-1 bg-white border border-[#D1E8D7] rounded-full px-3 py-1.5 text-xs font-semibold text-[#4E6859]">
           <MapPin className="w-3 h-3" /> {campus}
         </span>
         <span className="flex items-center gap-1 bg-white border border-[#D1E8D7] rounded-full px-3 py-1.5 text-xs font-semibold text-[#4E6859]">
+          {turno}
+        </span>
+        <span className="flex items-center gap-1 bg-white border border-[#D1E8D7] rounded-full px-3 py-1.5 text-xs font-semibold text-[#4E6859]">
           <User className="w-3 h-3" /> {vagas} vagas
+        </span>
+        <span className="flex items-center gap-1 bg-white border border-[#D1E8D7] rounded-full px-3 py-1.5 text-xs font-semibold text-[#4E6859]">
+          {area}
         </span>
         <Badge s={view === "aberto" ? "aberto" : view === "andamento" ? "andamento" : "aprovado"} />
       </div>
@@ -647,7 +794,7 @@ function EditalScreen({
           return (
             <div key={i}
               className={`grid grid-cols-[100px_1fr] border-t border-[#D1E8D7] ${isActive ? "bg-[#2A7B3E]" : isDone ? "bg-[#F0F6F2]" : "bg-white"}`}>
-              <div className={`px-3 py-3 text-[11px] font-mono font-semibold border-r ${isActive ? "border-white/20 text-emerald-100" : "border-[#D1E8D7] text-[#4E6859]"}`}>
+              <div className={`px-3 py-3 text-[11px] font-rawline font-semibold border-r ${isActive ? "border-white/20 text-emerald-100" : "border-[#D1E8D7] text-[#4E6859]"}`}>
                 {row.data}
               </div>
               <div className={`px-3 py-3 text-[12px] leading-relaxed flex items-start gap-2 ${isActive ? "text-white font-semibold" : isDone ? "text-[#4E6859]" : "text-[#0D1E12]"}`}>
@@ -765,8 +912,14 @@ function WizardScreen({
         setSubmitting(false)
         return
       }
-      const cursoId = edital ? Number(edital.id) : NaN
-      if (!Number.isFinite(cursoId)) {
+      const idOferta = edital?.id_oferta
+      const idEdital = edital?.id_edital
+      if (
+        idOferta == null ||
+        idEdital == null ||
+        !Number.isFinite(idOferta) ||
+        !Number.isFinite(idEdital)
+      ) {
         setSubmitError("Curso/oferta inválido para inscrição.")
         setSubmitting(false)
         return
@@ -776,8 +929,8 @@ function WizardScreen({
           method: "POST",
           body: JSON.stringify({
             id_usuario: userId,
-            id_oferta: cursoId,
-            id_edital: cursoId,
+            id_oferta: idOferta,
+            id_edital: idEdital,
             tipo_vaga: tipoVagaFromWizard(cota || "nenhuma", escola),
           }),
         })
@@ -1334,7 +1487,7 @@ function InscricoesScreen({
             </div>
 
             <div className="px-4 py-4">
-              <div className="flex gap-3 mb-4 text-xs font-mono text-[#4E6859]">
+              <div className="flex gap-3 mb-4 text-xs font-rawline text-[#4E6859]">
                 <span>Nº {active.protocolo || "—"}</span>
                 <span>•</span>
                 <span>Inscrito em {active.data}</span>

@@ -63,8 +63,9 @@ export function inferCursoTipo(
 }
 
 /**
- * Maps slim W1 `Cursos` → EditalCard.
- * Campus/vagas/prazo live on Ofertas/Editais — placeholders until PWA remaps to ofertas.
+ * Maps slim W1 `Cursos` → EditalCard (legacy / fallback).
+ * Prefer `ofertaToEditalCard` for Home (real id_oferta / id_edital).
+ * Placeholder ids reuse catalog curso id so mock flows stay typed.
  */
 export function cursoToEditalCard(
   curso: Cursos,
@@ -75,9 +76,14 @@ export function cursoToEditalCard(
   const end = window.data_fim_inscricao;
   return {
     id: String(curso.id),
+    id_oferta: curso.id,
+    id_edital: curso.id,
     titulo: curso.nome,
+    editalLabel: "—",
     sub: curso.eixo_tecnologico ?? curso.requisito_escolaridade ?? "—",
     campus: "—",
+    turno: "—",
+    area_conhecimento: curso.area_conhecimento ?? "—",
     vagas: 0,
     prazo: status === "encerrado" ? "Encerrado" : end ? formatPrazoBr(end) : "—",
     status,

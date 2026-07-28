@@ -5,9 +5,13 @@ import {
   TipoVagaCandidatura,
   TipoEtapaProcesso,
   ResultadoEtapa,
+  MetodoSelecao,
+  TermosModo,
+  TurnoOferta,
   type Cursos,
   type Documento,
   type EtapaProcesso,
+  type Oferta,
 } from "@repo/types";
 import {
   statusCandidaturaToBadge,
@@ -17,6 +21,11 @@ import {
   cursoInscricaoStatus,
   inferCursoTipo,
   formatPrazoBr,
+  ofertaToEditalCard,
+  filterEditalCards,
+  uniqueEditaisFromCards,
+  uniqueCampusesFromCards,
+  formatTurnoLabel,
   tipoVagaFromWizard,
   etapaProcessoToCronogramaRow,
   etapasToCronograma,
@@ -144,14 +153,111 @@ describe("curso mappers", () => {
     );
     expect(card).toMatchObject({
       id: "7",
+      id_oferta: 7,
+      id_edital: 7,
       titulo: "Técnico em Informática",
       campus: "—",
       vagas: 0,
       status: "aberto",
       tipo: "Técnico",
+      area_conhecimento: "Informática",
     });
     expect(card.prazo).toBe("31/12/2026");
     expect(card.sub).toBe("Informação e Comunicação");
+  });
+});
+
+describe("oferta mappers (W16 / M-06)", () => {
+  const baseOferta: Oferta = {
+    id: 42,
+    id_edital: 10,
+    id_curso: 7,
+    id_campus: 3,
+    turno: TurnoOferta.NOTURNO,
+    vagas_totais: 40,
+    edital: {
+      id: 10,
+      numero_ano: "2025.1-IFB",
+      metodo_selecao: MetodoSelecao.ALEATORIO,
+      is_simplificado: false,
+      fallback_ac_para_rv: false,
+      termos_modo: TermosModo.TEXTO,
+      termos_valor: "",
+      publicado: true,
+      inscricoes_abertas: true,
+    },
+    curso: baseCurso,
+    campus: { id: 3, nome: "Campus Planaltina" },
+  };
+
+  it("maps Oferta → EditalCard with real ids and campus/turno/área", () => {
+    const card = ofertaToEditalCard(baseOferta, new Date(2026, 5, 15));
+    expect(card).toMatchObject({
+      id: "42",
+      id_oferta: 42,
+      id_edital: 10,
+      titulo: "Técnico em Informática",
+      editalLabel: "2025.1-IFB",
+      campus: "Campus Planaltina",
+      id_campus: 3,
+      turno: "Noturno",
+      area_conhecimento: "Informática",
+      vagas: 40,
+      status: "aberto",
+      tipo: "Técnico",
+    });
+  });
+
+  it("marks encerrado when inscricoes_abertas is false", () => {
+    const card = ofertaToEditalCard({
+      ...baseOferta,
+      edital: {
+        ...baseOferta.edital!,
+        inscricoes_abertas: false,
+      },
+    });
+    expect(card.status).toBe("encerrado");
+    expect(card.prazo).toBe("Encerrado");
+  });
+
+  it("formats turno labels", () => {
+    expect(formatTurnoLabel(TurnoOferta.MATUTINO)).toBe("Matutino");
+    expect(formatTurnoLabel(undefined)).toBe("—");
+  });
+
+  it("filters by processo, campus, search and tipo", () => {
+    const cards = [
+      ofertaToEditalCard(baseOferta),
+      ofertaToEditalCard({
+        ...baseOferta,
+        id: 43,
+        id_edital: 11,
+        id_campus: 4,
+        edital: {
+          ...baseOferta.edital!,
+          id: 11,
+          numero_ano: "2025.1-OUTRO",
+        },
+        campus: { id: 4, nome: "Campus Gama" },
+        curso: {
+          id: 8,
+          nome: "Bacharelado em Computação",
+          area_conhecimento: "Superior",
+        },
+      }),
+    ];
+    expect(filterEditalCards(cards, { id_edital: 10 })).toHaveLength(1);
+    expect(filterEditalCards(cards, { id_campus: 4 })).toHaveLength(1);
+    expect(filterEditalCards(cards, { search: "planaltina" })).toHaveLength(1);
+    expect(filterEditalCards(cards, { tipo: "Superior" })).toHaveLength(1);
+    expect(uniqueEditaisFromCards(cards)).toEqual([
+      { id: 10, label: "2025.1-IFB" },
+      { id: 11, label: "2025.1-OUTRO" },
+    ]);
+    expect(uniqueCampusesFromCards(cards).map((c) => c.label)).toEqual([
+      "Campus Gama",
+      "Campus Planaltina",
+    ]);
   });
 });
 
