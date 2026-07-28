@@ -1,6 +1,8 @@
 import { BadRequestException } from '@nestjs/common';
 
-export type FaixaWarningCode = 'FAIXAS_ATIVAS_VAZIAS';
+export type FaixaWarningCode =
+  | 'FAIXAS_ATIVAS_VAZIAS'
+  | 'FAIXAS_COM_RESPOSTAS';
 
 export type FaixaWarning = {
   code: FaixaWarningCode;
@@ -15,18 +17,27 @@ export type FaixaLike = {
 };
 
 /** Soft: no active bands → Rule B (baixa renda allowed; socio incomplete). */
-export function buildFaixasWarnings(faixas: FaixaLike[]): FaixaWarning[] {
+export function buildFaixasWarnings(
+  faixas: FaixaLike[],
+  opts?: { hasSocioAnswers?: boolean },
+): FaixaWarning[] {
+  const warnings: FaixaWarning[] = [];
   const active = faixas.filter((f) => f.ativo !== false);
   if (active.length === 0) {
-    return [
-      {
-        code: 'FAIXAS_ATIVAS_VAZIAS',
-        message:
-          'Nenhuma faixa SM ativa: inscrição baixa renda permitida; bloco socioeconómico incompleto (regra B)',
-      },
-    ];
+    warnings.push({
+      code: 'FAIXAS_ATIVAS_VAZIAS',
+      message:
+        'Nenhuma faixa SM ativa: inscrição baixa renda permitida; bloco socioeconómico incompleto (regra B)',
+    });
   }
-  return [];
+  if (opts?.hasSocioAnswers) {
+    warnings.push({
+      code: 'FAIXAS_COM_RESPOSTAS',
+      message:
+        'Existem respostas socioeconómicas que referenciam faixas; alterações só afetam novas respostas (snapshots preservados)',
+    });
+  }
+  return warnings;
 }
 
 export function isRegraB(faixas: FaixaLike[]): boolean {

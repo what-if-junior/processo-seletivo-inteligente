@@ -24,6 +24,7 @@ export type UiBadgeStatus =
   | "reprovado"
   | "encerrado"
   | "pendente"
+  | "pendente_docs"
   | "enviado"
   | "na";
 

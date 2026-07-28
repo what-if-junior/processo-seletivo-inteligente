@@ -1,4 +1,6 @@
+import { ApiPropertyOptional } from '@nestjs/swagger';
 import { TipoIngresso, TipoVagaCandidatura } from '@repo/types';
+import { SocioeconomicoDto } from '../../socioeconomico/dto/socioeconomico.dto';
 
 export class CreateCandidaturaDto {
   id_usuario: number;
@@ -8,4 +10,11 @@ export class CreateCandidaturaDto {
   data_inscricao?: string;
   tipo_ingresso?: TipoIngresso;
   tipo_vaga?: TipoVagaCandidatura;
+
+  @ApiPropertyOptional({
+    type: SocioeconomicoDto,
+    description:
+      'Obrigatório (faixa + nº pessoas) para BAIXA_RENDA quando há faixas ativas; omitido/incompleto sob regra B',
+  })
+  socioeconomico?: SocioeconomicoDto;
 }

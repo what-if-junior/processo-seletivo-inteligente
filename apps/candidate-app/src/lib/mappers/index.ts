@@ -20,3 +20,12 @@ export {
   messageFromInscricaoApiError,
   AVISO_UM_CURSO_POR_EDITAL,
 } from "./inscricao-error";
+export {
+  isBaixaRendaCota,
+  socioWizardIssues,
+  buildSocioPayload,
+  badgeForSocioIncompleto,
+  type FaixaSmPublic,
+  type FaixasSmPublicEnvelope,
+  type SocioeconomicoPayload,
+} from "./socioeconomico";

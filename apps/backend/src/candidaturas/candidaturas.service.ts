@@ -14,6 +14,8 @@ import { User } from '../user/entities/user.entity';
 import { Oferta } from '../ofertas/entities/oferta.entity';
 import { Edital } from '../editais/entities/edital.entity';
 import { CronogramaService } from '../cronograma/cronograma.service';
+import { SocioeconomicoService } from '../socioeconomico/socioeconomico.service';
+import { UpdateTipoVagaDto } from '../socioeconomico/dto/socioeconomico.dto';
 import {
   canCandidateCancel,
   isBlockingTerminal,
@@ -35,6 +37,7 @@ export class CandidaturasService {
     @InjectRepository(Oferta)
     private readonly ofertaRepository: Repository<Oferta>,
     private readonly cronogramaService: CronogramaService,
+    private readonly socioeconomicoService: SocioeconomicoService,
   ) {}
 
   async findAll(): Promise<Candidatura[]> {
@@ -44,7 +47,13 @@ export class CandidaturasService {
     });
   }
 
-  async findOne(id: number): Promise<Candidatura> {
+  async findOne(id: number): Promise<
+    Candidatura & {
+      socioeconomico?: Awaited<
+        ReturnType<SocioeconomicoService['findByCandidatura']>
+      >;
+    }
+  > {
     const candidatura = await this.candidaturaRepository.findOne({
       where: { id },
       relations: {
@@ -56,7 +65,9 @@ export class CandidaturasService {
     });
     if (!candidatura)
       throw new NotFoundException(`Candidatura ${id} não encontrada`);
-    return candidatura;
+    const socioeconomico =
+      await this.socioeconomicoService.findByCandidatura(id);
+    return Object.assign(candidatura, { socioeconomico });
   }
 
   async findByOferta(idOferta: number): Promise<Candidatura[]> {
@@ -91,10 +102,6 @@ export class CandidaturasService {
     }
   }
 
-  /**
-   * REQ-2.2 / RS02: at most one non-cancelada inscription per usuario×edital.
-   * `cancelada` frees the slot; `reprovado`/`desclassificada` block forever.
-   */
   private async assertUnicidadeUsuarioEdital(
     idUsuario: number,
     idEdital: number,
@@ -111,8 +118,13 @@ export class CandidaturasService {
     throw new ConflictException(MSG_ACTIVE_DUPLICATE);
   }
 
-  /** RS02: uma unica candidatura ativa por usuario em cada edital. */
-  async create(dto: CreateCandidaturaDto): Promise<Candidatura> {
+  async create(dto: CreateCandidaturaDto): Promise<
+    Candidatura & {
+      socioeconomico?: Awaited<
+        ReturnType<SocioeconomicoService['findByCandidatura']>
+      >;
+    }
+  > {
     const oferta = await this.ofertaRepository.findOne({
       where: { id: dto.id_oferta },
     });
@@ -130,30 +142,78 @@ export class CandidaturasService {
     await this.assertJanelaInscricaoAberta(idEdital);
     await this.assertUnicidadeUsuarioEdital(dto.id_usuario, idEdital);
 
+    const tipoVaga = dto.tipo_vaga ?? TipoVagaCandidatura.AC;
+
     const candidatura = this.candidaturaRepository.create({
-      data_inscricao: dto.data_inscricao ?? new Date().toISOString().slice(0, 10),
+      data_inscricao:
+        dto.data_inscricao ?? new Date().toISOString().slice(0, 10),
       tipo_ingresso: dto.tipo_ingresso ?? null,
-      tipo_vaga: dto.tipo_vaga ?? TipoVagaCandidatura.AC,
+      tipo_vaga: tipoVaga,
       status: StatusCandidatura.INSCRICAO_RECEBIDA,
       usuario: { id: dto.id_usuario } as User,
       oferta: { id: dto.id_oferta } as Oferta,
       edital: { id: idEdital } as Edital,
     });
 
+    let saved: Candidatura;
     try {
-      return await this.candidaturaRepository.save(candidatura);
+      saved = await this.candidaturaRepository.save(candidatura);
     } catch (error) {
       if ((error as { code?: string }).code === UNIQUE_VIOLATION) {
         throw new ConflictException(MSG_ACTIVE_DUPLICATE);
       }
       throw error;
     }
+
+    await this.socioeconomicoService.applyForCandidatura(
+      saved,
+      tipoVaga,
+      dto.socioeconomico,
+    );
+
+    const socioeconomico =
+      await this.socioeconomicoService.findByCandidatura(saved.id);
+    return Object.assign(saved, { socioeconomico });
   }
 
-  /**
-   * Candidate cancel → `cancelada` only while effective Inscrição window is open
-   * (REQ-0.1 / 1.2 / 2.2).
-   */
+  /** REQ-2.3: change cota — previous socio answers stay archived. */
+  async updateTipoVaga(
+    id: number,
+    dto: UpdateTipoVagaDto,
+  ): Promise<
+    Candidatura & {
+      socioeconomico?: Awaited<
+        ReturnType<SocioeconomicoService['findByCandidatura']>
+      >;
+    }
+  > {
+    const candidatura = await this.candidaturaRepository.findOne({
+      where: { id },
+    });
+    if (!candidatura) {
+      throw new NotFoundException(`Candidatura ${id} não encontrada`);
+    }
+    if (!dto.tipo_vaga) {
+      throw new BadRequestException('tipo_vaga é obrigatório');
+    }
+
+    await this.assertJanelaInscricaoAberta(candidatura.id_edital);
+
+    candidatura.tipo_vaga = dto.tipo_vaga;
+    const saved = await this.candidaturaRepository.save(candidatura);
+
+    await this.socioeconomicoService.applyForCandidatura(
+      saved,
+      dto.tipo_vaga,
+      dto.socioeconomico,
+      { archivePrevious: true },
+    );
+
+    const socioeconomico =
+      await this.socioeconomicoService.findByCandidatura(saved.id);
+    return Object.assign(saved, { socioeconomico });
+  }
+
   async cancel(id: number): Promise<Candidatura> {
     const candidatura = await this.candidaturaRepository.findOne({
       where: { id },

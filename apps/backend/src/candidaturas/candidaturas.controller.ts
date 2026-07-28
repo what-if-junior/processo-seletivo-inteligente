@@ -17,13 +17,18 @@ import {
 } from '@nestjs/swagger';
 import { CandidaturasService } from './candidaturas.service';
 import { CreateCandidaturaDto } from './dto/create-candidatura.dto';
+import { UpdateTipoVagaDto } from '../socioeconomico/dto/socioeconomico.dto';
+import { SocioeconomicoService } from '../socioeconomico/socioeconomico.service';
 
 @ApiTags('candidaturas')
 @ApiBearerAuth()
 @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
 @Controller('candidaturas')
 export class CandidaturasController {
-  constructor(private readonly candidaturasService: CandidaturasService) {}
+  constructor(
+    private readonly candidaturasService: CandidaturasService,
+    private readonly socioeconomicoService: SocioeconomicoService,
+  ) {}
 
   @Get()
   @ApiQuery({
@@ -42,10 +47,19 @@ export class CandidaturasController {
     return this.candidaturasService.findAll();
   }
 
+  @Get(':id/socioeconomico')
+  @ApiOperation({
+    summary:
+      'Resposta socioeconómica ativa + arquivadas (REQ-2.3); incompleto sob regra B',
+  })
+  getSocioeconomico(@Param('id', ParseIntPipe) id: number) {
+    return this.socioeconomicoService.findByCandidatura(id);
+  }
+
   @Get(':id')
   @ApiOperation({
     summary:
-      'Detalha uma candidatura com documentos, etapas e recursos (requer JWT)',
+      'Detalha uma candidatura com documentos, etapas, recursos e socio (requer JWT)',
   })
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.candidaturasService.findOne(id);
@@ -53,11 +67,22 @@ export class CandidaturasController {
 
   @Post()
   @ApiOperation({
-    summary:
-      'Cria candidatura na janela de Inscrição; bloqueia 2ª ativa no mesmo edital (REQ-2.2)',
+    summary: 'Cria candidatura; socio se BAIXA_RENDA (REQ-2.2 / 2.3)',
   })
   create(@Body() createCandidaturaDto: CreateCandidaturaDto) {
     return this.candidaturasService.create(createCandidaturaDto);
+  }
+
+  @Patch(':id/tipo-vaga')
+  @ApiOperation({
+    summary:
+      'Troca cota/tipo_vaga; arquiva respostas socioeconómicas anteriores (REQ-2.3)',
+  })
+  updateTipoVaga(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateTipoVagaDto,
+  ) {
+    return this.candidaturasService.updateTipoVaga(id, dto);
   }
 
   @Patch(':id/cancelar')

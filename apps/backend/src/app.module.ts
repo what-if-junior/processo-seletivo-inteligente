@@ -16,6 +16,7 @@ import { TiposDocumentoModule } from './tipos-documento/tipos-documento.module';
 import { TiposDocumentoBaseModule } from './tipos-documento-base/tipos-documento-base.module';
 import { EntregaDocumentalModule } from './entrega-documental/entrega-documental.module';
 import { FaixasModule } from './faixas/faixas.module';
+import { SocioeconomicoModule } from './socioeconomico/socioeconomico.module';
 import { SchemaExtrasModule } from './schema-extras/schema-extras.module';
 import { SchemaFoundationModule } from './schema-foundation/schema-foundation.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -57,6 +58,7 @@ import { JwtAuthGuard } from './auth/guards/jwt.guard';
     TiposDocumentoBaseModule,
     EntregaDocumentalModule,
     FaixasModule,
+    SocioeconomicoModule,
     GestoresModule,
     EtapasProcessoModule,
     RecursosModule,

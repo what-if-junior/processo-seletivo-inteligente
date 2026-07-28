@@ -1,7 +1,9 @@
 import {
   BadRequestException,
+  Inject,
   Injectable,
   NotFoundException,
+  forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -17,6 +19,7 @@ import {
   isRegraB,
   type FaixaWarning,
 } from './faixas-validation.util';
+import { SocioeconomicoService } from '../socioeconomico/socioeconomico.service';
 
 export type FaixasEnvelope = {
   salario_minimo_referencia: number;
@@ -42,6 +45,8 @@ export class FaixasService {
     private readonly faixaRepository: Repository<FaixaSalarioMinimo>,
     @InjectRepository(ConfiguracaoGlobal)
     private readonly configRepository: Repository<ConfiguracaoGlobal>,
+    @Inject(forwardRef(() => SocioeconomicoService))
+    private readonly socioeconomicoService: SocioeconomicoService,
   ) {}
 
   private async requireConfig(): Promise<ConfiguracaoGlobal> {
@@ -71,11 +76,12 @@ export class FaixasService {
   ): Promise<FaixasEnvelope> {
     const config = await this.requireConfig();
     const forRegra = allForRegraB ?? (await this.listAll());
+    const hasSocioAnswers = await this.socioeconomicoService.hasAnyAnswers();
     return {
       salario_minimo_referencia: config.salario_minimo_referencia,
       faixas,
       regra_b_socioeconomico: isRegraB(forRegra),
-      warnings: buildFaixasWarnings(forRegra),
+      warnings: buildFaixasWarnings(forRegra, { hasSocioAnswers }),
     };
   }
 

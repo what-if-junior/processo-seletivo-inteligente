@@ -17,6 +17,7 @@ import { Oferta } from '../../ofertas/entities/oferta.entity';
 import { Edital } from '../../editais/entities/edital.entity';
 import { Documento } from '../../documentos/entities/documento.entity';
 import { EtapaProcesso } from '../../etapas-processo/entities/etapa-processo.entity';
+import { RespostaSocioeconomica } from '../../socioeconomico/entities/resposta-socioeconomica.entity';
 import { numericTransformer } from '../../common/transformers';
 
 @Entity('Candidaturas')
@@ -96,4 +97,10 @@ export class Candidatura {
 
   @OneToMany(() => EtapaProcesso, (etapa) => etapa.candidatura)
   etapas?: EtapaProcesso[];
+
+  @OneToMany(
+    () => RespostaSocioeconomica,
+    (resposta) => resposta.candidatura,
+  )
+  respostas_socioeconomicas?: RespostaSocioeconomica[];
 }

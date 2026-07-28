@@ -11,6 +11,7 @@ import { CandidaturasService } from './candidaturas.service';
 import { Candidatura } from './entities/candidatura.entity';
 import { Oferta } from '../ofertas/entities/oferta.entity';
 import { CronogramaService } from '../cronograma/cronograma.service';
+import { SocioeconomicoService } from '../socioeconomico/socioeconomico.service';
 import {
   MSG_ACTIVE_DUPLICATE,
   MSG_BLOCKED_AFTER_TERMINAL,
@@ -36,6 +37,16 @@ describe('CandidaturasService', () => {
     getJanelaInscricao: jest.fn(),
   };
 
+  const socioeconomicoService = {
+    applyForCandidatura: jest.fn().mockResolvedValue(null),
+    findByCandidatura: jest.fn().mockResolvedValue({
+      ativo: null,
+      arquivados: [],
+      socioeconomico_incompleto: false,
+      regra_b_socioeconomico: true,
+    }),
+  };
+
   const oferta = {
     id: 5,
     id_edital: 10,
@@ -45,6 +56,13 @@ describe('CandidaturasService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    socioeconomicoService.applyForCandidatura.mockResolvedValue(null);
+    socioeconomicoService.findByCandidatura.mockResolvedValue({
+      ativo: null,
+      arquivados: [],
+      socioeconomico_incompleto: false,
+      regra_b_socioeconomico: true,
+    });
     cronogramaService.getJanelaInscricao.mockResolvedValue({
       aberta: true,
       etapa: { tipo: 'INSCRICAO' },
@@ -60,10 +78,35 @@ describe('CandidaturasService', () => {
         },
         { provide: getRepositoryToken(Oferta), useValue: ofertaRepo },
         { provide: CronogramaService, useValue: cronogramaService },
+        { provide: SocioeconomicoService, useValue: socioeconomicoService },
       ],
     }).compile();
 
     service = module.get(CandidaturasService);
+  });
+
+  describe('create — socioeconómico (REQ-2.3)', () => {
+    it('applies socio payload for BAIXA_RENDA', async () => {
+      candidaturaRepo.find.mockResolvedValue([]);
+      candidaturaRepo.save.mockImplementation(async (row) => ({
+        id: 50,
+        ...row,
+      }));
+
+      await service.create({
+        id_usuario: 1,
+        id_oferta: 5,
+        id_edital: 10,
+        tipo_vaga: TipoVagaCandidatura.BAIXA_RENDA,
+        socioeconomico: { id_faixa: 1, numero_pessoas: 3 },
+      });
+
+      expect(socioeconomicoService.applyForCandidatura).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 50 }),
+        TipoVagaCandidatura.BAIXA_RENDA,
+        { id_faixa: 1, numero_pessoas: 3 },
+      );
+    });
   });
 
   describe('create — uniqueness CPF×edital (REQ-2.2)', () => {
