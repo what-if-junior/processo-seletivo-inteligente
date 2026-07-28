@@ -251,13 +251,29 @@ describe('CandidaturasService', () => {
     };
 
     it('sets status to cancelada when window open', async () => {
-      candidaturaRepo.findOne.mockResolvedValue({ ...active });
+      candidaturaRepo.findOne.mockResolvedValue({
+        ...active,
+        protocolo: '001-C1-2024-00001-1',
+      });
       candidaturaRepo.save.mockImplementation(async (row) => row);
 
       const result = await service.cancel(7);
 
       expect(result.status).toBe(StatusCandidatura.CANCELADA);
+      expect(result.protocolo).toBe('001-C1-2024-00001-1');
       expect(cronogramaService.getJanelaInscricao).toHaveBeenCalledWith(10);
+    });
+
+    it('keeps protocolo after cancel so downloaded PDF QR can still hit validate', async () => {
+      candidaturaRepo.findOne.mockResolvedValue({
+        ...active,
+        protocolo: '001-C1-2024-00001-1',
+      });
+      candidaturaRepo.save.mockImplementation(async (row) => row);
+
+      const cancelled = await service.cancel(7);
+      expect(cancelled.protocolo).toBe('001-C1-2024-00001-1');
+      expect(cancelled.status).toBe(StatusCandidatura.CANCELADA);
     });
 
     it('rejects cancel outside Inscrição window', async () => {
