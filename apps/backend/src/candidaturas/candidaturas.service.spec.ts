@@ -28,6 +28,7 @@ describe('CandidaturasService', () => {
     count: jest.fn(),
     create: jest.fn((x) => x),
     save: jest.fn(),
+    query: jest.fn(),
   };
 
   const ofertaRepo = {
@@ -78,14 +79,15 @@ describe('CandidaturasService', () => {
   describe('create — uniqueness CPF×edital (REQ-2.2)', () => {
     it('creates when no prior inscription on edital', async () => {
       candidaturaRepo.find.mockResolvedValue([]);
-      candidaturaRepo.save.mockImplementation(async (row) => ({
+      candidaturaRepo.query.mockResolvedValue([{ id: 99 }]);
+      candidaturaRepo.findOne.mockResolvedValue({
         id: 99,
-        ...row,
         id_usuario: 1,
         id_oferta: 5,
         id_edital: 10,
         status: StatusCandidatura.INSCRICAO_RECEBIDA,
-      }));
+        protocolo: '001-C1-2024-00001-1',
+      });
 
       const result = await service.create({
         id_usuario: 1,
@@ -96,6 +98,7 @@ describe('CandidaturasService', () => {
 
       expect(result.id).toBe(99);
       expect(result.protocolo).toBe('001-C1-2024-00001-1');
+      expect(candidaturaRepo.query).toHaveBeenCalled();
       expect(cronogramaService.getJanelaInscricao).toHaveBeenCalledWith(10);
       expect(candidaturaRepo.find).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -113,10 +116,14 @@ describe('CandidaturasService', () => {
           status: StatusCandidatura.CANCELADA,
         },
       ]);
-      candidaturaRepo.save.mockImplementation(async (row) => ({
+      candidaturaRepo.query.mockResolvedValue([{ id: 2 }]);
+      candidaturaRepo.findOne.mockResolvedValue({
         id: 2,
-        ...row,
-      }));
+        id_usuario: 1,
+        id_oferta: 5,
+        id_edital: 10,
+        status: StatusCandidatura.INSCRICAO_RECEBIDA,
+      });
 
       await expect(
         service.create({

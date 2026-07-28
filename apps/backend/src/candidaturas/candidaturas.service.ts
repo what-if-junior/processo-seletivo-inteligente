@@ -11,9 +11,7 @@ import { Repository } from 'typeorm';
 import { StatusCandidatura, TipoVagaCandidatura } from '@repo/types';
 import { Candidatura } from './entities/candidatura.entity';
 import { CreateCandidaturaDto } from './dto/create-candidatura.dto';
-import { User } from '../user/entities/user.entity';
 import { Oferta } from '../ofertas/entities/oferta.entity';
-import { Edital } from '../editais/entities/edital.entity';
 import { CronogramaService } from '../cronograma/cronograma.service';
 import {
   canCandidateCancel,
@@ -186,19 +184,32 @@ export class CandidaturasService {
       seq,
     );
 
-    const candidatura = this.candidaturaRepository.create({
-      data_inscricao: dto.data_inscricao ?? new Date().toISOString().slice(0, 10),
-      tipo_ingresso: dto.tipo_ingresso ?? null,
-      tipo_vaga: dto.tipo_vaga ?? TipoVagaCandidatura.AC,
-      status: StatusCandidatura.INSCRICAO_RECEBIDA,
-      protocolo,
-      usuario: { id: dto.id_usuario } as User,
-      oferta: { id: dto.id_oferta } as Oferta,
-      edital: { id: idEdital } as Edital,
-    });
+    const dataInscricao =
+      dto.data_inscricao ?? new Date().toISOString().slice(0, 10);
+    const tipoVaga = dto.tipo_vaga ?? TipoVagaCandidatura.AC;
+    const tipoIngresso = dto.tipo_ingresso ?? null;
 
     try {
-      return await this.candidaturaRepository.save(candidatura);
+      // FK scalars are insert:false on the entity; insert via SQL so JoinColumns
+      // are always written (TypeORM save was omitting id_usuario/oferta/edital).
+      const rows: Array<{ id: number }> = await this.candidaturaRepository.query(
+        `INSERT INTO "Candidaturas"
+          ("id_usuario", "id_oferta", "id_edital", "data_inscricao", "status",
+           "tipo_ingresso", "tipo_vaga", "protocolo")
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+         RETURNING id`,
+        [
+          dto.id_usuario,
+          dto.id_oferta,
+          idEdital,
+          dataInscricao,
+          StatusCandidatura.INSCRICAO_RECEBIDA,
+          tipoIngresso,
+          tipoVaga,
+          protocolo,
+        ],
+      );
+      return this.findOne(Number(rows[0].id));
     } catch (error) {
       if ((error as { code?: string }).code === UNIQUE_VIOLATION) {
         throw new ConflictException(MSG_ACTIVE_DUPLICATE);
