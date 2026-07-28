@@ -24,6 +24,7 @@ describe('CandidaturasService', () => {
   const candidaturaRepo = {
     find: jest.fn(),
     findOne: jest.fn(),
+    count: jest.fn(),
     create: jest.fn((x) => x),
     save: jest.fn(),
   };
@@ -41,7 +42,9 @@ describe('CandidaturasService', () => {
     id_edital: 10,
     id_curso: 1,
     id_campus: 1,
-  } as Oferta;
+    edital: { id: 10, numero_ano: '001/2024' },
+    curso: { id: 1, nome: 'Curso Teste' },
+  } as unknown as Oferta;
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -50,6 +53,7 @@ describe('CandidaturasService', () => {
       etapa: { tipo: 'INSCRICAO' },
     });
     ofertaRepo.findOne.mockResolvedValue(oferta);
+    candidaturaRepo.count.mockResolvedValue(0);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -86,6 +90,7 @@ describe('CandidaturasService', () => {
       });
 
       expect(result.id).toBe(99);
+      expect(result.protocolo).toBe('001-C1-2024-00001-1');
       expect(cronogramaService.getJanelaInscricao).toHaveBeenCalledWith(10);
       expect(candidaturaRepo.find).toHaveBeenCalledWith(
         expect.objectContaining({

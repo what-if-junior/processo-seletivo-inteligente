@@ -24,6 +24,11 @@ import {
   MSG_INSCRICAO_WINDOW_CLOSED,
   occupiesEditalSlot,
 } from './candidatura-uniqueness.util';
+import {
+  cursoCodigoFromId,
+  formatProtocolo,
+  parseEditalNumeroAno,
+} from './protocolo.util';
 
 const UNIQUE_VIOLATION = '23505';
 
@@ -41,6 +46,18 @@ export class CandidaturasService {
     return this.candidaturaRepository.find({
       relations: { usuario: true, oferta: { curso: true, campus: true } },
       order: { id: 'ASC' },
+    });
+  }
+
+  async findByProtocolo(protocolo: string): Promise<Candidatura | null> {
+    const normalized = protocolo.trim();
+    if (!normalized) return null;
+    return this.candidaturaRepository.findOne({
+      where: { protocolo: normalized },
+      relations: {
+        usuario: true,
+        oferta: { curso: true, campus: true, edital: true },
+      },
     });
   }
 
@@ -111,10 +128,36 @@ export class CandidaturasService {
     throw new ConflictException(MSG_ACTIVE_DUPLICATE);
   }
 
+  /** Next SEQ for protocol within an edital (includes cancelled rows). */
+  private async nextProtocoloSeq(idEdital: number): Promise<number> {
+    const count = await this.candidaturaRepository.count({
+      where: { id_edital: idEdital },
+    });
+    return count + 1;
+  }
+
+  private buildProtocoloForOferta(
+    oferta: Oferta,
+    idUsuario: number,
+    seq: number,
+  ): string {
+    const numeroAno = oferta.edital?.numero_ano ?? String(oferta.id_edital);
+    const { editalCodigo, ano } = parseEditalNumeroAno(numeroAno);
+    const idCurso = oferta.id_curso ?? oferta.curso?.id ?? 0;
+    return formatProtocolo({
+      editalCodigo,
+      cursoCodigo: cursoCodigoFromId(Number(idCurso)),
+      ano,
+      seq,
+      idAluno: idUsuario,
+    });
+  }
+
   /** RS02: uma unica candidatura ativa por usuario em cada edital. */
   async create(dto: CreateCandidaturaDto): Promise<Candidatura> {
     const oferta = await this.ofertaRepository.findOne({
       where: { id: dto.id_oferta },
+      relations: { edital: true, curso: true },
     });
     if (!oferta) {
       throw new NotFoundException(`Oferta ${dto.id_oferta} não encontrada`);
@@ -130,11 +173,19 @@ export class CandidaturasService {
     await this.assertJanelaInscricaoAberta(idEdital);
     await this.assertUnicidadeUsuarioEdital(dto.id_usuario, idEdital);
 
+    const seq = await this.nextProtocoloSeq(idEdital);
+    const protocolo = this.buildProtocoloForOferta(
+      oferta,
+      dto.id_usuario,
+      seq,
+    );
+
     const candidatura = this.candidaturaRepository.create({
       data_inscricao: dto.data_inscricao ?? new Date().toISOString().slice(0, 10),
       tipo_ingresso: dto.tipo_ingresso ?? null,
       tipo_vaga: dto.tipo_vaga ?? TipoVagaCandidatura.AC,
       status: StatusCandidatura.INSCRICAO_RECEBIDA,
+      protocolo,
       usuario: { id: dto.id_usuario } as User,
       oferta: { id: dto.id_oferta } as Oferta,
       edital: { id: idEdital } as Edital,
