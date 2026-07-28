@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { Candidatura, Cursos, Documento, Usuario } from "@repo/types";
-import { apiFetch } from "./api";
+import { apiFetch, apiFetchBlob } from "./api";
 import {
   cursoToEditalCard,
   documentoToDocUiRow,
@@ -113,7 +113,7 @@ function candidaturaToCard(c: Candidatura): InscricaoCard {
     campus: campusNome ?? "—",
     statusBadge: statusCandidaturaToBadge(c.status),
     data: formatInscricaoDate(c.data_inscricao),
-    protocolo: c.protocolo ?? `IFB-${c.id}`,
+    protocolo: c.protocolo ?? "",
     isActive: !isTerminalCandidaturaStatus(c.status),
   };
 }
@@ -178,7 +178,32 @@ export function useInscricoes() {
     reload();
   }
 
-  return { active, past, source, loading, reload, cancelActive };
+  async function downloadComprovante(): Promise<void> {
+    if (shouldUseMocks() || !active || active.id <= 0) {
+      throw new Error("Comprovante indisponível no modo demonstração.");
+    }
+    const blob = await apiFetchBlob(
+      `/candidaturas/${active.id}/comprovante.pdf`,
+    );
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `comprovante-${active.protocolo || active.id}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  return {
+    active,
+    past,
+    source,
+    loading,
+    reload,
+    cancelActive,
+    downloadComprovante,
+  };
 }
 
 export function useDocumentos(

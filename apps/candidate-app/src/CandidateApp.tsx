@@ -1251,9 +1251,11 @@ function InscricoesScreen({
 }) {
   const currentStep = 1 // visual stepper stays mock until status model freezes
   const loggedIn = shouldUseMocks() || getSessionUserId() != null
-  const { active, past, cancelActive, source } = useInscricoes()
+  const { active, past, cancelActive, downloadComprovante, source } = useInscricoes()
   const [cancelError, setCancelError] = useState<string | null>(null)
   const [cancelling, setCancelling] = useState(false)
+  const [downloadError, setDownloadError] = useState<string | null>(null)
+  const [downloading, setDownloading] = useState(false)
 
   async function handleCancel() {
     if (cancelling) return
@@ -1265,6 +1267,19 @@ function InscricoesScreen({
       setCancelError(messageFromInscricaoApiError(err))
     } finally {
       setCancelling(false)
+    }
+  }
+
+  async function handleDownloadComprovante() {
+    if (downloading) return
+    setDownloading(true)
+    setDownloadError(null)
+    try {
+      await downloadComprovante()
+    } catch (err) {
+      setDownloadError(messageFromInscricaoApiError(err))
+    } finally {
+      setDownloading(false)
     }
   }
 
@@ -1381,6 +1396,20 @@ function InscricoesScreen({
                 className="w-full flex items-center justify-center gap-2 h-10 rounded-xl border-2 border-[#D1E8D7] text-[#2A7B3E] text-sm font-semibold hover:bg-[#E7F4EA] transition-colors focus-visible:outline-2 focus-visible:outline-[#2A7B3E]">
                 Ver detalhes do edital <ChevronRight className="w-4 h-4" />
               </button>
+              {source === "api" && active.id > 0 && active.protocolo && (
+                <button
+                  type="button"
+                  disabled={downloading}
+                  onClick={() => { void handleDownloadComprovante() }}
+                  className="w-full flex items-center justify-center gap-2 h-10 rounded-xl bg-[#2A7B3E] text-white text-sm font-semibold hover:bg-[#236b35] transition-colors focus-visible:outline-2 focus-visible:outline-[#2A7B3E] disabled:opacity-60"
+                >
+                  <FileText className="w-4 h-4" />
+                  {downloading ? "Gerando PDF…" : "Baixar comprovante (PDF)"}
+                </button>
+              )}
+              {downloadError && (
+                <p className="text-xs text-red-700 text-center leading-relaxed">{downloadError}</p>
+              )}
               {source === "api" && active.id > 0 && (
                 <button
                   type="button"
