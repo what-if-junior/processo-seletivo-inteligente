@@ -5,6 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { StatusCandidatura, TipoVagaCandidatura } from '@repo/types';
@@ -29,6 +30,10 @@ import {
   formatProtocolo,
   parseEditalNumeroAno,
 } from './protocolo.util';
+import {
+  buildComprovantePdf,
+  buildProtocoloValidateUrl,
+} from './comprovante-pdf.util';
 
 const UNIQUE_VIOLATION = '23505';
 
@@ -40,6 +45,7 @@ export class CandidaturasService {
     @InjectRepository(Oferta)
     private readonly ofertaRepository: Repository<Oferta>,
     private readonly cronogramaService: CronogramaService,
+    private readonly configService: ConfigService,
   ) {}
 
   async findAll(): Promise<Candidatura[]> {
@@ -203,7 +209,7 @@ export class CandidaturasService {
 
   /**
    * Candidate cancel → `cancelada` only while effective Inscrição window is open
-   * (REQ-0.1 / 1.2 / 2.2).
+   * (REQ-0.1 / 1.2 / 2.2). Protocol string is kept; QR validation fails (REQ-2.5).
    */
   async cancel(id: number): Promise<Candidatura> {
     const candidatura = await this.candidaturaRepository.findOne({
@@ -220,5 +226,46 @@ export class CandidaturasService {
 
     candidatura.status = StatusCandidatura.CANCELADA;
     return this.candidaturaRepository.save(candidatura);
+  }
+
+  /** REQ-2.5: on-demand comprovante PDF with validation QR. */
+  async getComprovantePdf(id: number): Promise<{
+    buffer: Buffer;
+    protocolo: string;
+    filename: string;
+  }> {
+    const candidatura = await this.findOne(id);
+    if (!candidatura.protocolo) {
+      throw new BadRequestException(
+        'Candidatura sem protocolo; não é possível emitir comprovante',
+      );
+    }
+
+    const publicBase =
+      this.configService.get<string>('PUBLIC_API_URL') ??
+      this.configService.get<string>('API_PUBLIC_URL') ??
+      `http://localhost:${this.configService.get('PORT') ?? 5005}`;
+
+    const validateUrl = buildProtocoloValidateUrl(
+      publicBase,
+      candidatura.protocolo,
+    );
+
+    const buffer = await buildComprovantePdf({
+      protocolo: candidatura.protocolo,
+      validateUrl,
+      candidato: candidatura.usuario?.nome_completo ?? `Usuário #${candidatura.id_usuario}`,
+      curso:
+        candidatura.oferta?.curso?.nome ?? `Oferta #${candidatura.id_oferta}`,
+      campus: candidatura.oferta?.campus?.nome ?? '—',
+      dataInscricao: candidatura.data_inscricao,
+      status: candidatura.status,
+    });
+
+    return {
+      buffer,
+      protocolo: candidatura.protocolo,
+      filename: `comprovante-${candidatura.protocolo}.pdf`,
+    };
   }
 }

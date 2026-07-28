@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { StatusCandidatura, TipoVagaCandidatura } from '@repo/types';
@@ -64,6 +65,10 @@ describe('CandidaturasService', () => {
         },
         { provide: getRepositoryToken(Oferta), useValue: ofertaRepo },
         { provide: CronogramaService, useValue: cronogramaService },
+        {
+          provide: ConfigService,
+          useValue: { get: jest.fn((k: string) => (k === 'PORT' ? '5005' : undefined)) },
+        },
       ],
     }).compile();
 

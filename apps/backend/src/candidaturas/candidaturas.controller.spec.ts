@@ -7,9 +7,11 @@ describe('CandidaturasController', () => {
   const service = {
     findAll: jest.fn(),
     findByUsuario: jest.fn(),
+    findByProtocolo: jest.fn(),
     findOne: jest.fn(),
     create: jest.fn(),
     cancel: jest.fn(),
+    getComprovantePdf: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -27,6 +29,13 @@ describe('CandidaturasController', () => {
     expect(service.findByUsuario).toHaveBeenCalledWith(3);
   });
 
+  it('lists by protocolo query', async () => {
+    service.findByProtocolo.mockResolvedValue({ id: 1 });
+    const result = await controller.findAll(undefined, '001-C1-2024-00001-1');
+    expect(service.findByProtocolo).toHaveBeenCalledWith('001-C1-2024-00001-1');
+    expect(result).toEqual([{ id: 1 }]);
+  });
+
   it('delegates create', async () => {
     const dto = { id_usuario: 1, id_oferta: 2, id_edital: 3 };
     service.create.mockResolvedValue({ id: 1 });
@@ -38,5 +47,16 @@ describe('CandidaturasController', () => {
     service.cancel.mockResolvedValue({ id: 9, status: 'cancelada' });
     await controller.cancel(9);
     expect(service.cancel).toHaveBeenCalledWith(9);
+  });
+
+  it('delegates comprovante pdf download', async () => {
+    service.getComprovantePdf.mockResolvedValue({
+      buffer: Buffer.from('%PDF'),
+      protocolo: '001-C1-2024-00001-1',
+      filename: 'comprovante-001-C1-2024-00001-1.pdf',
+    });
+    const file = await controller.downloadComprovante(1);
+    expect(service.getComprovantePdf).toHaveBeenCalledWith(1);
+    expect(file).toBeDefined();
   });
 });

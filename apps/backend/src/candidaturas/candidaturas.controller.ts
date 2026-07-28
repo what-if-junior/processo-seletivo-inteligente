@@ -2,11 +2,13 @@ import {
   Body,
   Controller,
   Get,
+  Header,
   Param,
   ParseIntPipe,
   Patch,
   Post,
   Query,
+  StreamableFile,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -31,15 +33,44 @@ export class CandidaturasController {
     required: false,
     description: 'Filtra candidaturas pelo id do usuário (PWA Inscrições)',
   })
+  @ApiQuery({
+    name: 'protocolo',
+    required: false,
+    description: 'Localiza candidatura pelo protocolo exato (admin REQ-2.5)',
+  })
   @ApiOperation({
     summary:
-      'Lista candidaturas com usuário e oferta; opcionalmente por ?usuario= (requer JWT)',
+      'Lista candidaturas; opcional ?usuario= ou ?protocolo= (requer JWT)',
   })
-  findAll(@Query('usuario') usuario?: string) {
+  async findAll(
+    @Query('usuario') usuario?: string,
+    @Query('protocolo') protocolo?: string,
+  ) {
+    if (protocolo != null && protocolo !== '') {
+      const found = await this.candidaturasService.findByProtocolo(protocolo);
+      return found ? [found] : [];
+    }
     if (usuario != null && usuario !== '') {
       return this.candidaturasService.findByUsuario(Number(usuario));
     }
     return this.candidaturasService.findAll();
+  }
+
+  @Get(':id/comprovante.pdf')
+  @Header('Content-Type', 'application/pdf')
+  @ApiOperation({
+    summary:
+      'Baixa comprovante PDF com protocolo e QR de validação (REQ-2.5)',
+  })
+  async downloadComprovante(
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<StreamableFile> {
+    const { buffer, filename } =
+      await this.candidaturasService.getComprovantePdf(id);
+    return new StreamableFile(buffer, {
+      type: 'application/pdf',
+      disposition: `attachment; filename="${filename}"`,
+    });
   }
 
   @Get(':id')
