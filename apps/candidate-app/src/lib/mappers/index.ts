@@ -3,6 +3,10 @@ export {
   statusCandidaturaToBadge,
   isTerminalCandidaturaStatus,
 } from "./status-candidatura";
+export {
+  statusCandidaturaToInscricaoStep,
+  wizardCotasStepReady,
+} from "./inscricao-step";
 export { statusDocumentoToUi } from "./status-documento";
 export {
   cursoToEditalCard,

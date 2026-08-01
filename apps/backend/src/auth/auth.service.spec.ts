@@ -80,4 +80,21 @@ describe('AuthService', () => {
       }),
     ).rejects.toBeInstanceOf(UnauthorizedException);
   });
+
+  it('rejects an inactive account even with the right password (REQ-2.8)', async () => {
+    const hash = await bcrypt.hash('senha123', 4);
+    userService.findByEmail.mockResolvedValue({
+      id: 1,
+      email: 'joao@teste.com',
+      senha: hash,
+      ativo: false,
+    });
+
+    await expect(
+      service.validateCredentials({
+        email: 'joao@teste.com',
+        senha: 'senha123',
+      }),
+    ).rejects.toThrow('Conta desativada');
+  });
 });

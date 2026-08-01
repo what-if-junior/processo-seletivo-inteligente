@@ -69,6 +69,10 @@ export class User {
   @Column({ type: 'boolean', default: false })
   pcd: boolean;
 
+  /** REQ-2.8: inativo bloqueia o login mas mantem as inscricoes. */
+  @Column({ type: 'boolean', default: true })
+  ativo: boolean;
+
   @Column({ type: 'varchar', length: 255, nullable: true })
   token?: string | null;
 

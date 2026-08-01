@@ -10,12 +10,11 @@ import {
   Award, UserCheck,
   RefreshCw, HelpCircle, Plus
 } from "lucide-react"
-import { login, logout, loginPayloadFromIdentifier } from "./lib/auth"
+import { login, logout, loginPayloadFromIdentifier, register } from "./lib/auth"
 import { apiFetch, getAccessToken } from "./lib/api"
 import { useDocumentos, useInscricoes, useOfertas, useProfile } from "./lib/hooks"
 import {
   tipoVagaFromWizard,
-  type DocUiRow,
   type EditalCard as EditalCardData,
   AVISO_UM_CURSO_POR_EDITAL,
   messageFromInscricaoApiError,
@@ -25,6 +24,8 @@ import {
   isBaixaRendaCota,
   socioWizardIssues,
   buildSocioPayload,
+  statusCandidaturaToInscricaoStep,
+  wizardCotasStepReady,
   type FaixasSmPublicEnvelope,
 } from "./lib/mappers"
 import {
@@ -242,10 +243,12 @@ function MainHeader({ onSearch, onProfile }: { onSearch?: () => void; onProfile?
       <div className="flex items-center justify-between">
         <IFBLogo inv />
         <div className="flex items-center gap-2">
-          <button onClick={onSearch} aria-label="Buscar" className="w-10 h-10 flex items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25 focus-visible:outline-2 focus-visible:outline-white transition-colors">
-            <Search className="w-5 h-5" />
-          </button>
-          <button onClick={onProfile} aria-label="Perfil" className="w-10 h-10 flex items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25 focus-visible:outline-2 focus-visible:outline-white transition-colors">
+          {onSearch ? (
+            <button onClick={onSearch} aria-label="Buscar cursos" className="w-10 h-10 flex items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25 focus-visible:outline-2 focus-visible:outline-white transition-colors">
+              <Search className="w-5 h-5" />
+            </button>
+          ) : null}
+          <button onClick={onProfile} aria-label="Abrir conta" className="w-10 h-10 flex items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25 focus-visible:outline-2 focus-visible:outline-white transition-colors">
             <User className="w-5 h-5" />
           </button>
         </div>
@@ -455,6 +458,7 @@ function OfertaFiltersBar({
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#A8C4B0]" />
         <input
+          id="oferta-search"
           value={search}
           onChange={e => setSearch(e.target.value)}
           placeholder="Buscar curso, campus, área…"
@@ -506,20 +510,22 @@ function OfertaFiltersBar({
 
 // ─── HOME SCREEN ──────────────────────────────────────────────────────────────
 function HomeScreen({
-  goto, setNav, onSelectEdital,
+  goto, setNav, onSelectEdital, onOpenChat, onRequestDocs,
 }: {
   goto: (s: Screen) => void
   setNav: (t: NavTab) => void
   onSelectEdital: (e: EditalCardData) => void
+  onOpenChat: () => void
+  onRequestDocs: () => void
 }) {
   const [filterTipo, setFilterTipo] = useState("Todos")
   const [search, setSearch] = useState("")
   const [filterEditalId, setFilterEditalId] = useState<number | null>(null)
   const [filterCampusId, setFilterCampusId] = useState<number | null>(null)
   const fallback = useMemo(() => EDITAIS, [])
-  const { editais } = useOfertas(fallback)
+  const { editais, error: ofertasError, loading: ofertasLoading } = useOfertas(fallback)
   const { user, authed } = useProfile()
-  const greetName = authed && user ? firstNameFrom(user.nome_completo) : MOCK_PROFILE.firstName
+  const greetName = authed && user ? firstNameFrom(user.nome_completo) : null
   const shown = useMemo(
     () =>
       filterEditalCards(editais, {
@@ -533,10 +539,23 @@ function HomeScreen({
 
   return (
     <div>
-      <MainHeader onProfile={() => { goto("perfil"); setNav("perfil") }} />
+      <MainHeader
+        onSearch={() => document.getElementById("oferta-search")?.focus()}
+        onProfile={() => { goto("perfil"); setNav("perfil") }}
+      />
       <div className="px-4 pt-5 pb-4 bg-[#2A7B3E]">
-        <p className="text-emerald-200 text-sm font-medium">Bem-vindo de volta 👋</p>
-        <h2 className="text-white text-2xl font-extrabold mt-0.5">Olá, {greetName}!</h2>
+        {authed && greetName ? (
+          <>
+            <p className="text-emerald-200 text-sm font-medium">Bem-vindo de volta</p>
+            <h2 className="text-white text-2xl font-extrabold mt-0.5">Olá, {greetName}!</h2>
+          </>
+        ) : (
+          <>
+            <p className="text-emerald-200 text-sm font-medium">Processo Seletivo IFB</p>
+            <h2 className="text-white text-2xl font-extrabold mt-0.5">Olá!</h2>
+            <p className="text-emerald-100 text-sm mt-1">Entre para se inscrever e acompanhar candidaturas.</p>
+          </>
+        )}
       </div>
 
       {/* Banner */}
@@ -553,13 +572,6 @@ function HomeScreen({
         <div className="w-16 h-16 rounded-full bg-white/15 flex items-center justify-center flex-shrink-0 ml-3">
           <GraduationCap className="w-9 h-9 text-white" />
         </div>
-      </div>
-
-      {/* Dot indicators */}
-      <div className="flex justify-center gap-1.5 mt-3">
-        {[0, 1, 2].map(i => (
-          <div key={i} className={`rounded-full transition-all ${i === 0 ? "w-5 h-1.5 bg-[#2A7B3E]" : "w-1.5 h-1.5 bg-[#D1E8D7]"}`} />
-        ))}
       </div>
 
       {/* Filters + list */}
@@ -588,7 +600,11 @@ function HomeScreen({
       </div>
 
       <div className="px-4 pt-3 pb-4 flex flex-col gap-3">
-        {shown.length === 0 ? (
+        {ofertasError ? (
+          <p className="text-sm text-red-700 text-center py-6" role="alert">{ofertasError}</p>
+        ) : ofertasLoading ? (
+          <p className="text-sm text-[#4E6859] text-center py-6">Carregando cursos…</p>
+        ) : shown.length === 0 ? (
           <p className="text-sm text-[#4E6859] text-center py-6">Nenhum curso encontrado com estes filtros.</p>
         ) : (
           shown.map(e => (
@@ -608,8 +624,8 @@ function HomeScreen({
               }
               goto("inscricoes"); setNav("inscricoes")
             } },
-            { icon: Upload, label: "Enviar\nDocumentos", action: () => goto("docs") },
-            { icon: HelpCircle, label: "Ajuda\nRápida", action: () => {} },
+            { icon: Upload, label: "Enviar\nDocumentos", action: onRequestDocs },
+            { icon: HelpCircle, label: "Ajuda\nRápida", action: onOpenChat },
           ].map(({ icon: Icon, label, action }) => (
             <button key={label} onClick={action}
               className="flex flex-col items-center justify-center gap-2 bg-white border border-[#D1E8D7] rounded-2xl py-4 px-2 hover:border-[#2A7B3E]/40 hover:bg-[#F0F6F2] transition-all focus-visible:outline-2 focus-visible:outline-[#2A7B3E] active:scale-95">
@@ -638,7 +654,7 @@ function ProcessosScreen({
   const [filterEditalId, setFilterEditalId] = useState<number | null>(null)
   const [filterCampusId, setFilterCampusId] = useState<number | null>(null)
   const fallback = useMemo(() => EDITAIS, [])
-  const { editais } = useOfertas(fallback)
+  const { editais, error: ofertasError } = useOfertas(fallback)
   const shown = useMemo(
     () =>
       filterEditalCards(editais, {
@@ -655,6 +671,9 @@ function ProcessosScreen({
     <div>
       <BackHeader title="Processos Abertos" onBack={onBack} />
       <div className="px-4 pt-4">
+        {ofertasError && (
+          <p className="text-sm text-red-700 mb-3" role="alert">{ofertasError}</p>
+        )}
         <p className="text-[#4E6859] text-sm mb-3">
           <span className="font-rawline font-semibold text-[#0D1E12]">{abertos}</span> cursos com inscrições abertas
         </p>
@@ -689,86 +708,68 @@ function ProcessosScreen({
 
 // ─── EDITAL DETAIL SCREEN ─────────────────────────────────────────────────────
 function EditalScreen({
-  goto, onBack, edital, setNav,
+  goto, onBack, edital, setNav, onRequireAuth, onOpenDocs,
 }: {
   goto: (s: Screen) => void
   onBack: () => void
   edital: EditalCardData | null
   setNav?: (t: NavTab) => void
+  onRequireAuth: (next: Screen) => void
+  onOpenDocs: (candidaturaId: number) => void
 }) {
-  const [view, setView] = useState<"aberto" | "andamento" | "aprovado">("aberto")
   const title = edital?.titulo ?? "Técnico em Informática"
   const campus = edital?.campus ?? "Campus Brasília"
   const vagas = edital?.vagas ?? 40
   const turno = edital?.turno ?? "—"
   const area = edital?.area_conhecimento ?? "—"
   const editalLabel = edital?.editalLabel ?? "—"
+  const ofertaAberta = (edital?.status ?? "aberto") === "aberto"
+  const { active } = useInscricoes()
+  const matchesOferta =
+    active != null &&
+    edital?.id_oferta != null &&
+    active.id_oferta === edital.id_oferta
+  const hasActiveForOferta = Boolean(matchesOferta && active?.isActive)
+  const view: "aberto" | "andamento" | "aprovado" =
+    matchesOferta && active?.statusBadge === "aprovado"
+      ? "aprovado"
+      : hasActiveForOferta
+        ? "andamento"
+        : "aberto"
 
   function requireLoginThen(next: Screen) {
     if (!shouldUseMocks() && getSessionUserId() == null) {
       setNav?.("perfil")
-      goto("perfil")
+      onRequireAuth(next)
       return
     }
     goto(next)
-  }
-
-  const statusBanners = {
-    aberto: null,
-    andamento: (
-      <div className="mx-4 mt-4 flex items-center gap-3 bg-amber-50 border-2 border-amber-200 rounded-2xl p-4">
-        <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
-          <Loader2 className="w-5 h-5 text-amber-600 animate-spin" />
-        </div>
-        <div>
-          <p className="text-amber-800 text-sm font-bold">Processo em Andamento</p>
-          <p className="text-amber-700 text-xs mt-0.5">Acompanhe o cronograma abaixo</p>
-        </div>
-        <div className="ml-auto w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse flex-shrink-0" />
-      </div>
-    ),
-    aprovado: (
-      <div className="mx-4 mt-4 flex items-center gap-3 bg-emerald-50 border-2 border-emerald-200 rounded-2xl p-4">
-        <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">
-          <UserCheck className="w-5 h-5 text-emerald-600" />
-        </div>
-        <div>
-          <p className="text-emerald-800 text-sm font-bold">Processo Finalizado</p>
-          <p className="text-emerald-700 text-xs mt-0.5 font-semibold">✓ Você foi aprovado!</p>
-        </div>
-      </div>
-    ),
   }
 
   return (
     <div>
       <BackHeader title={title} onBack={onBack} />
 
-      {/* Demo toggle — style guide only */}
-      <div className="mx-4 mt-4 bg-[#E7F4EA] rounded-xl p-3 border border-[#D1E8D7]">
-        <p className="text-[#4E6859] text-[10px] font-bold tracking-widest uppercase mb-2">Demo: Estado da inscrição</p>
-        <div className="flex gap-1.5">
-          {(["aberto", "andamento", "aprovado"] as const).map(s => (
-            <button key={s} onClick={() => setView(s)}
-              className={`flex-1 h-7 rounded-lg text-xs font-bold transition-all focus-visible:outline-2 focus-visible:outline-[#2A7B3E] ${view === s ? "bg-[#2A7B3E] text-white" : "bg-white text-[#4E6859] border border-[#D1E8D7]"}`}>
-              {s.charAt(0).toUpperCase() + s.slice(1)}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {statusBanners[view]}
-
-      {/* Pendência alert */}
       {view === "andamento" && (
-        <div className="mx-4 mt-3 flex items-start gap-3 bg-red-50 border-2 border-red-200 rounded-2xl p-4">
-          <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+        <div className="mx-4 mt-4 flex items-center gap-3 bg-amber-50 border-2 border-amber-200 rounded-2xl p-4">
+          <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+            <Loader2 className="w-5 h-5 text-amber-600 animate-spin" />
+          </div>
           <div>
-            <p className="text-red-800 text-sm font-bold">Revisão Manual Necessária</p>
-            <p className="text-red-700 text-xs mt-1 leading-relaxed">Seu CPF está ilegível. Reenvie o documento para continuar.</p>
-            <button onClick={() => goto("docs")} className="mt-2 text-xs font-bold text-red-700 underline underline-offset-2">
-              Ir para documentos →
-            </button>
+            <p className="text-amber-800 text-sm font-bold">Inscrição em andamento</p>
+            <p className="text-amber-700 text-xs mt-0.5">Acompanhe o status em Minhas Inscrições</p>
+          </div>
+        </div>
+      )}
+
+      {view === "aprovado" && (
+        <div className="mx-4 mt-4 flex items-center gap-3 bg-emerald-50 border-2 border-emerald-200 rounded-2xl p-4">
+          <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">
+            <UserCheck className="w-5 h-5 text-emerald-600" />
+          </div>
+          <div>
+            <p className="text-emerald-800 text-sm font-bold">Resultado disponível</p>
+            <p className="text-emerald-700 text-xs mt-0.5 font-semibold">Consulte Minhas Inscrições para detalhes</p>
           </div>
         </div>
       )}
@@ -790,7 +791,7 @@ function EditalScreen({
         <span className="flex items-center gap-1 bg-white border border-[#D1E8D7] rounded-full px-3 py-1.5 text-xs font-semibold text-[#4E6859]">
           {area}
         </span>
-        <Badge s={view === "aberto" ? "aberto" : view === "andamento" ? "andamento" : "aprovado"} />
+        <Badge s={ofertaAberta ? "aberto" : "encerrado"} />
       </div>
 
       {/* Timeline table */}
@@ -820,7 +821,7 @@ function EditalScreen({
 
       {/* CTA */}
       <div className="px-4 py-5">
-        {view === "aberto" && (
+        {view === "aberto" && ofertaAberta && (
           <>
             <div className="mb-3 bg-amber-50 border border-amber-200 rounded-xl p-3.5 flex gap-2.5">
               <Info className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
@@ -831,10 +832,20 @@ function EditalScreen({
             </Btn>
           </>
         )}
+        {view === "aberto" && !ofertaAberta && (
+          <p className="text-center text-sm text-[#4E6859]">Inscrições encerradas para esta oferta.</p>
+        )}
         {view === "andamento" && (
-          <Btn v="secondary" cls="w-full h-14" onClick={() => requireLoginThen("inscricoes")}>
-            <FileText className="w-5 h-5" /> Acompanhar Inscrição
-          </Btn>
+          <div className="flex flex-col gap-3">
+            <Btn v="secondary" cls="w-full h-14" onClick={() => requireLoginThen("inscricoes")}>
+              <FileText className="w-5 h-5" /> Acompanhar Inscrição
+            </Btn>
+            {active && active.id > 0 && (
+              <Btn v="outline" cls="w-full h-12" onClick={() => { onOpenDocs(active.id); goto("docs") }}>
+                <Upload className="w-4 h-4" /> Enviar documentos
+              </Btn>
+            )}
+          </div>
         )}
         {view === "aprovado" && (
           <div className="flex flex-col gap-3">
@@ -944,6 +955,10 @@ function WizardScreen({
 
   function tryAdvanceFromStep() {
     setStepError(null)
+    if (step === 2 && !wizardCotasStepReady(escola, cota)) {
+      setStepError("Selecione a escola de origem e a modalidade de cota para continuar.")
+      return
+    }
     if (step === 3 && isBaixaRendaCota(cota)) {
       const issues = socioWizardIssues({
         cota,
@@ -1064,6 +1079,13 @@ function WizardScreen({
   const stepContent: Record<WizardStep, ReactNode> = {
     1: (
       <div className="flex flex-col gap-4">
+        <button
+          type="button"
+          onClick={() => goto("meus-dados")}
+          className="text-left text-xs font-semibold text-[#2A7B3E] underline underline-offset-2"
+        >
+          Atualizar dados em Meus Dados
+        </button>
         <div className="flex flex-col gap-1.5">
           <label className="text-sm font-semibold text-[#0D1E12]">Nome Completo<span className="text-red-500 ml-0.5">*</span></label>
           <input className={inputCls} value={nome} onChange={e => setNome(e.target.value)} aria-label="Nome Completo" />
@@ -1163,6 +1185,9 @@ function WizardScreen({
             <Shield className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
             <p className="text-blue-800 text-xs leading-relaxed">Você precisará tirar uma foto para o processo de heteroidentificação. Isso será solicitado na etapa de documentos.</p>
           </div>
+        )}
+        {stepError && step === 2 && (
+          <p className="text-xs text-red-700 leading-relaxed" role="alert">{stepError}</p>
         )}
       </div>
     ),
@@ -1359,11 +1384,13 @@ function WizardScreen({
 
 // ─── DOCS UPLOAD SCREEN ───────────────────────────────────────────────────────
 function DocsScreen({
-  goto, onBack, candidaturaId,
+  goto, onBack, candidaturaId, setNav, cameraCapturePending,
 }: {
   goto: (s: Screen) => void
   onBack: () => void
   candidaturaId: number | null
+  setNav?: (t: NavTab) => void
+  cameraCapturePending?: boolean
 }) {
   const docsFallback = useMemo(
     () =>
@@ -1374,7 +1401,9 @@ function DocsScreen({
       })),
     [],
   )
-  const { docs } = useDocumentos(candidaturaId, docsFallback)
+  const { docs, error: docsError, reload } = useDocumentos(candidaturaId, docsFallback)
+  const [uploadError, setUploadError] = useState<string | null>(null)
+  const localPendingCamera = Boolean(cameraCapturePending)
 
   const statusIcon = (s: string) => {
     if (s === "enviado") return <CheckCircle className="w-5 h-5 text-emerald-600" />
@@ -1385,13 +1414,36 @@ function DocsScreen({
 
   const enviados = docs.filter(d => d.status === "enviado").length
   const total = docs.filter(d => d.status !== "na").length
+  const missing = Math.max(total - enviados, 0)
+  const canFinish = total > 0 && enviados >= total
+
+  if (!shouldUseMocks() && (candidaturaId == null || candidaturaId <= 0)) {
+    return (
+      <div>
+        <BackHeader title="Envio de Documentos" onBack={onBack} />
+        <div className="px-4 pt-6 flex flex-col gap-4">
+          <div className="bg-white rounded-2xl border border-[#D1E8D7] p-5 text-center">
+            <p className="text-sm font-semibold text-[#0D1E12] mb-2">Nenhuma inscrição selecionada</p>
+            <p className="text-xs text-[#4E6859] mb-4 leading-relaxed">
+              Conclua uma inscrição ou abra os documentos a partir de Minhas Inscrições.
+            </p>
+            <Btn v="primary" cls="w-full h-12" onClick={() => { setNav?.("inscricoes"); goto("inscricoes") }}>
+              Ir para Minhas Inscrições
+            </Btn>
+            <Btn v="secondary" cls="w-full h-12 mt-2" onClick={() => goto("processos")}>
+              Ver cursos
+            </Btn>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div>
       <BackHeader title="Envio de Documentos" onBack={onBack} />
 
       <div className="px-4 pt-4">
-        {/* Progress */}
         <div className="bg-white rounded-2xl border border-[#D1E8D7] p-4 mb-4">
           <div className="flex items-center justify-between mb-2">
             <p className="text-sm font-bold text-[#0D1E12]">Progresso</p>
@@ -1400,17 +1452,30 @@ function DocsScreen({
           <div className="h-2 bg-[#E4EBE6] rounded-full overflow-hidden">
             <div className="h-full bg-[#2A7B3E] rounded-full transition-all" style={{ width: `${total ? (enviados / total) * 100 : 0}%` }} />
           </div>
-          <p className="text-xs text-[#4E6859] mt-2">{Math.max(total - enviados, 0)} documento(s) ainda precisam ser enviados</p>
+          <p className="text-xs text-[#4E6859] mt-2">{missing} documento(s) ainda precisam ser enviados</p>
         </div>
 
-        {/* Alert */}
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 mb-4 flex gap-2.5">
           <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
           <p className="text-amber-800 text-xs leading-relaxed">Envie documentos em boa iluminação, sem rasuras, com todos os cantos visíveis. Formatos aceitos: JPG, PNG ou PDF (máx. 5MB).</p>
         </div>
 
-        {/* Doc list */}
+        {docsError && (
+          <p className="mb-3 text-xs text-red-700" role="alert">{docsError}</p>
+        )}
+        {uploadError && (
+          <p className="mb-3 text-xs text-red-700" role="alert">{uploadError}</p>
+        )}
+        {localPendingCamera && (
+          <p className="mb-3 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-3">
+            Foto capturada na pré-visualização. Envie o arquivo pelo botão Arquivo — a câmera ainda não faz upload automático.
+          </p>
+        )}
+
         <div className="flex flex-col gap-3 pb-4">
+          {docs.length === 0 && !docsError ? (
+            <p className="text-sm text-[#4E6859] text-center py-4">Nenhum documento listado para esta inscrição.</p>
+          ) : null}
           {docs.map(doc => (
             <div key={doc.id}
               className={`bg-white rounded-2xl border p-4 ${doc.status === "pendente" ? "border-amber-300" : doc.status === "enviado" ? "border-[#D1E8D7]" : "border-[#E4EBE6]"}`}>
@@ -1443,15 +1508,24 @@ function DocsScreen({
                             const file = input.files?.[0]
                             if (!file) return
                             void (async () => {
-                              if (shouldUseMocks() || !candidaturaId || !getAccessToken()) return
+                              setUploadError(null)
+                              if (shouldUseMocks()) {
+                                setUploadError(null)
+                                return
+                              }
+                              if (!candidaturaId || !getAccessToken()) {
+                                setUploadError("Faça login e selecione uma inscrição para enviar.")
+                                return
+                              }
                               try {
                                 const form = new FormData()
                                 form.append("arquivo", file)
                                 form.append("id_candidatura", String(candidaturaId))
                                 form.append("tipo_documento", doc.nome)
                                 await apiFetch("/documentos", { method: "POST", body: form })
+                                reload()
                               } catch {
-                                /* keep UI; list refresh is best-effort on remount */
+                                setUploadError("Falha no envio do documento. Verifique formato/tamanho e tente de novo.")
                               }
                             })()
                           }
@@ -1468,25 +1542,43 @@ function DocsScreen({
                   )}
                 </div>
               )}
-
-              {doc.status === "pendente" && doc.nome.includes("CPF") && (
-                <p className="mt-2 text-xs text-red-600 font-medium">⚠ Documento enviado está ilegível. Reenvie.</p>
-              )}
             </div>
           ))}
         </div>
 
-        <Btn v="primary" cls="w-full h-14" disabled={enviados < total}>
+        <Btn
+          v="primary"
+          cls="w-full h-14"
+          disabled={!canFinish}
+          onClick={() => {
+            reload()
+            setNav?.("inscricoes")
+            goto("inscricoes")
+          }}
+        >
           <CheckCircle className="w-5 h-5" /> Finalizar Envio
         </Btn>
-        <p className="text-center text-xs text-[#4E6859] mt-2 pb-4">Envie todos os documentos obrigatórios para prosseguir</p>
+        {!canFinish && (
+          <p className="text-center text-xs text-[#4E6859] mt-2 pb-4">
+            Envie os {missing} documento(s) pendente(s) para habilitar Finalizar Envio.
+          </p>
+        )}
+        {canFinish && (
+          <p className="text-center text-xs text-[#4E6859] mt-2 pb-4">Você pode finalizar e acompanhar em Minhas Inscrições.</p>
+        )}
       </div>
     </div>
   )
 }
 
 // ─── CAMERA SCREEN ────────────────────────────────────────────────────────────
-function CameraScreen({ onBack }: { onBack: () => void }) {
+function CameraScreen({
+  onBack,
+  onConfirmCapture,
+}: {
+  onBack: () => void
+  onConfirmCapture?: () => void
+}) {
   const [consented, setConsented] = useState(false)
   const [captured, setCaptured] = useState(false)
 
@@ -1551,10 +1643,20 @@ function CameraScreen({ onBack }: { onBack: () => void }) {
               <Btn v="outline" cls="flex-1 h-12" onClick={() => setCaptured(false)}>
                 <RefreshCw className="w-4 h-4" /> Repetir
               </Btn>
-              <Btn v="primary" cls="flex-1 h-12" onClick={onBack}>
+              <Btn
+                v="primary"
+                cls="flex-1 h-12"
+                onClick={() => {
+                  onConfirmCapture?.()
+                  onBack()
+                }}
+              >
                 <Check className="w-4 h-4" /> Confirmar
               </Btn>
             </div>
+            <p className="text-xs text-[#4E6859] text-center leading-relaxed">
+              A captura é uma pré-visualização. Envie o arquivo na lista de documentos — o upload automático da câmera chega em breve.
+            </p>
           </div>
         ) : (
           <div className="flex flex-col gap-4">
@@ -1623,9 +1725,11 @@ function InscricoesScreen({
   onOpenDocs: (candidaturaId: number) => void
   setNav?: (t: NavTab) => void
 }) {
-  const currentStep = 1 // visual stepper stays mock until status model freezes
   const loggedIn = shouldUseMocks() || getSessionUserId() != null
-  const { active, past, cancelActive, downloadComprovante, source } = useInscricoes()
+  const { active, past, cancelActive, downloadComprovante, source, error: listError } = useInscricoes()
+  const currentStep = active
+    ? statusCandidaturaToInscricaoStep(active.status)
+    : 0
   const [cancelError, setCancelError] = useState<string | null>(null)
   const [cancelling, setCancelling] = useState(false)
   const [downloadError, setDownloadError] = useState<string | null>(null)
@@ -1633,6 +1737,9 @@ function InscricoesScreen({
 
   async function handleCancel() {
     if (cancelling) return
+    if (!window.confirm("Cancelar esta inscrição? Esta ação não pode ser desfeita nesta fase.")) {
+      return
+    }
     setCancelling(true)
     setCancelError(null)
     try {
@@ -1687,26 +1794,20 @@ function InscricoesScreen({
       </div>
 
       <div className="px-4 pt-4 flex flex-col gap-4 pb-4">
-        {/* Pendência alert (demo only) */}
-        {shouldUseMocks() && (
-        <div className="bg-red-50 border-2 border-red-300 rounded-2xl p-4 flex gap-3">
-          <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-          <div className="flex-1">
-            <p className="text-red-800 text-sm font-bold">Ação necessária</p>
-            <p className="text-red-700 text-xs mt-1 leading-relaxed">Seu CPF foi enviado em baixa qualidade. Reenvie para não perder o prazo.</p>
-            <button onClick={() => {
-              if (active && active.id > 0) onOpenDocs(active.id)
-              goto("docs")
-            }}
-              className="mt-2 inline-flex items-center gap-1 text-xs font-bold text-red-700 underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-red-600 rounded">
-              Ir para documentos <ChevronRight className="w-3 h-3" />
-            </button>
-          </div>
-        </div>
+        {listError && (
+          <p className="text-sm text-red-700 text-center py-2" role="alert">{listError}</p>
         )}
 
-        {!active && source === "api" && (
-          <p className="text-sm text-[#4E6859] text-center py-4">Nenhuma inscrição ativa.</p>
+        {!active && !listError && (
+          <div className="bg-white rounded-2xl border border-[#D1E8D7] p-5 text-center">
+            <p className="text-sm text-[#0D1E12] font-semibold mb-2">Nenhuma inscrição ativa</p>
+            <p className="text-xs text-[#4E6859] mb-4 leading-relaxed">
+              Escolha um curso com inscrições abertas para começar.
+            </p>
+            <Btn v="primary" cls="w-full h-12" onClick={() => goto("processos")}>
+              Ver cursos
+            </Btn>
+          </div>
         )}
 
         {/* Active inscription card */}
@@ -2164,20 +2265,31 @@ function MeusDadosScreen({ onBack }: { onBack: () => void }) {
 
 // ─── PERFIL SCREEN ────────────────────────────────────────────────────────────
 function PerfilScreen({
-  goto, setNav, onAuthChange,
+  goto, setNav, onAuthChange, onOpenChat, onRequestDocs,
 }: {
   goto: (s: Screen) => void
   setNav: (t: NavTab) => void
   onAuthChange: () => void
+  onOpenChat: () => void
+  onRequestDocs: () => void
 }) {
   const { user, authed, refresh } = useProfile()
+  const [authTab, setAuthTab] = useState<"entrar" | "criar">("entrar")
   const [identifier, setIdentifier] = useState("")
   const [senha, setSenha] = useState("")
   const [loginError, setLoginError] = useState<string | null>(null)
   const [loggingIn, setLoggingIn] = useState(false)
+  const [regNome, setRegNome] = useState("")
+  const [regCpf, setRegCpf] = useState("")
+  const [regEmail, setRegEmail] = useState("")
+  const [regSenha, setRegSenha] = useState("")
+  const [regNascimento, setRegNascimento] = useState("")
+  const [regTelefone, setRegTelefone] = useState("")
+  const [regError, setRegError] = useState<string | null>(null)
+  const [registering, setRegistering] = useState(false)
 
-  const displayName = authed && user ? user.nome_completo : MOCK_PROFILE.nome
-  const displayCpf = authed && user ? maskCpf(user.CPF) : MOCK_PROFILE.cpfMasked
+  const displayName = authed && user ? user.nome_completo : "Conta do candidato"
+  const displayCpf = authed && user ? maskCpf(user.CPF) : "Entre ou crie uma conta"
 
   async function handleLogin() {
     setLoggingIn(true)
@@ -2193,11 +2305,48 @@ function PerfilScreen({
     }
   }
 
+  async function handleRegister() {
+    setRegistering(true)
+    setRegError(null)
+    const cpfDigits = regCpf.replace(/\D/g, "")
+    if (!regNome.trim() || !regEmail.trim() || !regSenha || !cpfDigits || !regNascimento || !regTelefone.trim()) {
+      setRegError("Preencha nome, CPF, e-mail, senha, nascimento e telefone.")
+      setRegistering(false)
+      return
+    }
+    try {
+      if (shouldUseMocks()) {
+        await login(loginPayloadFromIdentifier(regEmail, regSenha)).catch(() => {
+          /* mock: still show success path below if login unavailable */
+        })
+      } else {
+        await register({
+          nome_completo: regNome.trim(),
+          email: regEmail.trim(),
+          senha: regSenha,
+          CPF: cpfDigits,
+          data_nascimento: regNascimento,
+          telefone: regTelefone.trim(),
+        })
+        await login(loginPayloadFromIdentifier(regEmail, regSenha))
+      }
+      await refresh()
+      onAuthChange()
+    } catch {
+      setRegError("Não foi possível criar a conta. Verifique os dados ou se o CPF/e-mail já existe.")
+    } finally {
+      setRegistering(false)
+    }
+  }
+
   function handleLogout() {
     logout()
     void refresh()
     onAuthChange()
   }
+
+  const inputCls =
+    "h-12 px-4 rounded-xl border-2 border-[#D1E8D7] bg-white text-[#0D1E12] placeholder:text-[#A8C4B0] focus:outline-none focus:border-[#2A7B3E] focus:ring-4 focus:ring-[#2A7B3E]/10 text-base"
 
   return (
     <div>
@@ -2209,9 +2358,9 @@ function PerfilScreen({
           <h1 className="text-white text-xl font-extrabold">{displayName}</h1>
           <p className="text-emerald-200 text-sm mt-0.5 font-mono">{displayCpf}</p>
           <div className="mt-3 inline-flex items-center gap-1.5 bg-white/15 rounded-full px-3 py-1.5">
-            <div className="w-1.5 h-1.5 rounded-full bg-emerald-300" />
+            <div className={`w-1.5 h-1.5 rounded-full ${authed ? "bg-emerald-300" : "bg-amber-300"}`} />
             <span className="text-emerald-100 text-xs font-semibold">
-              {authed ? "Candidato Ativo" : "Demonstração (não autenticado)"}
+              {authed ? "Candidato autenticado" : "Não autenticado"}
             </span>
           </div>
         </div>
@@ -2220,34 +2369,72 @@ function PerfilScreen({
       {!authed && (
         <div className="px-4 -mt-4 mb-4">
           <div className="bg-white rounded-2xl border border-[#D1E8D7] p-4 flex flex-col gap-3">
-            <p className="text-sm font-bold text-[#0D1E12]">Entrar com CPF ou e-mail</p>
-            <input
-              type="text"
-              value={identifier}
-              onChange={e => setIdentifier(e.target.value)}
-              placeholder="CPF ou e-mail"
-              aria-label="CPF ou e-mail"
-              autoComplete="username"
-              className="h-12 px-4 rounded-xl border-2 border-[#D1E8D7] bg-white text-[#0D1E12] placeholder:text-[#A8C4B0] focus:outline-none focus:border-[#2A7B3E] focus:ring-4 focus:ring-[#2A7B3E]/10 text-base"
-            />
-            <input
-              type="password"
-              value={senha}
-              onChange={e => setSenha(e.target.value)}
-              placeholder="Senha"
-              aria-label="Senha"
-              autoComplete="current-password"
-              className="h-12 px-4 rounded-xl border-2 border-[#D1E8D7] bg-white text-[#0D1E12] placeholder:text-[#A8C4B0] focus:outline-none focus:border-[#2A7B3E] focus:ring-4 focus:ring-[#2A7B3E]/10 text-base"
-            />
-            {loginError && <p className="text-xs text-red-600">{loginError}</p>}
-            <Btn v="primary" cls="w-full h-12" disabled={loggingIn || !identifier.trim() || !senha} onClick={() => { void handleLogin() }}>
-              {loggingIn ? "Entrando…" : "Entrar"}
-            </Btn>
+            <div className="flex gap-1 rounded-xl bg-[#F0F6F2] p-1">
+              {([
+                { id: "entrar" as const, label: "Entrar" },
+                { id: "criar" as const, label: "Criar conta" },
+              ]).map(t => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => setAuthTab(t.id)}
+                  className={`flex-1 h-9 rounded-lg text-sm font-bold transition-all ${authTab === t.id ? "bg-[#2A7B3E] text-white" : "text-[#4E6859]"}`}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+
+            {authTab === "entrar" ? (
+              <>
+                <p className="text-sm font-bold text-[#0D1E12]">Entrar com CPF ou e-mail</p>
+                <input
+                  type="text"
+                  value={identifier}
+                  onChange={e => setIdentifier(e.target.value)}
+                  placeholder="CPF ou e-mail"
+                  aria-label="CPF ou e-mail"
+                  autoComplete="username"
+                  className={inputCls}
+                />
+                <input
+                  type="password"
+                  value={senha}
+                  onChange={e => setSenha(e.target.value)}
+                  placeholder="Senha"
+                  aria-label="Senha"
+                  autoComplete="current-password"
+                  className={inputCls}
+                />
+                {loginError && <p className="text-xs text-red-600" role="alert">{loginError}</p>}
+                <Btn v="primary" cls="w-full h-12" disabled={loggingIn || !identifier.trim() || !senha} onClick={() => { void handleLogin() }}>
+                  {loggingIn ? "Entrando…" : "Entrar"}
+                </Btn>
+              </>
+            ) : (
+              <>
+                <p className="text-sm font-bold text-[#0D1E12]">Criar conta</p>
+                <input className={inputCls} value={regNome} onChange={e => setRegNome(e.target.value)} placeholder="Nome completo" aria-label="Nome completo" />
+                <input className={inputCls} value={regCpf} onChange={e => setRegCpf(e.target.value)} placeholder="CPF" aria-label="CPF cadastro" />
+                <input className={inputCls} type="email" value={regEmail} onChange={e => setRegEmail(e.target.value)} placeholder="E-mail" aria-label="E-mail cadastro" />
+                <input className={inputCls} type="password" value={regSenha} onChange={e => setRegSenha(e.target.value)} placeholder="Senha" aria-label="Senha cadastro" />
+                <input className={inputCls} type="date" value={regNascimento} onChange={e => setRegNascimento(e.target.value)} aria-label="Data de nascimento cadastro" />
+                <input className={inputCls} type="tel" value={regTelefone} onChange={e => setRegTelefone(e.target.value)} placeholder="Telefone" aria-label="Telefone cadastro" />
+                {regError && <p className="text-xs text-red-600" role="alert">{regError}</p>}
+                <Btn
+                  v="primary"
+                  cls="w-full h-12"
+                  disabled={registering}
+                  onClick={() => { void handleRegister() }}
+                >
+                  {registering ? "Criando…" : "Criar conta e entrar"}
+                </Btn>
+              </>
+            )}
           </div>
         </div>
       )}
 
-      {/* Menu */}
       <div className={`px-4 ${authed ? "-mt-4" : ""}`}>
         <div className="bg-white rounded-2xl border border-[#D1E8D7] overflow-hidden divide-y divide-[#E4EBE6]">
           {[
@@ -2256,10 +2443,8 @@ function PerfilScreen({
               if (!authed && !shouldUseMocks()) return
               goto("inscricoes"); setNav("inscricoes")
             } },
-            { icon: Upload, label: "Documentos Enviados", sub: "Gerenciar arquivos", action: () => goto("docs") },
-            { icon: Bell, label: "Preferências de Avisos", sub: "Email e push" },
-            { icon: Shield, label: "Privacidade & LGPD", sub: "Seus dados e direitos" },
-            { icon: HelpCircle, label: "Central de Ajuda", sub: "Dúvidas frequentes" },
+            { icon: Upload, label: "Documentos Enviados", sub: "Gerenciar arquivos", action: onRequestDocs },
+            { icon: HelpCircle, label: "Central de Ajuda", sub: "Assistente e dúvidas", action: onOpenChat },
           ].map(({ icon: Icon, label, sub, action }) => (
             <button key={label} onClick={action}
               className="w-full flex items-center gap-4 px-4 py-3.5 text-left hover:bg-[#F5F8F5] transition-colors focus-visible:outline-2 focus-visible:outline-[#2A7B3E] active:bg-[#E7F4EA]">
@@ -2275,14 +2460,16 @@ function PerfilScreen({
           ))}
         </div>
 
-        <button
-          onClick={handleLogout}
-          className="w-full mt-4 mb-4 flex items-center justify-center gap-2 h-12 rounded-xl border-2 border-red-200 text-red-600 font-semibold text-sm hover:bg-red-50 transition-colors focus-visible:outline-2 focus-visible:outline-red-600"
-        >
-          <LogOut className="w-4 h-4" /> Sair da Conta
-        </button>
+        {authed && (
+          <button
+            onClick={handleLogout}
+            className="w-full mt-4 mb-4 flex items-center justify-center gap-2 h-12 rounded-xl border-2 border-red-200 text-red-600 font-semibold text-sm hover:bg-red-50 transition-colors focus-visible:outline-2 focus-visible:outline-red-600"
+          >
+            <LogOut className="w-4 h-4" /> Sair da Conta
+          </button>
+        )}
 
-        <div className="text-center pb-4">
+        <div className="text-center pb-4 mt-4">
           <div className="flex items-center justify-center gap-1.5 mb-1">
             <div className="text-[10px] font-black text-[#2A7B3E] bg-[#E7F4EA] px-2 py-0.5 rounded border border-[#D1E8D7]">IFB</div>
             <span className="text-[10px] text-[#A8C4B0]">Processo Seletivo Inteligente</span>
@@ -2301,6 +2488,9 @@ export default function App() {
   const [chat, setChat] = useState(false)
   const [selectedEdital, setSelectedEdital] = useState<EditalCardData | null>(null)
   const [activeCandidaturaId, setActiveCandidaturaId] = useState<number | null>(null)
+  const [docsBack, setDocsBack] = useState<"wizard" | "inscricoes">("wizard")
+  const [pendingAfterAuth, setPendingAfterAuth] = useState<Screen | null>(null)
+  const [cameraCapturePending, setCameraCapturePending] = useState(false)
 
   function goto(s: Screen) {
     setScreen(s)
@@ -2314,12 +2504,54 @@ export default function App() {
     else if (t === "perfil") goto("perfil")
   }
 
+  function requireAuth(next: Screen) {
+    setPendingAfterAuth(next)
+    setNav("perfil")
+    goto("perfil")
+  }
+
+  function openDocs(candidaturaId: number, back: "wizard" | "inscricoes" = "inscricoes") {
+    setActiveCandidaturaId(candidaturaId)
+    setDocsBack(back)
+    goto("docs")
+  }
+
+  function requestDocs() {
+    if (shouldUseMocks()) {
+      setDocsBack("inscricoes")
+      goto("docs")
+      return
+    }
+    if (getSessionUserId() == null) {
+      requireAuth("inscricoes")
+      return
+    }
+    if (activeCandidaturaId != null && activeCandidaturaId > 0) {
+      setDocsBack("inscricoes")
+      goto("docs")
+      return
+    }
+    setNav("inscricoes")
+    goto("inscricoes")
+  }
+
+  function onAuthChange() {
+    if (pendingAfterAuth) {
+      const next = pendingAfterAuth
+      setPendingAfterAuth(null)
+      if (next === "inscricoes") setNav("inscricoes")
+      goto(next)
+    }
+  }
+
   const screenEl: Record<Screen, ReactNode> = {
     home: (
       <HomeScreen
         goto={goto}
         setNav={setNav}
         onSelectEdital={setSelectedEdital}
+        onOpenChat={() => setChat(true)}
+        onRequestDocs={requestDocs}
       />
     ),
     processos: (
@@ -2335,6 +2567,8 @@ export default function App() {
         setNav={setNav}
         onBack={() => goto(nav === "inscricoes" ? "inscricoes" : "home")}
         edital={selectedEdital}
+        onRequireAuth={requireAuth}
+        onOpenDocs={(id) => openDocs(id, "inscricoes")}
       />
     ),
     wizard: (
@@ -2342,22 +2576,32 @@ export default function App() {
         goto={goto}
         onBack={() => goto("edital")}
         edital={selectedEdital}
-        onCandidaturaCreated={setActiveCandidaturaId}
+        onCandidaturaCreated={(id) => {
+          setActiveCandidaturaId(id)
+          setDocsBack("wizard")
+        }}
       />
     ),
     docs: (
       <DocsScreen
         goto={goto}
-        onBack={() => goto("wizard")}
+        setNav={setNav}
+        onBack={() => goto(docsBack === "inscricoes" ? "inscricoes" : "wizard")}
         candidaturaId={activeCandidaturaId}
+        cameraCapturePending={cameraCapturePending}
       />
     ),
-    camera: <CameraScreen onBack={() => goto("docs")} />,
+    camera: (
+      <CameraScreen
+        onBack={() => goto("docs")}
+        onConfirmCapture={() => setCameraCapturePending(true)}
+      />
+    ),
     inscricoes: (
       <InscricoesScreen
         goto={goto}
         setNav={setNav}
-        onOpenDocs={(id) => setActiveCandidaturaId(id)}
+        onOpenDocs={(id) => openDocs(id, "inscricoes")}
       />
     ),
     notificacoes: <NotifScreen />,
@@ -2365,24 +2609,23 @@ export default function App() {
       <PerfilScreen
         goto={goto}
         setNav={setNav}
-        onAuthChange={() => { /* token updated; screens re-read session */ }}
+        onAuthChange={onAuthChange}
+        onOpenChat={() => setChat(true)}
+        onRequestDocs={requestDocs}
       />
     ),
     "meus-dados": <MeusDadosScreen onBack={() => goto("perfil")} />,
   }
 
   return (
-    <div className="min-h-screen bg-gray-300 sm:flex sm:items-start sm:justify-center sm:pt-6 sm:pb-6">
+    <div className="min-h-dvh bg-[#F5F8F5]">
       <div
-        className="relative bg-[#F5F8F5] w-full sm:max-w-[390px] sm:rounded-[44px] sm:shadow-2xl sm:border-8 sm:border-gray-400/30 overflow-hidden flex flex-col"
-        style={{ minHeight: "100dvh", maxHeight: "844px" }}
+        className="relative bg-[#F5F8F5] w-full max-w-lg mx-auto min-h-dvh overflow-hidden flex flex-col"
       >
-        {/* Scrollable screen content */}
         <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: "none" }}>
           {screenEl[screen]}
         </div>
 
-        {/* FAB — Chatbot (STAY_MOCK: RS04 intentional MVP mock) */}
         <div className="absolute bottom-[84px] right-4 z-50">
           <button
             onClick={() => setChat(true)}
@@ -2393,12 +2636,10 @@ export default function App() {
           </button>
         </div>
 
-        {/* Bottom Nav */}
         <div className="flex-shrink-0 z-40">
           <BottomNav active={nav} onChange={handleNav} />
         </div>
 
-        {/* Chat modal */}
         {chat && <ChatModal onClose={() => setChat(false)} />}
       </div>
     </div>

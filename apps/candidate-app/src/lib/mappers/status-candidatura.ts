@@ -16,6 +16,7 @@ export function statusCandidaturaToBadge(
     case StatusCandidatura.ANALISE_DOCUMENTAL:
       return "analise";
     case StatusCandidatura.APROVADO:
+    case StatusCandidatura.MATRICULADO:
       return "aprovado";
     case StatusCandidatura.REPROVADO:
       return "reprovado";
@@ -34,6 +35,7 @@ export function isTerminalCandidaturaStatus(
 ): boolean {
   return (
     status === StatusCandidatura.APROVADO ||
+    status === StatusCandidatura.MATRICULADO ||
     status === StatusCandidatura.REPROVADO ||
     status === StatusCandidatura.CANCELADA ||
     status === StatusCandidatura.DESCLASSIFICADA

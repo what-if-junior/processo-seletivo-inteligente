@@ -50,6 +50,11 @@ export class AuthService {
       throw new UnauthorizedException('Credenciais inválidas');
     }
 
+    // REQ-2.8: conta desativada perde o login mas mantém as inscrições.
+    if (user.ativo === false) {
+      throw new UnauthorizedException('Conta desativada');
+    }
+
     const { senha: _, ...result } = user;
     return result;
   }

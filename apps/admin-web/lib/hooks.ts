@@ -101,6 +101,7 @@ export function useCandidatos() {
   const [source, setSource] = useState<DataSource>("mock");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [tick, setTick] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -114,7 +115,9 @@ export function useCandidatos() {
             id: u.id,
             nome: u.nome_completo,
             email: u.email,
-            status: "ativo" as const,
+            status: (u.ativo === false ? "inativo" : "ativo") as
+              | "ativo"
+              | "inativo",
             data_cadastro: u.criado_em
               ? new Date(u.criado_em).toISOString().slice(0, 10)
               : "—",
@@ -139,7 +142,13 @@ export function useCandidatos() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [tick]);
 
-  return { data, source, loading, error };
+  return {
+    data,
+    source,
+    loading,
+    error,
+    reload: () => setTick((t) => t + 1),
+  };
 }

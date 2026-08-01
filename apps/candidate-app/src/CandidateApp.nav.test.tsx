@@ -24,6 +24,6 @@ describe("CandidateApp navigation", () => {
     render(<CandidateApp />);
 
     await user.click(within(bottomNav()).getByRole("button", { name: "Perfil" }));
-    expect(screen.getByRole("heading", { name: "João da Silva" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Conta do candidato" })).toBeInTheDocument();
   });
 });

@@ -47,6 +47,10 @@ erDiagram
   CronogramaEtapas ||--o{ ConfiguracaoEntregaDocumental : etapa
   ConfiguracaoGlobal ||--o{ FaixasSalarioMinimo : referencia_sm
   TemplatesEdital ||--o{ CronogramaEtapas : instrucao_opcional
+  Ofertas ||--o{ Chamadas : convoca
+  Chamadas ||--o{ ChamadaVagas : congela_vagas
+  Chamadas ||--o{ ClassificacaoItens : lista
+  Candidaturas ||--o{ ClassificacaoItens : classifica
 
   Campus {
     int id PK
@@ -109,6 +113,7 @@ erDiagram
     string telefone
     string ppi
     boolean pcd
+    boolean ativo
   }
 
   Enderecos {
@@ -299,6 +304,35 @@ erDiagram
     modo_entrega modo
     subtipo_entrega_online subtipo_online
   }
+
+  Chamadas {
+    int id PK
+    bigint id_oferta FK
+    int numero
+    bool fallback_ac_para_rv
+    string observacao
+    timestamp criado_em
+  }
+
+  ChamadaVagas {
+    int id PK
+    bigint id_chamada FK
+    string tipo_cota
+    smallint vagas
+    smallint preenchidas
+    smallint remanescentes
+  }
+
+  ClassificacaoItens {
+    int id PK
+    bigint id_chamada FK
+    bigint id_candidatura FK
+    lista_classificacao lista
+    string tipo_cota
+    int posicao
+    bool realocado_para_ac
+    timestamp criado_em
+  }
 ```
 
 ## W1 foundation (`01_schemas.sql` + `02_seeds.sql` + `03_auth.sql`)
@@ -352,6 +386,19 @@ Enums W6: `fase_documento`, `campo_formulario_tipo`, `modo_entrega`, `subtipo_en
 | Vínculo herança | `TiposDocumento.id_tipo_base` | Delete base bloqueado se vinculados; desmarcar = apagar linha do edital |
 | Meus Dados ficheiros | `DocumentosConta` | UNIQUE(usuario, tipo_base); um ficheiro atual; HTTP `/me/documentos-conta` |
 
+## W20–W25 chamadas e classificação (`15_w20_w25_classificacao.sql`)
+
+| Área | Tabelas / colunas | Notas |
+| --- | --- | --- |
+| Acesso do candidato (REQ-2.8) | `Usuarios.ativo` | Default `TRUE`; `false` bloqueia o login (401 `Conta desativada`) mas mantém as inscrições |
+| Lotes SiSU (REQ-2.2) | índice `candidaturas_usuario_edital_active_unique` | Recriado com `AND (tipo_ingresso IS NULL OR tipo_ingresso <> 'sisu')`: a importação SiSU não passa pela unicidade do PWA |
+| Chamadas (REQ-3.4) | `Chamadas` | Uma linha por convocação da oferta; UNIQUE(`id_oferta`, `numero`); guarda o `fallback_ac_para_rv` aplicado |
+| Vagas da chamada (REQ-3.1) | `ChamadaVagas` | UNIQUE(`id_chamada`, `tipo_cota`); `remanescentes` alimenta a chamada seguinte como AC |
+| Listas (REQ-3.2 / 3.3) | `ClassificacaoItens` | UNIQUE(`id_chamada`, `id_candidatura`); `lista` regular/espera; `realocado_para_ac` marca o cotista que entrou pela AC |
+| Matrícula (REQ-3.5) | `status_candidatura` = `matriculado` | Status final do ciclo, importado por lista de CPFs dos campi |
+
+Enum W24: `lista_classificacao` (`chamada_regular`, `espera`).
+
 ## Mapeamento coluna SQL ↔ propriedade TypeORM
 
 | Tabela SQL | Coluna | Entity / prop |
@@ -372,6 +419,10 @@ Enums W6: `fase_documento`, `campo_formulario_tipo`, `modo_entrega`, `subtipo_en
 | DocumentosConta | id_usuario × id_tipo_base UK | DocumentoConta |
 | TipoDocumentoCampos | tipo (texto\|numero\|documento) | TipoDocumentoCampo |
 | ConfiguracaoEntregaDocumental | modo / subtipo_online | ConfiguracaoEntregaDocumental |
+| Usuarios | ativo | User.ativo |
+| Chamadas | id_oferta / numero | Chamada + relation `oferta` |
+| ChamadaVagas | id_chamada × tipo_cota UK | ChamadaVaga |
+| ClassificacaoItens | lista / realocado_para_ac | ClassificacaoItem |
 
 Enums persistidos: ver `packages/types/src/db-enums.ts` (valores idênticos a `01`–`08` SQL).
 

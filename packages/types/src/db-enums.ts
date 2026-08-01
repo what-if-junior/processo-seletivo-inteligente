@@ -31,6 +31,7 @@ export const PG_ENUM_NAMES = {
   campoFormularioTipo: 'campo_formulario_tipo',
   modoEntrega: 'modo_entrega',
   subtipoEntregaOnline: 'subtipo_entrega_online',
+  listaClassificacao: 'lista_classificacao',
 } as const;
 
 export enum MetodoSelecao {
@@ -78,6 +79,14 @@ export enum StatusCandidatura {
   REPROVADO = 'reprovado',
   CANCELADA = 'cancelada',
   DESCLASSIFICADA = 'desclassificada',
+  /** W25 — status final do ciclo, importado pelos campi (REQ-3.5). */
+  MATRICULADO = 'matriculado',
+}
+
+/** W24 — ClassificacaoItens.lista (REQ-3.4). */
+export enum ListaClassificacao {
+  CHAMADA_REGULAR = 'chamada_regular',
+  ESPERA = 'espera',
 }
 
 export enum TipoIngresso {

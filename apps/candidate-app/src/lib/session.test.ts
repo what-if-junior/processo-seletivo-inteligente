@@ -33,6 +33,7 @@ describe("profileMinimumIssues", () => {
     data_nascimento: "1995-05-20",
     telefone: "11999999999",
     pcd: false,
+    ativo: true,
     enderecos: [
       {
         id: 1,

@@ -2,19 +2,21 @@
 
 import { useMemo, useState } from "react";
 import { DataTable } from "../../../components/DataTable";
+import { KpiCard } from "../../../components/KpiCard";
 import { StatusBadge } from "../../../components/StatusBadge";
 import { useToast } from "../../../components/ToastProvider";
-import { downloadTextFile, formatDate, toCsv } from "../../../lib/format";
+import { downloadTextFile, formatDate, formatNumber, toCsv } from "../../../lib/format";
 import { useCandidatos } from "../../../lib/hooks";
+import { updateUsuarioAtivo } from "../../../lib/w20-w25-api";
 
 export default function CandidatosPage() {
-  const { data, source, loading, error } = useCandidatos();
+  const { data, source, loading, error, reload } = useCandidatos();
   const { push } = useToast();
   const [q, setQ] = useState("");
   const [statusFilter, setStatusFilter] = useState<"todos" | "ativo" | "inativo">(
     "todos",
   );
-  const [showFilters, setShowFilters] = useState(false);
+  const [busyId, setBusyId] = useState<number | null>(null);
 
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
@@ -27,6 +29,30 @@ export default function CandidatosPage() {
       );
     });
   }, [data, q, statusFilter]);
+
+  const ativos = data.filter((c) => c.status === "ativo").length;
+  const inativos = data.filter((c) => c.status === "inativo").length;
+  const maxBar = Math.max(ativos, inativos, 1);
+
+  async function toggleAtivo(c: (typeof data)[number]) {
+    setBusyId(c.id);
+    try {
+      await updateUsuarioAtivo(c.id, c.status !== "ativo");
+      push(
+        c.status === "ativo"
+          ? "Acesso desativado (inscrições mantidas)."
+          : "Acesso reativado.",
+      );
+      reload();
+    } catch (e) {
+      push(
+        e instanceof Error ? e.message : "Falha ao atualizar ativo/inativo.",
+        "error",
+      );
+    } finally {
+      setBusyId(null);
+    }
+  }
 
   function exportCsv() {
     const csv = toCsv(
@@ -51,26 +77,17 @@ export default function CandidatosPage() {
         <div>
           <h1 className="text-2xl font-semibold text-slate-900">Candidatos</h1>
           <p className="text-sm text-slate-500">
-            Contas cadastradas na plataforma
+            Contas e acessos — análise de ativos/inativos
             {source === "mock" ? " (dados de demonstração)" : ""}
           </p>
         </div>
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => setShowFilters((v) => !v)}
-            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-50"
-          >
-            Filtros
-          </button>
-          <button
-            type="button"
-            onClick={exportCsv}
-            className="rounded-lg bg-[#2f9e41] px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
-          >
-            Exportar
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={exportCsv}
+          className="rounded-lg bg-[#2f9e41] px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+        >
+          Exportar CSV
+        </button>
       </div>
 
       {error ? (
@@ -79,32 +96,56 @@ export default function CandidatosPage() {
         </p>
       ) : null}
 
-      <input
-        type="search"
-        placeholder="Buscar por nome ou e-mail…"
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
-        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#2f9e41]"
-      />
+      <div className="grid gap-4 sm:grid-cols-3">
+        <KpiCard title="Total" value={formatNumber(data.length)} />
+        <KpiCard title="Ativos" value={formatNumber(ativos)} />
+        <KpiCard title="Inativos" value={formatNumber(inativos)} />
+      </div>
 
-      {showFilters ? (
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <label className="text-sm">
-            <span className="mb-1 block font-medium text-slate-700">Status</span>
-            <select
-              value={statusFilter}
-              onChange={(e) =>
-                setStatusFilter(e.target.value as typeof statusFilter)
-              }
-              className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-            >
-              <option value="todos">Todos</option>
-              <option value="ativo">Ativo</option>
-              <option value="inativo">Inativo</option>
-            </select>
-          </label>
+      <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <h2 className="mb-3 text-base font-semibold text-slate-900">
+          Ativo vs inativo
+        </h2>
+        <div className="flex h-36 items-end gap-10 px-10">
+          {[
+            { label: "Ativo", value: ativos, cls: "bg-[#2f9e41]/70" },
+            { label: "Inativo", value: inativos, cls: "bg-slate-400/70" },
+          ].map((b) => (
+            <div key={b.label} className="flex flex-1 flex-col items-center gap-2">
+              <span className="text-xs font-semibold">{b.value}</span>
+              <div
+                className={`w-full max-w-[100px] rounded-t-md ${b.cls}`}
+                style={{
+                  height: `${(b.value / maxBar) * 100}%`,
+                  minHeight: b.value ? 4 : 0,
+                }}
+              />
+              <span className="text-xs text-slate-500">{b.label}</span>
+            </div>
+          ))}
         </div>
-      ) : null}
+      </section>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <input
+          type="search"
+          placeholder="Buscar por nome ou e-mail…"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#2f9e41]"
+        />
+        <select
+          value={statusFilter}
+          onChange={(e) =>
+            setStatusFilter(e.target.value as typeof statusFilter)
+          }
+          className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+        >
+          <option value="todos">Todos os status</option>
+          <option value="ativo">Ativo</option>
+          <option value="inativo">Inativo</option>
+        </select>
+      </div>
 
       {loading ? (
         <p className="text-sm text-slate-500">Carregando candidatos…</p>
@@ -133,32 +174,14 @@ export default function CandidatosPage() {
                 {formatDate(c.data_cadastro)}
               </td>
               <td className="px-4 py-3">
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    className="text-sm text-blue-600 hover:underline"
-                    onClick={() =>
-                      push(
-                        "Edição de candidato via admin ainda não implementada (usar PATCH /user/:id).",
-                        "info",
-                      )
-                    }
-                  >
-                    Editar
-                  </button>
-                  <button
-                    type="button"
-                    className="text-sm text-red-600 hover:underline"
-                    onClick={() =>
-                      push(
-                        "Exclusão de candidato desabilitada nesta fase — DELETE /user/:id existe na API.",
-                        "info",
-                      )
-                    }
-                  >
-                    Excluir
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  disabled={busyId === c.id || source === "mock"}
+                  className="text-sm text-blue-600 hover:underline disabled:opacity-50"
+                  onClick={() => toggleAtivo(c)}
+                >
+                  {c.status === "ativo" ? "Desativar" : "Ativar"}
+                </button>
               </td>
             </tr>
           ))}

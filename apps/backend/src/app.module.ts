@@ -17,6 +17,9 @@ import { TiposDocumentoBaseModule } from './tipos-documento-base/tipos-documento
 import { EntregaDocumentalModule } from './entrega-documental/entrega-documental.module';
 import { FaixasModule } from './faixas/faixas.module';
 import { SocioeconomicoModule } from './socioeconomico/socioeconomico.module';
+import { LotesModule } from './lotes/lotes.module';
+import { ChamadasModule } from './chamadas/chamadas.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 import { SchemaExtrasModule } from './schema-extras/schema-extras.module';
 import { SchemaFoundationModule } from './schema-foundation/schema-foundation.module';
 import { ProtocolosModule } from './protocolos/protocolos.module';
@@ -61,6 +64,9 @@ import { JwtAuthGuard } from './auth/guards/jwt.guard';
     EntregaDocumentalModule,
     FaixasModule,
     SocioeconomicoModule,
+    LotesModule,
+    ChamadasModule,
+    DashboardModule,
     GestoresModule,
     EtapasProcessoModule,
     RecursosModule,

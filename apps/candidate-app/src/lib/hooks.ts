@@ -22,17 +22,19 @@ import {
   shouldUseMocks,
 } from "./session";
 
-export type DataSource = "api" | "mock";
+export type DataSource = "api" | "mock" | "empty";
 
 export function useCursos(fallback: EditalCard[]) {
   const [editais, setEditais] = useState<EditalCard[]>(fallback);
   const [source, setSource] = useState<DataSource>("mock");
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (shouldUseMocks()) {
       setEditais(fallback);
       setSource("mock");
+      setError(null);
       setLoading(false);
       return;
     }
@@ -41,17 +43,14 @@ export function useCursos(fallback: EditalCard[]) {
       try {
         const list = await apiFetch<Cursos[]>("/cursos");
         if (cancelled) return;
-        if (!list.length) {
-          setEditais(fallback);
-          setSource("mock");
-        } else {
-          setEditais(list.map((c) => cursoToEditalCard(c)));
-          setSource("api");
-        }
+        setEditais(list.map((c) => cursoToEditalCard(c)));
+        setSource(list.length ? "api" : "empty");
+        setError(null);
       } catch {
         if (cancelled) return;
-        setEditais(fallback);
-        setSource("mock");
+        setEditais([]);
+        setSource("empty");
+        setError("Não foi possível carregar os cursos. Tente novamente.");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -61,19 +60,25 @@ export function useCursos(fallback: EditalCard[]) {
     };
   }, [fallback]);
 
-  return { editais, source, loading };
+  return { editais, source, loading, error };
 }
 
-/** Home / Processos: public `GET /ofertas` with mock EDITAIS fallback (W16 / M-06). */
+/** Home / Processos: public `GET /ofertas` with mock only when mocks flag is on. */
 export function useOfertas(fallback: EditalCard[]) {
-  const [editais, setEditais] = useState<EditalCard[]>(fallback);
-  const [source, setSource] = useState<DataSource>("mock");
+  const [editais, setEditais] = useState<EditalCard[]>(
+    shouldUseMocks() ? fallback : [],
+  );
+  const [source, setSource] = useState<DataSource>(
+    shouldUseMocks() ? "mock" : "empty",
+  );
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (shouldUseMocks()) {
       setEditais(fallback);
       setSource("mock");
+      setError(null);
       setLoading(false);
       return;
     }
@@ -82,17 +87,14 @@ export function useOfertas(fallback: EditalCard[]) {
       try {
         const list = await apiFetch<Oferta[]>("/ofertas");
         if (cancelled) return;
-        if (!list.length) {
-          setEditais(fallback);
-          setSource("mock");
-        } else {
-          setEditais(list.map((o) => ofertaToEditalCard(o)));
-          setSource("api");
-        }
+        setEditais(list.map((o) => ofertaToEditalCard(o)));
+        setSource(list.length ? "api" : "empty");
+        setError(null);
       } catch {
         if (cancelled) return;
-        setEditais(fallback);
-        setSource("mock");
+        setEditais([]);
+        setSource("empty");
+        setError("Não foi possível carregar as ofertas. Tente novamente.");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -102,13 +104,15 @@ export function useOfertas(fallback: EditalCard[]) {
     };
   }, [fallback]);
 
-  return { editais, source, loading };
+  return { editais, source, loading, error };
 }
 
 export type InscricaoCard = {
   id: number;
+  id_oferta?: number;
   curso: string;
   campus: string;
+  status: string;
   statusBadge: string;
   data: string;
   protocolo: string;
@@ -117,8 +121,10 @@ export type InscricaoCard = {
 
 const MOCK_ACTIVE: InscricaoCard = {
   id: 0,
+  id_oferta: 3,
   curso: "Técnico em Hotelaria",
   campus: "Campus Planaltina",
+  status: "analise_documental",
   statusBadge: "analise",
   data: "14/11/2024",
   protocolo: "IFB-2025-00847",
@@ -128,8 +134,10 @@ const MOCK_ACTIVE: InscricaoCard = {
 const MOCK_PAST: InscricaoCard[] = [
   {
     id: -1,
+    id_oferta: 4,
     curso: "Técnico em Moda",
     campus: "Campus Samambaia",
+    status: "reprovado",
     statusBadge: "reprovado",
     data: "2024.1",
     protocolo: "",
@@ -137,8 +145,10 @@ const MOCK_PAST: InscricaoCard[] = [
   },
   {
     id: -2,
+    id_oferta: 5,
     curso: "Ensino Médio Integrado",
     campus: "Campus Gama",
+    status: "aprovado",
     statusBadge: "aprovado",
     data: "2023.2",
     protocolo: "",
@@ -157,8 +167,10 @@ function candidaturaToCard(c: Candidatura): InscricaoCard {
   const campusNome = c.oferta?.campus?.nome;
   return {
     id: c.id,
+    id_oferta: c.id_oferta,
     curso: cursoNome ?? `Oferta #${c.id_oferta}`,
     campus: campusNome ?? "—",
+    status: String(c.status),
     statusBadge: statusCandidaturaToBadge(c.status),
     data: formatInscricaoDate(c.data_inscricao),
     protocolo: c.protocolo ?? "",
@@ -167,10 +179,17 @@ function candidaturaToCard(c: Candidatura): InscricaoCard {
 }
 
 export function useInscricoes() {
-  const [active, setActive] = useState<InscricaoCard | null>(MOCK_ACTIVE);
-  const [past, setPast] = useState<InscricaoCard[]>(MOCK_PAST);
-  const [source, setSource] = useState<DataSource>("mock");
+  const [active, setActive] = useState<InscricaoCard | null>(
+    shouldUseMocks() ? MOCK_ACTIVE : null,
+  );
+  const [past, setPast] = useState<InscricaoCard[]>(
+    shouldUseMocks() ? MOCK_PAST : [],
+  );
+  const [source, setSource] = useState<DataSource>(
+    shouldUseMocks() ? "mock" : "empty",
+  );
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
 
   const reload = () => setReloadToken((n) => n + 1);
@@ -180,6 +199,7 @@ export function useInscricoes() {
       setActive(MOCK_ACTIVE);
       setPast(MOCK_PAST);
       setSource("mock");
+      setError(null);
       setLoading(false);
       return;
     }
@@ -187,7 +207,8 @@ export function useInscricoes() {
     if (userId == null) {
       setActive(null);
       setPast([]);
-      setSource("mock");
+      setSource("empty");
+      setError(null);
       setLoading(false);
       return;
     }
@@ -204,11 +225,13 @@ export function useInscricoes() {
         setActive(actives[0] ?? null);
         setPast(pasts.length ? pasts : []);
         setSource("api");
+        setError(null);
       } catch {
         if (cancelled) return;
-        setActive(MOCK_ACTIVE);
-        setPast(MOCK_PAST);
-        setSource("mock");
+        setActive(null);
+        setPast([]);
+        setSource("empty");
+        setError("Não foi possível carregar suas inscrições.");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -248,6 +271,7 @@ export function useInscricoes() {
     past,
     source,
     loading,
+    error,
     reload,
     cancelActive,
     downloadComprovante,
@@ -258,35 +282,50 @@ export function useDocumentos(
   candidaturaId: number | null,
   fallback: DocUiRow[],
 ) {
-  const [docs, setDocs] = useState<DocUiRow[]>(fallback);
-  const [source, setSource] = useState<DataSource>("mock");
+  const [docs, setDocs] = useState<DocUiRow[]>([]);
+  const [source, setSource] = useState<DataSource>("empty");
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
+
+  const reload = () => setReloadToken((n) => n + 1);
 
   useEffect(() => {
-    if (shouldUseMocks() || candidaturaId == null || candidaturaId <= 0) {
+    if (shouldUseMocks()) {
       setDocs(fallback);
       setSource("mock");
+      setError(null);
+      setLoading(false);
+      return;
+    }
+    if (candidaturaId == null || candidaturaId <= 0) {
+      setDocs([]);
+      setSource("empty");
+      setError(null);
       setLoading(false);
       return;
     }
     let cancelled = false;
     (async () => {
+      setLoading(true);
       try {
         const list = await apiFetch<Documento[]>(
           `/documentos?candidatura=${candidaturaId}`,
         );
         if (cancelled) return;
         if (!list.length) {
-          setDocs(fallback);
-          setSource("mock");
+          setDocs([]);
+          setSource("empty");
         } else {
           setDocs(list.map(documentoToDocUiRow));
           setSource("api");
         }
+        setError(null);
       } catch {
         if (cancelled) return;
-        setDocs(fallback);
-        setSource("mock");
+        setDocs([]);
+        setSource("empty");
+        setError("Não foi possível carregar os documentos.");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -294,9 +333,9 @@ export function useDocumentos(
     return () => {
       cancelled = true;
     };
-  }, [candidaturaId, fallback]);
+  }, [candidaturaId, fallback, reloadToken]);
 
-  return { docs, source, loading };
+  return { docs, source, loading, error, reload };
 }
 
 export function useProfile() {

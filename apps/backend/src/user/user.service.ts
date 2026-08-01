@@ -113,6 +113,14 @@ export class UserService {
     return this.findById(id);
   }
 
+  /** REQ-2.8: desabilitar o acesso bloqueia o login sem tocar nas inscrições. */
+  async setAtivo(id: number, ativo: boolean): Promise<User> {
+    const user = await this.findById(id);
+    user.ativo = ativo;
+    await this.userRepository.save(user);
+    return this.findById(id);
+  }
+
   async remove(id: number): Promise<void> {
     const user = await this.findById(id);
     await this.userRepository.remove(user);
