@@ -11,6 +11,8 @@ import { GestoresModule } from './gestores/gestores.module';
 import { EtapasProcessoModule } from './etapas-processo/etapas-processo.module';
 import { OfertasModule } from './ofertas/ofertas.module';
 import { RecursosModule } from './recursos/recursos.module';
+import { ContestacoesModule } from './contestacoes/contestacoes.module';
+import { TemplatesModule } from './templates/templates.module';
 import { CronogramaModule } from './cronograma/cronograma.module';
 import { TiposDocumentoModule } from './tipos-documento/tipos-documento.module';
 import { TiposDocumentoBaseModule } from './tipos-documento-base/tipos-documento-base.module';
@@ -70,6 +72,8 @@ import { JwtAuthGuard } from './auth/guards/jwt.guard';
     GestoresModule,
     EtapasProcessoModule,
     RecursosModule,
+    ContestacoesModule,
+    TemplatesModule,
     SchemaExtrasModule,
     SchemaFoundationModule,
   ],

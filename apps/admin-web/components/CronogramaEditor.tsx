@@ -21,6 +21,10 @@ import { useToast } from "./ToastProvider";
 import { Field, inputClass, Toggle } from "./ProcessoFormFields";
 import { StatusBadge } from "./StatusBadge";
 import { formatDate } from "../lib/format";
+import {
+  listTemplatesEdital,
+  type TemplateEdital,
+} from "../lib/templates-api";
 
 const DEFAULT_TIPO = TipoEtapaCronograma.INSCRICAO;
 
@@ -44,13 +48,20 @@ export function CronogramaEditor({ editalId }: { editalId: number }) {
   const [impugnacao, setImpugnacao] = useState(false);
   const [recurso, setRecurso] = useState(false);
   const [templateId, setTemplateId] = useState("");
+  const [instrucaoTemplates, setInstrucaoTemplates] = useState<
+    TemplateEdital[]
+  >([]);
 
   const reload = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await listCronogramaGestao(editalId);
+      const [res, tpls] = await Promise.all([
+        listCronogramaGestao(editalId),
+        listTemplatesEdital(editalId, "INSTRUCAO_ETAPA").catch(() => []),
+      ]);
       setEtapas(res.etapas);
       setWarnings(res.warnings ?? []);
+      setInstrucaoTemplates(tpls);
       setError(null);
     } catch (e) {
       setError(
@@ -340,15 +351,25 @@ export function CronogramaEditor({ editalId }: { editalId: number }) {
             </select>
           </Field>
           <Field
-            label="Template instrução (id)"
-            hint="Biblioteca preenchida em W30 — id opcional por enquanto."
+            label="Template instrução"
+            hint="Cópias do edital com tipo_uso=INSTRUCAO_ETAPA (W30)."
           >
-            <input
+            <select
               className={inputClass}
               value={templateId}
               onChange={(e) => setTemplateId(e.target.value)}
-              placeholder="opcional"
-            />
+            >
+              <option value="">Nenhum</option>
+              {templateId &&
+              !instrucaoTemplates.some((t) => String(t.id) === templateId) ? (
+                <option value={templateId}>#{templateId} (atual)</option>
+              ) : null}
+              {instrucaoTemplates.map((t) => (
+                <option key={t.id} value={String(t.id)}>
+                  #{t.id} · {t.titulo}
+                </option>
+              ))}
+            </select>
           </Field>
         </div>
         <Field label="Descrição (links inline ok)">

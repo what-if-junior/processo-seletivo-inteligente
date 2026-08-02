@@ -355,7 +355,7 @@ Enums W1: `metodo_selecao`, `merito_tipo`, `termos_modo`, `turno`, `tipo_vaga` (
 | Notificações (REQ-6.1) | `Notificacoes`, `NotificacaoLeituras`, `PreferenciasNotificacao` | `id_edital` FK |
 | Carrossel (REQ-6.2 / RS09) | `CarrosselItens` | `id_edital` FK |
 | Faixas SM (REQ-1.7) | `ConfiguracaoGlobal`, `FaixasSalarioMinimo` | Seed: SM referência; faixas vazias = regra B; HTTP `/faixas-sm` (W7) |
-| Templates (REQ-5.2 stub) | `TemplatesBiblioteca`, `TemplatesEdital` | `id_edital` FK |
+| Templates (REQ-5.2; APIs W30) | `TemplatesBiblioteca`, `TemplatesEdital` | `id_edital` FK |
 
 Legacy `Recursos` remains for the old etapa-bound flow; new contestação UX uses `Contestacoes`.
 

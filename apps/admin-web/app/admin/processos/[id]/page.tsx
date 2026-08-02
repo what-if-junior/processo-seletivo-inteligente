@@ -23,6 +23,7 @@ import { OfertasEditor } from "../../../../components/OfertasEditor";
 import { CronogramaEditor } from "../../../../components/CronogramaEditor";
 import { TiposDocumentoEditor } from "../../../../components/TiposDocumentoEditor";
 import { EntregaDocumentalEditor } from "../../../../components/EntregaDocumentalEditor";
+import { TemplatesEditalEditor } from "../../../../components/TemplatesEditalEditor";
 import { StatusBadge } from "../../../../components/StatusBadge";
 import { formatDate } from "../../../../lib/format";
 
@@ -294,6 +295,10 @@ export default function ProcessoDetailPage() {
 
       <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
         <CronogramaEditor editalId={id} />
+      </div>
+
+      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <TemplatesEditalEditor editalId={id} />
       </div>
 
       <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">

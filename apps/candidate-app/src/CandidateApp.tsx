@@ -69,11 +69,17 @@ import {
   postReutilizarDocumento,
   type ReutilizavelExigencia,
 } from "./lib/document-reuse"
+import {
+  ContestacaoFormScreen,
+  MinhasContestacoesScreen,
+  useContestacaoElegibilidade,
+} from "./ContestacaoScreens"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Screen =
   | "home" | "processos" | "edital" | "wizard" | "docs"
   | "camera" | "inscricoes" | "notificacoes" | "perfil" | "meus-dados"
+  | "contestacao" | "minhas-contestacoes"
 type NavTab = "home" | "inscricoes" | "notificacoes" | "perfil"
 type WizardStep = 1 | 2 | 3 | 4
 
@@ -725,7 +731,7 @@ function ProcessosScreen({
 
 // ─── EDITAL DETAIL SCREEN ─────────────────────────────────────────────────────
 function EditalScreen({
-  goto, onBack, edital, setNav, onRequireAuth, onOpenDocs,
+  goto, onBack, edital, setNav, onRequireAuth, onOpenDocs, onOpenContestacao,
 }: {
   goto: (s: Screen) => void
   onBack: () => void
@@ -733,6 +739,7 @@ function EditalScreen({
   setNav?: (t: NavTab) => void
   onRequireAuth: (next: Screen) => void
   onOpenDocs: (candidaturaId: number) => void
+  onOpenContestacao: (candidaturaId: number) => void
 }) {
   const title = edital?.titulo ?? "Técnico em Informática"
   const campus = edital?.campus ?? "Campus Brasília"
@@ -753,6 +760,11 @@ function EditalScreen({
       : hasActiveForOferta
         ? "andamento"
         : "aberto"
+  const editalIdNum =
+    edital?.id_edital ?? (Number(edital?.id) > 0 ? Number(edital?.id) : null)
+  const elig = useContestacaoElegibilidade(
+    editalIdNum && editalIdNum > 0 ? editalIdNum : null,
+  )
 
   function requireLoginThen(next: Screen) {
     if (!shouldUseMocks() && getSessionUserId() == null) {
@@ -870,6 +882,49 @@ function EditalScreen({
               <Award className="w-5 h-5" /> Ver Resultado Completo
             </Btn>
             <p className="text-center text-xs text-[#4E6859]">Consulte as datas de matrícula no edital</p>
+          </div>
+        )}
+        {(elig?.impugnacao || elig?.recurso) && (
+          <div className="mt-4 flex flex-col gap-2">
+            {elig?.instrucao ? (
+              <p className="text-xs text-[#4E6859] whitespace-pre-wrap rounded-xl border border-[#D1E8D7] bg-white p-3">
+                <span className="font-semibold text-[#0D1E12] block mb-1">
+                  {elig.instrucao.titulo}
+                </span>
+                {elig.instrucao.corpo}
+              </p>
+            ) : null}
+            {elig?.impugnacao && editalIdNum ? (
+              <a
+                href={`/impugnacao?edital=${editalIdNum}`}
+                className="w-full h-12 rounded-xl border-2 border-[#2A7B3E] text-[#2A7B3E] font-bold text-sm flex items-center justify-center"
+              >
+                Impugnar edital (público)
+              </a>
+            ) : null}
+            {elig?.recurso && active && active.id > 0 ? (
+              <Btn
+                v="outline"
+                cls="w-full h-12"
+                onClick={() => {
+                  if (!shouldUseMocks() && getSessionUserId() == null) {
+                    setNav?.("perfil")
+                    onRequireAuth("contestacao")
+                    return
+                  }
+                  onOpenContestacao(active.id)
+                }}
+              >
+                Apresentar recurso / justificativa
+              </Btn>
+            ) : null}
+            <Btn
+              v="secondary"
+              cls="w-full h-11"
+              onClick={() => requireLoginThen("minhas-contestacoes")}
+            >
+              Minhas contestações
+            </Btn>
           </div>
         )}
       </div>
@@ -2895,6 +2950,10 @@ export default function App() {
         edital={selectedEdital}
         onRequireAuth={requireAuth}
         onOpenDocs={(id) => openDocs(id, "inscricoes")}
+        onOpenContestacao={(id) => {
+          setActiveCandidaturaId(id)
+          goto("contestacao")
+        }}
       />
     ),
     wizard: (
@@ -2949,6 +3008,20 @@ export default function App() {
       />
     ),
     "meus-dados": <MeusDadosScreen onBack={() => goto("perfil")} />,
+    contestacao: (
+      <ContestacaoFormScreen
+        editalId={
+          selectedEdital?.id_edital ??
+          (Number(selectedEdital?.id) > 0 ? Number(selectedEdital?.id) : 0)
+        }
+        candidaturaId={activeCandidaturaId ?? 0}
+        onBack={() => goto("edital")}
+        onOpenMinhas={() => goto("minhas-contestacoes")}
+      />
+    ),
+    "minhas-contestacoes": (
+      <MinhasContestacoesScreen onBack={() => goto("edital")} />
+    ),
   }
 
   return (

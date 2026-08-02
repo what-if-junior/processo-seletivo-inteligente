@@ -5,6 +5,7 @@ import { Tabs } from "../../../components/Tabs";
 import { useToast } from "../../../components/ToastProvider";
 import { FaixasSmEditor } from "../../../components/FaixasSmEditor";
 import { TiposDocumentoBaseEditor } from "../../../components/TiposDocumentoBaseEditor";
+import { TemplatesBibliotecaEditor } from "../../../components/TemplatesBibliotecaEditor";
 import {
   DEFAULT_SETTINGS,
   loadSettings,
@@ -15,6 +16,7 @@ import {
 const TAB_ITEMS = [
   { id: "docs-base", label: "Docs base" },
   { id: "faixas", label: "Faixas SM" },
+  { id: "templates", label: "Templates" },
   { id: "geral", label: "Geral" },
   { id: "notificacoes", label: "Notificações" },
   { id: "seguranca", label: "Segurança" },
@@ -52,6 +54,8 @@ export default function ConfiguracoesPage() {
           {tab === "docs-base" ? <TiposDocumentoBaseEditor /> : null}
 
           {tab === "faixas" ? <FaixasSmEditor /> : null}
+
+          {tab === "templates" ? <TemplatesBibliotecaEditor /> : null}
 
           {tab === "geral" ? (
             <>
