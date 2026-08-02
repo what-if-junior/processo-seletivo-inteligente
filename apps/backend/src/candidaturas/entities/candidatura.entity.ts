@@ -99,6 +99,10 @@ export class Candidatura {
   @Column({ type: 'bytea', nullable: true, select: false })
   responsavel_documento?: Buffer | null;
 
+  /** W27 — notas administrativas da homologação. */
+  @Column({ type: 'text', nullable: true })
+  observacoes_admin?: string | null;
+
   @ManyToOne(() => User, (user) => user.candidaturas)
   @JoinColumn({ name: 'id_usuario' })
   usuario?: User;

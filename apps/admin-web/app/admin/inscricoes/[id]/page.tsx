@@ -3,10 +3,18 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { StatusDocumento, type StatusCandidatura } from "@repo/types";
 import { StatusBadge } from "../../../../components/StatusBadge";
 import { useToast } from "../../../../components/ToastProvider";
-import { apiFetch, ApiError } from "../../../../lib/api";
+import { ApiError } from "../../../../lib/api";
 import { formatDate } from "../../../../lib/format";
+import {
+  decidirDocumento,
+  downloadDocumentoArquivo,
+  fetchMotivosHomologacao,
+  patchCandidaturaAdmin,
+  type MotivoHomologacao,
+} from "../../../../lib/homologacao-api";
 import { useInscricao } from "../../../../lib/hooks";
 import {
   ADMIN_STATUS_ACTIONS,
@@ -14,7 +22,6 @@ import {
   statusLabel,
   statusTone,
 } from "../../../../lib/status";
-import type { StatusCandidatura } from "@repo/types";
 
 export default function InscricaoDetailPage() {
   const params = useParams();
@@ -23,6 +30,9 @@ export default function InscricaoDetailPage() {
   const { push } = useToast();
   const [obs, setObs] = useState("");
   const [busy, setBusy] = useState(false);
+  const [motivos, setMotivos] = useState<MotivoHomologacao[]>([]);
+  const [motivoId, setMotivoId] = useState<number | "">("");
+  const [motivoLivre, setMotivoLivre] = useState("");
 
   useEffect(() => {
     if (data?.observacoes_admin != null) {
@@ -30,61 +40,126 @@ export default function InscricaoDetailPage() {
     }
   }, [data?.id, data?.observacoes_admin]);
 
+  useEffect(() => {
+    void fetchMotivosHomologacao()
+      .then(setMotivos)
+      .catch(() => setMotivos([]));
+  }, []);
+
   async function applyStatus(target: StatusCandidatura, label: string) {
     if (!data) return;
     setBusy(true);
     try {
-      // TODO(API): PATCH /candidaturas/:id { status } — endpoint ainda não existe
-      await apiFetch(`/candidaturas/${data.id}`, {
-        method: "PATCH",
-        body: JSON.stringify({ status: target }),
-      });
+      await patchCandidaturaAdmin(data.id, { status: target });
       setData({ ...data, status: target });
       push(`Status atualizado para ${label}.`);
     } catch (e) {
-      // Optimistic local update for demo UX when API lacks PATCH
-      setData({ ...data, status: target });
       const msg =
         e instanceof ApiError
-          ? `PATCH /candidaturas/${data.id} indisponível (HTTP ${e.status}). Status atualizado só nesta sessão (TODO backend).`
-          : `Não foi possível persistir o status. Atualizado só nesta sessão (TODO backend).`;
+          ? `PATCH /candidaturas/${data.id} falhou (HTTP ${e.status}).`
+          : `Não foi possível persistir o status.`;
       push(msg, "info");
     } finally {
       setBusy(false);
     }
   }
 
-  function saveObs() {
+  async function saveObs() {
     if (!data) return;
-    setData({ ...data, observacoes_admin: obs });
-    // TODO(API): sem endpoint de observações administrativas
-    push(
-      "Observações salvas localmente. Persistência no backend ainda não disponível.",
-      "info",
-    );
+    setBusy(true);
+    try {
+      await patchCandidaturaAdmin(data.id, { observacoes_admin: obs });
+      setData({ ...data, observacoes_admin: obs });
+      push("Observações salvas.");
+    } catch (e) {
+      push(
+        e instanceof ApiError
+          ? `Falha ao salvar observações (HTTP ${e.status}).`
+          : "Falha ao salvar observações.",
+        "info",
+      );
+    } finally {
+      setBusy(false);
+    }
   }
 
-  function baixarDoc(nome: string) {
-    push(`Download de “${nome}” ainda não disponível (binário fora do JSON).`, "info");
+  async function baixarDoc(docId: number, nome: string) {
+    try {
+      const blob = await downloadDocumentoArquivo(docId);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = nome;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      push(`Download de “${nome}” falhou.`, "info");
+    }
   }
 
-  function verificarDoc(nome: string) {
-    push(
-      `Verificação de “${nome}” requer PATCH /documentos (ainda não implementado).`,
-      "info",
-    );
+  async function decidirDoc(
+    docId: number,
+    status: StatusDocumento.APROVADO | StatusDocumento.REPROVADO,
+  ) {
+    if (!data) return;
+    if (status === StatusDocumento.REPROVADO && !motivoId) {
+      push("Selecione um motivo de catálogo para rejeitar.", "info");
+      return;
+    }
+    setBusy(true);
+    try {
+      const updated = await decidirDocumento(docId, {
+        status,
+        id_motivo:
+          status === StatusDocumento.REPROVADO
+            ? Number(motivoId)
+            : undefined,
+        motivo_livre: motivoLivre.trim() || undefined,
+      });
+      setData({
+        ...data,
+        documentos: (data.documentos ?? []).map((d) =>
+          d.id === docId
+            ? {
+                ...d,
+                status_documento: updated.status_documento,
+                id_motivo: updated.id_motivo,
+                motivo_livre: updated.motivo_livre,
+              }
+            : d,
+        ),
+      });
+      push(
+        status === StatusDocumento.APROVADO
+          ? "Documento homologado."
+          : "Documento rejeitado.",
+      );
+    } catch (e) {
+      push(
+        e instanceof ApiError
+          ? `Decisão falhou (HTTP ${e.status}).`
+          : "Decisão falhou.",
+        "info",
+      );
+    } finally {
+      setBusy(false);
+    }
   }
 
   if (loading) {
     return <p className="text-sm text-slate-500">Carregando inscrição…</p>;
   }
 
-  if (!data) {
+  if (error || !data) {
     return (
-      <div className="space-y-3">
-        <p className="text-sm text-red-600">{error ?? "Inscrição não encontrada."}</p>
-        <Link href="/admin/inscricoes" className="text-sm text-blue-600">
-          Voltar para a lista
+      <div className="space-y-2">
+        <p className="text-sm text-red-600">
+          {error ?? "Inscrição não encontrada."}
+        </p>
+        <Link href="/admin/inscricoes" className="text-sm text-[#2f9e41]">
+          Voltar
         </Link>
       </div>
     );
@@ -96,47 +171,44 @@ export default function InscricaoDetailPage() {
         <div>
           <Link
             href="/admin/inscricoes"
-            className="text-sm text-slate-500 hover:text-slate-800"
+            className="text-xs font-medium text-slate-500 hover:text-slate-800"
           >
-            ← Voltar
+            ← Inscrições
           </Link>
           <h1 className="mt-1 text-2xl font-semibold text-slate-900">
             Inscrição #{data.id}
           </h1>
           <p className="text-sm text-slate-500">
-            {data.oferta?.curso?.nome ?? `Oferta #${data.id_oferta}`}
-            {source === "mock" ? " · dados de demonstração" : ""}
+            Fonte: {source} ·{" "}
+            <Link
+              href="/admin/homologacao"
+              className="text-[#2f9e41] hover:underline"
+            >
+              Fila de homologação
+            </Link>
           </p>
         </div>
-        <StatusBadge label={statusLabel(data.status)} tone={statusTone(data.status)} />
+        <StatusBadge
+          label={statusLabel(String(data.status))}
+          tone={statusTone(String(data.status))}
+        />
       </div>
 
-      {error ? (
-        <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-          {error}
-        </p>
-      ) : null}
-
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-2">
         <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="mb-3 text-base font-semibold">Dados do candidato</h2>
-          <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+          <h2 className="mb-3 text-base font-semibold">Candidato</h2>
+          <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Field label="Nome" value={data.usuario?.nome_completo} />
             <Field label="E-mail" value={data.usuario?.email} />
-            <Field label="Telefone" value={data.usuario?.telefone} />
             <Field label="CPF" value={data.usuario?.CPF} />
-            <Field
-              label="Data de nascimento"
-              value={formatDate(data.usuario?.data_nascimento)}
-            />
-            <Field label="Tipo de vaga" value={data.tipo_vaga} />
+            <Field label="Telefone" value={data.usuario?.telefone} />
           </dl>
         </section>
 
         <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="mb-3 text-base font-semibold">Dados acadêmicos</h2>
-          <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
-            <Field label="Escola" value={data.escola ?? "— (não no schema atual)"} />
+          <h2 className="mb-3 text-base font-semibold">Académico</h2>
+          <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Field label="Curso" value={data.oferta?.curso?.nome} />
             <Field
               label="Ano de conclusão"
               value={data.ano_conclusao ?? "—"}
@@ -154,6 +226,38 @@ export default function InscricaoDetailPage() {
 
       <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
         <h2 className="mb-3 text-base font-semibold">Documentos</h2>
+        <div className="mb-4 grid gap-3 sm:grid-cols-2">
+          <label className="text-sm">
+            <span className="mb-1 block text-xs uppercase text-slate-400">
+              Motivo (rejeição)
+            </span>
+            <select
+              value={motivoId}
+              onChange={(e) =>
+                setMotivoId(e.target.value ? Number(e.target.value) : "")
+              }
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            >
+              <option value="">—</option>
+              {motivos.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.codigo} — {m.descricao}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-sm">
+            <span className="mb-1 block text-xs uppercase text-slate-400">
+              Texto livre
+            </span>
+            <input
+              value={motivoLivre}
+              onChange={(e) => setMotivoLivre(e.target.value)}
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              placeholder="Opcional / obrigatório se OUTRO"
+            />
+          </label>
+        </div>
         {(data.documentos?.length ?? 0) === 0 ? (
           <p className="text-sm text-slate-500">Nenhum documento anexado.</p>
         ) : (
@@ -173,20 +277,33 @@ export default function InscricaoDetailPage() {
                       String(doc.status_documento)}
                   </p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
-                    onClick={() => baixarDoc(doc.nome_arquivo)}
+                    onClick={() => void baixarDoc(doc.id, doc.nome_arquivo)}
                     className="rounded-md border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-50"
                   >
                     Baixar
                   </button>
                   <button
                     type="button"
-                    onClick={() => verificarDoc(doc.nome_arquivo)}
-                    className="rounded-md border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-50"
+                    disabled={busy}
+                    onClick={() =>
+                      void decidirDoc(doc.id, StatusDocumento.APROVADO)
+                    }
+                    className="rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white disabled:opacity-60"
                   >
-                    Verificar
+                    Homologar
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() =>
+                      void decidirDoc(doc.id, StatusDocumento.REPROVADO)
+                    }
+                    className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-semibold text-white disabled:opacity-60"
+                  >
+                    Rejeitar
                   </button>
                 </div>
               </li>
@@ -234,8 +351,9 @@ export default function InscricaoDetailPage() {
         <div className="mt-3 flex justify-end">
           <button
             type="button"
-            onClick={saveObs}
-            className="rounded-lg bg-[#2563eb] px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+            disabled={busy}
+            onClick={() => void saveObs()}
+            className="rounded-lg bg-[#2563eb] px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
           >
             Salvar
           </button>

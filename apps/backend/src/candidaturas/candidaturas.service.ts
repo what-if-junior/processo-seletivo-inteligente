@@ -301,6 +301,34 @@ export class CandidaturasService {
     return Object.assign(saved, { socioeconomico });
   }
 
+  /** W27 — admin homologação: status + observações (ISSUE-007). */
+  async updateAdmin(
+    id: number,
+    dto: { status?: StatusCandidatura; observacoes_admin?: string },
+  ): Promise<Candidatura> {
+    const candidatura = await this.candidaturaRepository.findOne({
+      where: { id },
+    });
+    if (!candidatura) {
+      throw new NotFoundException(`Candidatura ${id} não encontrada`);
+    }
+    if (dto.status === undefined && dto.observacoes_admin === undefined) {
+      throw new BadRequestException(
+        'informe status e/ou observacoes_admin',
+      );
+    }
+    if (dto.status !== undefined) {
+      if (!Object.values(StatusCandidatura).includes(dto.status)) {
+        throw new BadRequestException(`status inválido: ${dto.status}`);
+      }
+      candidatura.status = dto.status;
+    }
+    if (dto.observacoes_admin !== undefined) {
+      candidatura.observacoes_admin = dto.observacoes_admin;
+    }
+    return this.candidaturaRepository.save(candidatura);
+  }
+
   /**
    * REQ-2.4: age at submit date from Usuarios.data_nascimento.
    * Adults ignore responsável payload; minors must supply nome+CPF+aceite+doc.

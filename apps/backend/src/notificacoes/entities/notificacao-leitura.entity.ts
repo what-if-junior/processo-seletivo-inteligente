@@ -17,16 +17,12 @@ export class NotificacaoLeitura {
 
   @Column({
     type: 'bigint',
-    insert: false,
-    update: false,
     transformer: numericTransformer,
   })
   id_notificacao: number;
 
   @Column({
     type: 'bigint',
-    insert: false,
-    update: false,
     transformer: numericTransformer,
   })
   id_usuario: number;

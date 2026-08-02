@@ -109,16 +109,25 @@ export function getJanelaInscricaoEfetiva(
   etapas: CronogramaEtapaLike[],
   now: Date = new Date(),
 ): JanelaInscricaoEfetiva {
-  const inscricao = [...etapas]
-    .filter((e) => e.tipo === TipoEtapaCronograma.INSCRICAO)
+  return getJanelaPorTipoEfetiva(etapas, TipoEtapaCronograma.INSCRICAO, now);
+}
+
+/** Effective window for any catalogue etapa tipo (W26 upload / W27 resubmit). */
+export function getJanelaPorTipoEfetiva(
+  etapas: CronogramaEtapaLike[],
+  tipo: TipoEtapaCronograma,
+  now: Date = new Date(),
+): JanelaInscricaoEfetiva {
+  const row = [...etapas]
+    .filter((e) => e.tipo === tipo)
     .sort((a, b) => (a.id ?? 0) - (b.id ?? 0))[0];
 
-  if (!inscricao) {
+  if (!row) {
     return { aberta: false, etapa: null };
   }
   return {
-    aberta: isEtapaEfetivamenteAberta(inscricao, now),
-    etapa: inscricao,
+    aberta: isEtapaEfetivamenteAberta(row, now),
+    etapa: row,
   };
 }
 

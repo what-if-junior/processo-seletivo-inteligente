@@ -19,6 +19,7 @@ import {
 } from '@nestjs/swagger';
 import { CandidaturasService } from './candidaturas.service';
 import { CreateCandidaturaDto } from './dto/create-candidatura.dto';
+import { UpdateAdminCandidaturaDto } from './dto/update-admin-candidatura.dto';
 import { UpdateTipoVagaDto } from '../socioeconomico/dto/socioeconomico.dto';
 import { SocioeconomicoService } from '../socioeconomico/socioeconomico.service';
 
@@ -124,5 +125,17 @@ export class CandidaturasController {
   })
   cancel(@Param('id', ParseIntPipe) id: number) {
     return this.candidaturasService.cancel(id);
+  }
+
+  @Patch(':id')
+  @ApiOperation({
+    summary:
+      'Atualiza status e/ou observações administrativas (W27 homologação)',
+  })
+  updateAdmin(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateAdminCandidaturaDto,
+  ) {
+    return this.candidaturasService.updateAdmin(id, dto);
   }
 }

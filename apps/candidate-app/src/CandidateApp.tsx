@@ -52,6 +52,15 @@ import {
   MSG_MENOR_RESPONSAVEL_CLIENT,
   responsavelSubmitIssues,
 } from "./lib/menoridade"
+import {
+  enqueueUpload,
+  fileToDataUrl,
+  flushUploadQueue,
+  isBrowserOffline,
+  listUploadQueue,
+  onOnlineFlush,
+  type QueuedUpload,
+} from "./lib/upload-queue"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Screen =
@@ -1383,14 +1392,51 @@ function WizardScreen({
 }
 
 // ─── DOCS UPLOAD SCREEN ───────────────────────────────────────────────────────
+const DOC_MAX_BYTES = 5 * 1024 * 1024
+const DOC_ACCEPT = "image/jpeg,image/png,image/jpg,application/pdf"
+
+async function postDocumentoUpload(opts: {
+  candidaturaId: number
+  tipoDocumento: string
+  file: Blob
+  fileName: string
+  replaceId?: number
+}): Promise<void> {
+  const form = new FormData()
+  form.append("arquivo", opts.file, opts.fileName)
+  if (opts.replaceId && opts.replaceId > 0) {
+    await apiFetch(`/documentos/${opts.replaceId}`, { method: "PUT", body: form })
+    return
+  }
+  form.append("id_candidatura", String(opts.candidaturaId))
+  form.append("tipo_documento", opts.tipoDocumento)
+  await apiFetch("/documentos", { method: "POST", body: form })
+}
+
+function validateDocFile(file: File | Blob, nameHint?: string): string | null {
+  const name = ("name" in file && file.name ? file.name : nameHint || "").toLowerCase()
+  const type = (file.type || "").toLowerCase()
+  const okType =
+    type.includes("pdf") ||
+    type.includes("jpeg") ||
+    type.includes("jpg") ||
+    type.includes("png") ||
+    /\.(pdf|jpe?g|png)$/.test(name)
+  if (!okType) return "Formato inválido. Use JPG, PNG ou PDF."
+  if (file.size > DOC_MAX_BYTES) return "Arquivo excede 5MB."
+  return null
+}
+
 function DocsScreen({
-  goto, onBack, candidaturaId, setNav, cameraCapturePending,
+  goto, onBack, candidaturaId, setNav, cameraCapturePending, cameraBlob, onConsumeCameraBlob,
 }: {
   goto: (s: Screen) => void
   onBack: () => void
   candidaturaId: number | null
   setNav?: (t: NavTab) => void
   cameraCapturePending?: boolean
+  cameraBlob?: Blob | null
+  onConsumeCameraBlob?: () => void
 }) {
   const docsFallback = useMemo(
     () =>
@@ -1403,7 +1449,79 @@ function DocsScreen({
   )
   const { docs, error: docsError, reload } = useDocumentos(candidaturaId, docsFallback)
   const [uploadError, setUploadError] = useState<string | null>(null)
+  const [queueCount, setQueueCount] = useState(0)
+  const [syncMsg, setSyncMsg] = useState<string | null>(null)
   const localPendingCamera = Boolean(cameraCapturePending)
+
+  useEffect(() => {
+    setQueueCount(listUploadQueue().length)
+  }, [docs, syncMsg])
+
+  async function submitDocFile(opts: {
+    docId: string
+    tipoDocumento: string
+    file: Blob
+    fileName: string
+  }) {
+    if (shouldUseMocks()) return
+    if (!candidaturaId || !getAccessToken()) {
+      setUploadError("Faça login e selecione uma inscrição para enviar.")
+      return
+    }
+    const replaceId = /^\d+$/.test(opts.docId) ? Number(opts.docId) : undefined
+    if (isBrowserOffline()) {
+      const dataUrl = await fileToDataUrl(opts.file)
+      enqueueUpload({
+        candidaturaId,
+        tipoDocumento: opts.tipoDocumento,
+        dataUrl,
+        fileName: opts.fileName,
+        mime: opts.file.type || "application/octet-stream",
+        replaceId,
+      })
+      setQueueCount(listUploadQueue().length)
+      setSyncMsg("Sem conexão — documento na fila offline. Será enviado ao voltar a rede.")
+      return
+    }
+    await postDocumentoUpload({
+      candidaturaId,
+      tipoDocumento: opts.tipoDocumento,
+      file: opts.file,
+      fileName: opts.fileName,
+      replaceId,
+    })
+    reload()
+  }
+
+  useEffect(() => {
+    if (!cameraBlob || !candidaturaId) return
+    const ppi = docs.find(d => d.tipo === "camera") ?? docs[0]
+    if (!ppi) {
+      onConsumeCameraBlob?.()
+      return
+    }
+    void (async () => {
+      setUploadError(null)
+      const err = validateDocFile(cameraBlob, "ppi.jpg")
+      if (err) {
+        setUploadError(err)
+        onConsumeCameraBlob?.()
+        return
+      }
+      try {
+        await submitDocFile({
+          docId: ppi.id,
+          tipoDocumento: ppi.nome,
+          file: cameraBlob,
+          fileName: "ppi-autodeclaracao.jpg",
+        })
+      } catch {
+        setUploadError("Falha ao enviar a foto capturada.")
+      } finally {
+        onConsumeCameraBlob?.()
+      }
+    })()
+  }, [cameraBlob])
 
   const statusIcon = (s: string) => {
     if (s === "enviado") return <CheckCircle className="w-5 h-5 text-emerald-600" />
@@ -1457,18 +1575,28 @@ function DocsScreen({
 
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 mb-4 flex gap-2.5">
           <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
-          <p className="text-amber-800 text-xs leading-relaxed">Envie documentos em boa iluminação, sem rasuras, com todos os cantos visíveis. Formatos aceitos: JPG, PNG ou PDF (máx. 5MB).</p>
+          <p className="text-amber-800 text-xs leading-relaxed">Envie documentos em boa iluminação, sem rasuras, com todos os cantos visíveis. Formatos aceitos: JPG, PNG ou PDF (máx. 5MB). Offline: ficam na fila e sincronizam ao voltar a rede.</p>
         </div>
 
+        {queueCount > 0 && (
+          <p className="mb-3 text-xs text-amber-900 bg-amber-50 border border-amber-200 rounded-xl p-3" role="status">
+            Fila offline: {queueCount} documento(s) aguardando sincronização.
+          </p>
+        )}
+        {syncMsg && (
+          <p className="mb-3 text-xs text-[#2A7B3E] bg-[#E7F4EA] border border-[#D1E8D7] rounded-xl p-3" role="status">
+            {syncMsg}
+          </p>
+        )}
         {docsError && (
           <p className="mb-3 text-xs text-red-700" role="alert">{docsError}</p>
         )}
         {uploadError && (
           <p className="mb-3 text-xs text-red-700" role="alert">{uploadError}</p>
         )}
-        {localPendingCamera && (
+        {localPendingCamera && !cameraBlob && (
           <p className="mb-3 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-3">
-            Foto capturada na pré-visualização. Envie o arquivo pelo botão Arquivo — a câmera ainda não faz upload automático.
+            Foto capturada. Se o envio automático falhar, use Arquivo na lista.
           </p>
         )}
 
@@ -1490,7 +1618,7 @@ function DocsScreen({
                 {statusIcon(doc.status)}
               </div>
 
-              {doc.status !== "enviado" && doc.status !== "na" && (
+              {doc.status !== "na" && (
                 <div className="mt-3 pt-3 border-t border-[#E4EBE6] flex gap-2">
                   {doc.tipo === "camera" ? (
                     <button onClick={() => goto("camera")}
@@ -1503,27 +1631,26 @@ function DocsScreen({
                         onClick={() => {
                           const input = document.createElement("input")
                           input.type = "file"
-                          input.accept = "image/*,application/pdf"
+                          input.accept = DOC_ACCEPT
                           input.onchange = () => {
                             const file = input.files?.[0]
                             if (!file) return
                             void (async () => {
                               setUploadError(null)
-                              if (shouldUseMocks()) {
-                                setUploadError(null)
-                                return
-                              }
-                              if (!candidaturaId || !getAccessToken()) {
-                                setUploadError("Faça login e selecione uma inscrição para enviar.")
+                              setSyncMsg(null)
+                              if (shouldUseMocks()) return
+                              const err = validateDocFile(file)
+                              if (err) {
+                                setUploadError(err)
                                 return
                               }
                               try {
-                                const form = new FormData()
-                                form.append("arquivo", file)
-                                form.append("id_candidatura", String(candidaturaId))
-                                form.append("tipo_documento", doc.nome)
-                                await apiFetch("/documentos", { method: "POST", body: form })
-                                reload()
+                                await submitDocFile({
+                                  docId: doc.id,
+                                  tipoDocumento: doc.nome,
+                                  file,
+                                  fileName: file.name,
+                                })
                               } catch {
                                 setUploadError("Falha no envio do documento. Verifique formato/tamanho e tente de novo.")
                               }
@@ -1532,7 +1659,7 @@ function DocsScreen({
                           input.click()
                         }}
                         className="flex-1 flex items-center justify-center gap-2 h-10 rounded-xl border-2 border-[#D1E8D7] text-[#2A7B3E] text-sm font-semibold hover:bg-[#E7F4EA] transition-colors focus-visible:outline-2 focus-visible:outline-[#2A7B3E]">
-                        <Upload className="w-4 h-4" /> Arquivo
+                        <Upload className="w-4 h-4" /> {doc.status === "enviado" ? "Substituir" : "Arquivo"}
                       </button>
                       <button onClick={() => goto("camera")}
                         className="flex-1 flex items-center justify-center gap-2 h-10 rounded-xl border-2 border-[#D1E8D7] text-[#2A7B3E] text-sm font-semibold hover:bg-[#E7F4EA] transition-colors focus-visible:outline-2 focus-visible:outline-[#2A7B3E]">
@@ -1571,23 +1698,97 @@ function DocsScreen({
   )
 }
 
-// ─── CAMERA SCREEN ────────────────────────────────────────────────────────────
+// ─── CAMERA SCREEN (PPI collection — no CNN) ──────────────────────────────────
 function CameraScreen({
   onBack,
   onConfirmCapture,
 }: {
   onBack: () => void
-  onConfirmCapture?: () => void
+  onConfirmCapture?: (blob: Blob) => void
 }) {
   const [consented, setConsented] = useState(false)
   const [captured, setCaptured] = useState(false)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [capturedBlob, setCapturedBlob] = useState<Blob | null>(null)
+  const [cameraError, setCameraError] = useState<string | null>(null)
+  const videoRef = useRef<HTMLVideoElement | null>(null)
+  const streamRef = useRef<MediaStream | null>(null)
+
+  useEffect(() => {
+    if (!consented || captured) return
+    let cancelled = false
+    ;(async () => {
+      setCameraError(null)
+      try {
+        if (!navigator.mediaDevices?.getUserMedia) {
+          setCameraError("Câmera indisponível neste dispositivo/navegador.")
+          return
+        }
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "user" },
+          audio: false,
+        })
+        if (cancelled) {
+          stream.getTracks().forEach(t => t.stop())
+          return
+        }
+        streamRef.current = stream
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream
+          await videoRef.current.play().catch(() => undefined)
+        }
+      } catch {
+        if (!cancelled) setCameraError("Não foi possível aceder à câmera. Verifique permissões.")
+      }
+    })()
+    return () => {
+      cancelled = true
+      streamRef.current?.getTracks().forEach(t => t.stop())
+      streamRef.current = null
+    }
+  }, [consented, captured])
+
+  function stopStream() {
+    streamRef.current?.getTracks().forEach(t => t.stop())
+    streamRef.current = null
+  }
+
+  function takePhoto() {
+    const video = videoRef.current
+    if (!video) {
+      setCaptured(true)
+      return
+    }
+    const canvas = document.createElement("canvas")
+    canvas.width = video.videoWidth || 640
+    canvas.height = video.videoHeight || 480
+    const ctx = canvas.getContext("2d")
+    if (!ctx) {
+      setCameraError("Falha ao capturar frame.")
+      return
+    }
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+    canvas.toBlob(
+      blob => {
+        if (!blob) {
+          setCameraError("Falha ao gerar imagem.")
+          return
+        }
+        setCapturedBlob(blob)
+        setPreviewUrl(URL.createObjectURL(blob))
+        setCaptured(true)
+        stopStream()
+      },
+      "image/jpeg",
+      0.92,
+    )
+  }
 
   if (!consented) {
     return (
       <div>
         <BackHeader title="Autodeclaração Étnico-Racial" onBack={onBack} />
         <div className="px-4 pt-5 pb-4">
-          {/* LGPD Modal-like card */}
           <div className="bg-white rounded-2xl border border-[#D1E8D7] overflow-hidden mb-4">
             <div className="bg-[#2A7B3E] px-4 py-3 flex items-center gap-2">
               <Shield className="w-5 h-5 text-white" />
@@ -1596,7 +1797,7 @@ function CameraScreen({
             <div className="p-4 flex flex-col gap-3">
               {[
                 { title: "Por que coletamos sua foto?", text: "Para verificar a autodeclaração de raça/cor como parte do processo de cotas étnico-raciais do IFB, conforme exigido pelo edital." },
-                { title: "Como seus dados são usados?", text: "A imagem é usada apenas para análise de heteroidentificação por comissão designada. Não é compartilhada com terceiros." },
+                { title: "Como seus dados são usados?", text: "A imagem é usada apenas para análise de heteroidentificação por comissão designada. Não é compartilhada com terceiros. Não há classificação automática por CNN nesta versão." },
                 { title: "Seus direitos (LGPD)", text: "Você pode solicitar exclusão dos dados a qualquer momento pelo e-mail privacidade@ifb.edu.br, conforme a Lei 13.709/2018." },
               ].map(({ title, text }) => (
                 <div key={title}>
@@ -1627,12 +1828,17 @@ function CameraScreen({
 
   return (
     <div>
-      <BackHeader title="Captura de Foto" onBack={() => { setCaptured(false); setConsented(false); onBack() }} />
+      <BackHeader title="Captura de Foto" onBack={() => { setCaptured(false); setConsented(false); stopStream(); onBack() }} />
       <div className="px-4 pt-4 pb-4">
         {captured ? (
           <div className="flex flex-col items-center gap-4">
             <div className="w-48 h-48 rounded-full bg-[#E7F4EA] border-4 border-[#2A7B3E] flex items-center justify-center overflow-hidden">
-              <User className="w-24 h-24 text-[#2A7B3E] opacity-40" />
+              {previewUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={previewUrl} alt="Pré-visualização da captura PPI" className="w-full h-full object-cover" />
+              ) : (
+                <User className="w-24 h-24 text-[#2A7B3E] opacity-40" />
+              )}
             </div>
             <div className="text-center">
               <CheckCircle className="w-8 h-8 text-emerald-600 mx-auto mb-2" />
@@ -1640,14 +1846,14 @@ function CameraScreen({
               <p className="text-[#4E6859] text-sm mt-1">Verifique se o rosto está visível e nítido</p>
             </div>
             <div className="flex gap-3 w-full">
-              <Btn v="outline" cls="flex-1 h-12" onClick={() => setCaptured(false)}>
+              <Btn v="outline" cls="flex-1 h-12" onClick={() => { setCaptured(false); setCapturedBlob(null); if (previewUrl) URL.revokeObjectURL(previewUrl); setPreviewUrl(null) }}>
                 <RefreshCw className="w-4 h-4" /> Repetir
               </Btn>
               <Btn
                 v="primary"
                 cls="flex-1 h-12"
                 onClick={() => {
-                  onConfirmCapture?.()
+                  if (capturedBlob) onConfirmCapture?.(capturedBlob)
                   onBack()
                 }}
               >
@@ -1655,39 +1861,30 @@ function CameraScreen({
               </Btn>
             </div>
             <p className="text-xs text-[#4E6859] text-center leading-relaxed">
-              A captura é uma pré-visualização. Envie o arquivo na lista de documentos — o upload automático da câmera chega em breve.
+              A foto será enviada à lista de documentos (ou à fila offline se sem rede). Sem classificação CNN.
             </p>
           </div>
         ) : (
           <div className="flex flex-col gap-4">
-            {/* Viewfinder */}
             <div className="relative rounded-2xl overflow-hidden bg-[#0D1E12]" style={{ aspectRatio: "3/4" }}>
-              {/* Simulated camera bg */}
-              <div className="absolute inset-0 bg-gradient-to-b from-gray-800 to-gray-900 flex items-center justify-center">
-                <User className="w-32 h-32 text-white/10" />
-              </div>
-              {/* Oval face guide */}
-              <div className="absolute inset-0 flex items-center justify-center">
+              <video
+                ref={videoRef}
+                playsInline
+                muted
+                className="absolute inset-0 w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <div className="w-44 h-56 rounded-full border-4 border-white/60 shadow-[0_0_0_1000px_rgba(0,0,0,0.4)]" />
               </div>
-              {/* Corner brackets */}
-              {[
-                "top-[20%] left-[20%] border-t-2 border-l-2 rounded-tl-lg",
-                "top-[20%] right-[20%] border-t-2 border-r-2 rounded-tr-lg",
-                "bottom-[20%] left-[20%] border-b-2 border-l-2 rounded-bl-lg",
-                "bottom-[20%] right-[20%] border-b-2 border-r-2 rounded-br-lg",
-              ].map((cls, i) => (
-                <div key={i} className={`absolute w-8 h-8 border-white/80 ${cls}`} />
-              ))}
-              {/* Instructions */}
               <div className="absolute bottom-4 left-0 right-0 flex justify-center">
                 <div className="bg-black/60 backdrop-blur-sm rounded-full px-4 py-2">
                   <p className="text-white text-xs font-medium text-center">Centralize seu rosto na moldura</p>
                 </div>
               </div>
             </div>
-
-            {/* Tips */}
+            {cameraError && (
+              <p className="text-xs text-red-700" role="alert">{cameraError}</p>
+            )}
             <div className="grid grid-cols-3 gap-2">
               {[
                 { icon: "💡", tip: "Boa iluminação frontal" },
@@ -1700,10 +1897,8 @@ function CameraScreen({
                 </div>
               ))}
             </div>
-
-            {/* Capture button */}
             <div className="flex items-center justify-center pt-2">
-              <button onClick={() => setCaptured(true)}
+              <button onClick={takePhoto}
                 className="w-20 h-20 rounded-full bg-white border-4 border-[#2A7B3E] flex items-center justify-center shadow-lg hover:scale-105 active:scale-95 transition-transform focus-visible:outline-4 focus-visible:outline-[#2A7B3E] focus-visible:outline-offset-4">
                 <div className="w-14 h-14 rounded-full bg-[#2A7B3E] flex items-center justify-center">
                   <Camera className="w-7 h-7 text-white" />
@@ -2491,6 +2686,24 @@ export default function App() {
   const [docsBack, setDocsBack] = useState<"wizard" | "inscricoes">("wizard")
   const [pendingAfterAuth, setPendingAfterAuth] = useState<Screen | null>(null)
   const [cameraCapturePending, setCameraCapturePending] = useState(false)
+  const [cameraBlob, setCameraBlob] = useState<Blob | null>(null)
+
+  useEffect(() => {
+    const flushOne = async (item: QueuedUpload, blob: Blob) => {
+      await postDocumentoUpload({
+        candidaturaId: item.candidaturaId,
+        tipoDocumento: item.tipoDocumento,
+        file: blob,
+        fileName: item.fileName,
+        replaceId: item.replaceId,
+      })
+    }
+    const off = onOnlineFlush(flushOne)
+    if (typeof navigator !== "undefined" && navigator.onLine && listUploadQueue().length) {
+      void flushUploadQueue(flushOne)
+    }
+    return off
+  }, [])
 
   function goto(s: Screen) {
     setScreen(s)
@@ -2589,12 +2802,20 @@ export default function App() {
         onBack={() => goto(docsBack === "inscricoes" ? "inscricoes" : "wizard")}
         candidaturaId={activeCandidaturaId}
         cameraCapturePending={cameraCapturePending}
+        cameraBlob={cameraBlob}
+        onConsumeCameraBlob={() => {
+          setCameraBlob(null)
+          setCameraCapturePending(false)
+        }}
       />
     ),
     camera: (
       <CameraScreen
         onBack={() => goto("docs")}
-        onConfirmCapture={() => setCameraCapturePending(true)}
+        onConfirmCapture={(blob) => {
+          setCameraBlob(blob)
+          setCameraCapturePending(true)
+        }}
       />
     ),
     inscricoes: (

@@ -17,6 +17,7 @@ import {
   assertDatasValidas,
   buildDateOverlapWarnings,
   getJanelaInscricaoEfetiva,
+  getJanelaPorTipoEfetiva,
   isEtapaEfetivamenteAberta,
   TIPO_ETAPA_DEFAULT_NOME,
   type CronogramaWarning,
@@ -266,5 +267,15 @@ export class CronogramaService {
   ): Promise<JanelaInscricaoEfetiva> {
     await this.requireEdital(editalId);
     return getJanelaInscricaoEfetiva(await this.listRows(editalId), now);
+  }
+
+  /** W26/W27 — window for a specific cronograma tipo. */
+  async getJanelaPorTipo(
+    editalId: number,
+    tipo: TipoEtapaCronograma,
+    now: Date = new Date(),
+  ): Promise<JanelaInscricaoEfetiva> {
+    await this.requireEdital(editalId);
+    return getJanelaPorTipoEfetiva(await this.listRows(editalId), tipo, now);
   }
 }

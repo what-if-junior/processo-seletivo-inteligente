@@ -95,7 +95,14 @@ export interface Documento {
   tipo_documento: string;
   nome_arquivo: string;
   status_documento: StatusDocumento | string;
+  mime?: string | null;
+  fase?: string;
+  id_motivo?: number | null;
+  motivo_livre?: string | null;
+  decidido_em?: Date | null;
+  sugestao_ia?: string | null;
   criado_em: Date;
+  atualizado_em?: Date;
 }
 
 /** Tabela "Gestores": usuario com atribuicao administrativa. */
