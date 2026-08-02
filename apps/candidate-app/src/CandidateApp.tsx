@@ -64,6 +64,7 @@ import {
 import {
   appendEspelharMeusDados,
   fetchDocumentosReutilizaveis,
+  mergeDocsChecklist,
   normalizeDocTipoNome,
   postReutilizarDocumento,
   type ReutilizavelExigencia,
@@ -1501,22 +1502,11 @@ function DocsScreen({
     return map
   }, [reutilizaveis])
 
-  /** Checklist: API docs, else exigências from reutilizáveis (W26-06 overlap for reuse UX). */
-  const docs = useMemo(() => {
-    if (apiDocs.length > 0) return apiDocs
-    if (reutilizaveis.length > 0) {
-      return reutilizaveis.map((e) => ({
-        id: `tipo-${e.id_tipo_documento}`,
-        nome: e.nome,
-        obrigatorio: e.obrigatorio,
-        status: "pendente" as const,
-        tipo: /foto|facial|autodeclara|ppi|c[aâ]mera/i.test(e.nome)
-          ? ("camera" as const)
-          : ("upload" as const),
-      }))
-    }
-    return apiDocs
-  }, [apiDocs, reutilizaveis])
+  /** Checklist: merge exigências with uploaded docs so Reutilizar stays after first upload. */
+  const docs = useMemo(
+    () => mergeDocsChecklist(apiDocs, reutilizaveis),
+    [apiDocs, reutilizaveis],
+  )
 
   async function submitDocFile(opts: {
     docId: string
@@ -1601,7 +1591,9 @@ function DocsScreen({
         return
       }
       try {
-        const espelharMeusDados = askEspelharMeusDados()
+        // REQ-2.6: ask mirror only on new upload, never on reject-path replace.
+        const isReplace = /^\d+$/.test(ppi.id)
+        const espelharMeusDados = isReplace ? false : askEspelharMeusDados()
         await submitDocFile({
           docId: ppi.id,
           tipoDocumento: ppi.nome,
@@ -1759,7 +1751,11 @@ function DocsScreen({
                                 return
                               }
                               try {
-                                const espelharMeusDados = askEspelharMeusDados()
+                                // REQ-2.6: mirror ask only for new uploads (not replace/reject).
+                                const isReplace = /^\d+$/.test(doc.id)
+                                const espelharMeusDados = isReplace
+                                  ? false
+                                  : askEspelharMeusDados()
                                 await submitDocFile({
                                   docId: doc.id,
                                   tipoDocumento: doc.nome,

@@ -1,4 +1,5 @@
 import { apiFetch } from "./api";
+import type { DocUiRow } from "./mappers/types";
 
 /** Normalize tipo names for REQ-2.6 match (ID and/or nome). */
 export function normalizeDocTipoNome(nome: string): string {
@@ -8,6 +9,54 @@ export function normalizeDocTipoNome(nome: string): string {
     .toLowerCase()
     .trim()
     .replace(/\s+/g, " ");
+}
+
+function exigenciaToPendingRow(e: {
+  id_tipo_documento: number;
+  nome: string;
+  obrigatorio: boolean;
+}): DocUiRow {
+  return {
+    id: `tipo-${e.id_tipo_documento}`,
+    nome: e.nome,
+    obrigatorio: e.obrigatorio,
+    status: "pendente",
+    tipo: /foto|facial|autodeclara|ppi|c[aâ]mera/i.test(e.nome)
+      ? "camera"
+      : "upload",
+  };
+}
+
+/**
+ * Merge uploaded inscrição docs with edital exigências so Reutilizar CTAs
+ * stay visible after the first upload (API list alone is incomplete).
+ */
+export function mergeDocsChecklist(
+  apiDocs: DocUiRow[],
+  reutilizaveis: Array<{
+    id_tipo_documento: number;
+    nome: string;
+    obrigatorio: boolean;
+  }>,
+): DocUiRow[] {
+  if (reutilizaveis.length === 0) return apiDocs;
+
+  const byNome = new Map(
+    apiDocs.map((d) => [normalizeDocTipoNome(d.nome), d] as const),
+  );
+  const merged = reutilizaveis.map((e) => {
+    const existing = byNome.get(normalizeDocTipoNome(e.nome));
+    return existing ?? exigenciaToPendingRow(e);
+  });
+  const seen = new Set(merged.map((d) => normalizeDocTipoNome(d.nome)));
+  for (const d of apiDocs) {
+    const key = normalizeDocTipoNome(d.nome);
+    if (!seen.has(key)) {
+      merged.push(d);
+      seen.add(key);
+    }
+  }
+  return merged;
 }
 
 export type ReuseExigencia = {

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   appendEspelharMeusDados,
   matchDocumentoConta,
+  mergeDocsChecklist,
   normalizeDocTipoNome,
 } from "./document-reuse";
 
@@ -48,5 +49,32 @@ describe("espelhar_meus_dados plumbing", () => {
 
     const omitted = appendEspelharMeusDados(new FormData(), undefined);
     expect(omitted.get("espelhar_meus_dados")).toBeNull();
+  });
+});
+
+describe("mergeDocsChecklist", () => {
+  it("keeps pending exigências after first upload so Reutilizar remains", () => {
+    const merged = mergeDocsChecklist(
+      [
+        {
+          id: "88",
+          nome: "RG",
+          obrigatorio: true,
+          status: "enviado",
+          tipo: "upload",
+        },
+      ],
+      [
+        { id_tipo_documento: 1, nome: "RG", obrigatorio: true },
+        { id_tipo_documento: 2, nome: "CPF", obrigatorio: true },
+      ],
+    );
+    expect(merged).toHaveLength(2);
+    expect(merged[0]).toMatchObject({ id: "88", status: "enviado" });
+    expect(merged[1]).toMatchObject({
+      id: "tipo-2",
+      nome: "CPF",
+      status: "pendente",
+    });
   });
 });

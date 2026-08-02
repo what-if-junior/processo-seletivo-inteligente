@@ -176,6 +176,7 @@ describe('DocumentosService', () => {
         arquivo: Buffer.from('x'),
         mime: 'application/pdf',
         fase: FaseDocumento.MATRICULA,
+        id_usuario: 10,
       }),
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
@@ -183,6 +184,20 @@ describe('DocumentosService', () => {
   it('blocks upload when documentation window closed', async () => {
     findOneCand.mockResolvedValue(stubCandidatura());
     getJanelaPorTipo.mockResolvedValue({ aberta: false, etapa: null });
+    await expect(
+      service.create({
+        id_candidatura: 1,
+        tipo_documento: 'CPF',
+        nome_arquivo: 'c.pdf',
+        arquivo: Buffer.from('x'),
+        mime: 'application/pdf',
+        id_usuario: 10,
+      }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('requires ownership on create (no anonymous upload)', async () => {
+    findOneCand.mockResolvedValue(stubCandidatura({ id_usuario: 10 }));
     await expect(
       service.create({
         id_candidatura: 1,
@@ -366,6 +381,27 @@ describe('DocumentosService', () => {
     expect(result.exigencias[0]?.match?.id_documento_conta).toBe(55);
     expect(result.exigencias[0]?.match?.match_by).toBe('id_tipo_base');
     expect(result.exigencias[1]?.match).toBeNull();
+  });
+
+  it('reutilizar rejects client fase that disagrees with exigência', async () => {
+    findOneCand.mockResolvedValue(stubCandidatura({ id_usuario: 10 }));
+    findOneTipo.mockResolvedValue({
+      id: 1,
+      nome: 'RG',
+      id_tipo_base: 4,
+      fase: FaseDocumento.INSCRICAO,
+      id_edital: 5,
+    });
+    await expect(
+      service.reutilizar(
+        {
+          id_candidatura: 1,
+          id_tipo_documento: 1,
+          fase: FaseDocumento.MATRICULA,
+        },
+        10,
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('reutilizar copies BYTEA immutably and audits reuse_from_conta', async () => {

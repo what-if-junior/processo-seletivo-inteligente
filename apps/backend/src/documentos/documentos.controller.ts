@@ -180,6 +180,10 @@ export class DocumentosController {
     @Body('fase') fase?: string,
     @Body('espelhar_meus_dados') espelharMeusDados?: string,
   ) {
+    const uid = this.userId(req);
+    if (!uid) {
+      throw new BadRequestException('JWT inválido');
+    }
     if (!file?.buffer?.length) {
       throw new BadRequestException('arquivo é obrigatório');
     }
@@ -190,7 +194,7 @@ export class DocumentosController {
       arquivo: file.buffer,
       mime: file.mimetype,
       fase,
-      id_usuario: this.userId(req),
+      id_usuario: uid,
       espelhar_meus_dados: parseEspelharFlag(espelharMeusDados),
     });
   }
@@ -213,6 +217,10 @@ export class DocumentosController {
     @UploadedFile() file: UploadedBinary | undefined,
     @Body('espelhar_meus_dados') espelharMeusDados?: string,
   ) {
+    const uid = this.userId(req);
+    if (!uid) {
+      throw new BadRequestException('JWT inválido');
+    }
     if (!file?.buffer?.length) {
       throw new BadRequestException('arquivo é obrigatório');
     }
@@ -220,7 +228,7 @@ export class DocumentosController {
       nome_arquivo: file.originalname || 'upload.bin',
       arquivo: file.buffer,
       mime: file.mimetype,
-      id_usuario: this.userId(req),
+      id_usuario: uid,
       espelhar_meus_dados: parseEspelharFlag(espelharMeusDados),
     });
   }

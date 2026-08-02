@@ -104,6 +104,14 @@ export class DocumentosService {
     return rest as Documento;
   }
 
+  /** Postgres unique_violation (e.g. tipo×fase race on create/reuse). */
+  private isUniqueViolation(err: unknown): boolean {
+    const code =
+      (err as { code?: string })?.code ??
+      (err as { driverError?: { code?: string } })?.driverError?.code;
+    return code === '23505';
+  }
+
   private async audit(input: {
     id_documento: number;
     id_candidatura: number;
@@ -361,9 +369,7 @@ export class DocumentosService {
     );
     const fase = (input.fase as FaseDocumento) || FaseDocumento.INSCRICAO;
     const candidatura = await this.loadCandidatura(input.id_candidatura);
-    if (input.id_usuario != null) {
-      this.assertOwnership(candidatura, input.id_usuario);
-    }
+    this.assertOwnership(candidatura, input.id_usuario);
     assertFaseMatriculaPermitida(candidatura.status, fase);
     await this.assertJanelaUploadAberta(candidatura.id_edital, fase);
 
@@ -396,7 +402,27 @@ export class DocumentosService {
       candidatura: { id: input.id_candidatura } as Candidatura,
     });
 
-    const saved = await this.documentoRepository.save(doc);
+    let saved: Documento;
+    try {
+      saved = await this.documentoRepository.save(doc);
+    } catch (err) {
+      if (!this.isUniqueViolation(err)) throw err;
+      const raced = await this.documentoRepository.findOne({
+        where: {
+          id_candidatura: input.id_candidatura,
+          tipo_documento: input.tipo_documento.trim(),
+          fase,
+        },
+      });
+      if (!raced) throw err;
+      return this.replace(raced.id, {
+        nome_arquivo: input.nome_arquivo,
+        arquivo: input.arquivo,
+        mime,
+        id_usuario: input.id_usuario,
+        espelhar_meus_dados: input.espelhar_meus_dados,
+      });
+    }
     await this.audit({
       id_documento: saved.id,
       id_candidatura: input.id_candidatura,
@@ -438,9 +464,7 @@ export class DocumentosService {
     assertPodeSubstituir(doc.status_documento);
     const candidatura =
       doc.candidatura ?? (await this.loadCandidatura(doc.id_candidatura));
-    if (input.id_usuario != null) {
-      this.assertOwnership(candidatura, input.id_usuario);
-    }
+    this.assertOwnership(candidatura, input.id_usuario);
     assertFaseMatriculaPermitida(candidatura.status, doc.fase);
     await this.assertJanelaUploadAberta(candidatura.id_edital, doc.fase);
 
@@ -558,10 +582,13 @@ export class DocumentosService {
         : undefined,
       tipo: dto.tipo,
     });
-    const fase =
-      (dto.fase as FaseDocumento) ||
-      (tipo.fase as FaseDocumento) ||
-      FaseDocumento.INSCRICAO;
+    // Fase comes from the edital exigência — ignore client override (wrong slot / window).
+    const fase = (tipo.fase as FaseDocumento) || FaseDocumento.INSCRICAO;
+    if (dto.fase != null && String(dto.fase) !== String(fase)) {
+      throw new BadRequestException(
+        'fase não corresponde à exigência do tipo no edital',
+      );
+    }
 
     assertFaseMatriculaPermitida(candidatura.status, fase);
     await this.assertJanelaUploadAberta(candidatura.id_edital, fase);
@@ -660,30 +687,69 @@ export class DocumentosService {
       return this.stripBinary(saved);
     }
 
-    const created = await this.documentoRepository.save(
-      this.documentoRepository.create({
+    try {
+      const created = await this.documentoRepository.save(
+        this.documentoRepository.create({
+          id_candidatura: idCandidatura,
+          tipo_documento: tipo.nome,
+          nome_arquivo: source.nome_arquivo,
+          arquivo: snapshot,
+          mime,
+          fase,
+          status_documento: StatusDocumento.EM_ANALISE,
+          candidatura: { id: idCandidatura } as Candidatura,
+        }),
+      );
+      await this.audit({
+        id_documento: created.id,
         id_candidatura: idCandidatura,
-        tipo_documento: tipo.nome,
-        nome_arquivo: source.nome_arquivo,
-        arquivo: snapshot,
-        mime,
-        fase,
-        status_documento: StatusDocumento.EM_ANALISE,
-        candidatura: { id: idCandidatura } as Candidatura,
-      }),
-    );
-    await this.audit({
-      id_documento: created.id,
-      id_candidatura: idCandidatura,
-      acao: 'reuse_from_conta',
-      id_usuario: idUsuario,
-      detalhe: JSON.stringify({
-        id_documento_conta: source.id,
-        id_tipo_base: source.id_tipo_base,
-        bytes: snapshot.length,
-      }),
-    });
-    return this.stripBinary(created);
+        acao: 'reuse_from_conta',
+        id_usuario: idUsuario,
+        detalhe: JSON.stringify({
+          id_documento_conta: source.id,
+          id_tipo_base: source.id_tipo_base,
+          bytes: snapshot.length,
+        }),
+      });
+      return this.stripBinary(created);
+    } catch (err) {
+      if (!this.isUniqueViolation(err)) throw err;
+      // Concurrent reuse/upload won the insert — retry as replace of the winner.
+      const raced = await this.documentoRepository.findOne({
+        where: {
+          id_candidatura: idCandidatura,
+          tipo_documento: tipo.nome,
+          fase,
+        },
+      });
+      if (!raced) throw err;
+      assertPodeSubstituir(raced.status_documento);
+      const previousStatus = raced.status_documento;
+      raced.arquivo = snapshot;
+      raced.nome_arquivo = source.nome_arquivo;
+      raced.mime = mime;
+      raced.status_documento = StatusDocumento.EM_ANALISE;
+      raced.id_motivo = null;
+      raced.motivo_livre = null;
+      raced.decidido_em = null;
+      raced.id_gestor_decisao = null;
+      raced.sugestao_ia = null;
+      const saved = await this.documentoRepository.save(raced);
+      await this.audit({
+        id_documento: saved.id,
+        id_candidatura: idCandidatura,
+        acao: 'reuse_from_conta',
+        id_usuario: idUsuario,
+        detalhe: JSON.stringify({
+          id_documento_conta: source.id,
+          id_tipo_base: source.id_tipo_base,
+          from_status: previousStatus,
+          bytes: snapshot.length,
+          raced: true,
+        }),
+      });
+      return this.stripBinary(saved);
+    }
   }
 
   async downloadArquivo(

@@ -23,7 +23,8 @@ export class ReutilizarDocumentoDto {
 
   @ApiPropertyOptional({
     enum: FaseDocumento,
-    description: 'Fase do documento na inscrição (default inscricao)',
+    description:
+      'Must match the edital exigência fase when sent; server uses tipo.fase',
   })
   fase?: FaseDocumento | string;
 }
