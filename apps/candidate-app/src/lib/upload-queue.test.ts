@@ -22,9 +22,11 @@ describe("upload offline queue", () => {
       dataUrl: "data:application/pdf;base64,AAA",
       fileName: "cpf.pdf",
       mime: "application/pdf",
+      espelharMeusDados: true,
     });
     expect(listUploadQueue()).toHaveLength(1);
     expect(listUploadQueue()[0]?.tipoDocumento).toBe("CPF");
+    expect(listUploadQueue()[0]?.espelharMeusDados).toBe(true);
   });
 
   it("removes items and converts data URL to blob", () => {

@@ -20,13 +20,20 @@ import { Candidatura } from '../candidaturas/entities/candidatura.entity';
 import { CronogramaService } from '../cronograma/cronograma.service';
 import { Notificacao } from '../notificacoes/entities/notificacao.entity';
 import { NotificacaoLeitura } from '../notificacoes/entities/notificacao-leitura.entity';
+import { TipoDocumento } from '../tipos-documento/entities/tipo-documento.entity';
+import { DocumentosContaService } from '../tipos-documento-base/documentos-conta.service';
 import {
   assertDocumentoUpload,
   assertFaseMatriculaPermitida,
   assertPodeSubstituir,
   applySugestaoIaSemDecisao,
 } from './documentos-validation.util';
+import {
+  matchDocumentoConta,
+  normalizeDocTipoNome,
+} from './documentos-reuse.util';
 import { DecidirDocumentoDto } from './dto/decidir-documento.dto';
+import { ReutilizarDocumentoDto } from './dto/reutilizar-documento.dto';
 
 export type UploadDocumentoInput = {
   id_candidatura: number;
@@ -36,6 +43,34 @@ export type UploadDocumentoInput = {
   mime?: string | null;
   fase?: FaseDocumento | string;
   id_usuario?: number | null;
+  /** When true, mirror into Meus Dados if exigência has id_tipo_base. */
+  espelhar_meus_dados?: boolean;
+};
+
+export type DocumentoComEspelho = Documento & {
+  espelhado_meus_dados?: boolean;
+  espelhar_skip_motivo?:
+    | 'flag_ausente'
+    | 'sem_id_tipo_base'
+    | 'sem_usuario'
+    | 'erro_upsert';
+};
+
+export type ReutilizavelExigencia = {
+  id_tipo_documento: number;
+  nome: string;
+  id_tipo_base: number | null;
+  fase: string;
+  obrigatorio: boolean;
+  match: {
+    id_documento_conta: number;
+    id_tipo_base: number;
+    nome_arquivo: string;
+    mime: string | null;
+    atualizado_em: Date | string;
+    tipo_nome: string | null;
+    match_by: 'id_tipo_base' | 'nome';
+  } | null;
 };
 
 @Injectable()
@@ -53,6 +88,9 @@ export class DocumentosService {
     private readonly notificacaoRepository: Repository<Notificacao>,
     @InjectRepository(NotificacaoLeitura)
     private readonly leituraRepository: Repository<NotificacaoLeitura>,
+    @InjectRepository(TipoDocumento)
+    private readonly tipoDocumentoRepository: Repository<TipoDocumento>,
+    private readonly documentosContaService: DocumentosContaService,
     private readonly cronogramaService: CronogramaService,
   ) {}
 
@@ -95,6 +133,118 @@ export class DocumentosService {
       throw new NotFoundException(`Candidatura ${id} não encontrada`);
     }
     return candidatura;
+  }
+
+  private assertOwnership(
+    candidatura: Candidatura,
+    idUsuario?: number | null,
+  ): void {
+    if (idUsuario == null || !Number.isFinite(idUsuario) || idUsuario <= 0) {
+      throw new ForbiddenException(
+        'autenticação obrigatória para esta operação',
+      );
+    }
+    if (Number(candidatura.id_usuario) !== Number(idUsuario)) {
+      throw new ForbiddenException(
+        'candidatura não pertence à conta autenticada',
+      );
+    }
+  }
+
+  private async resolveTipoExigencia(
+    idEdital: number,
+    opts: { id_tipo_documento?: number; tipo?: string },
+  ): Promise<TipoDocumento> {
+    if (opts.id_tipo_documento && opts.id_tipo_documento > 0) {
+      const byId = await this.tipoDocumentoRepository.findOne({
+        where: { id: opts.id_tipo_documento, id_edital: idEdital },
+      });
+      if (!byId) {
+        throw new NotFoundException(
+          `Tipo de documento ${opts.id_tipo_documento} não encontrado no edital`,
+        );
+      }
+      return byId;
+    }
+    const nome = opts.tipo?.trim();
+    if (!nome) {
+      throw new BadRequestException(
+        'id_tipo_documento ou tipo é obrigatório',
+      );
+    }
+    const tipos = await this.tipoDocumentoRepository.find({
+      where: { id_edital: idEdital },
+    });
+    const target = normalizeDocTipoNome(nome);
+    const byNome = tipos.find(
+      (t) => normalizeDocTipoNome(t.nome) === target,
+    );
+    if (!byNome) {
+      throw new NotFoundException(
+        `Tipo de documento “${nome}” não encontrado no edital`,
+      );
+    }
+    return byNome;
+  }
+
+  private async maybeEspelharMeusDados(input: {
+    id_usuario?: number | null;
+    id_edital: number;
+    tipo_documento: string;
+    nome_arquivo: string;
+    arquivo: Buffer;
+    mime?: string | null;
+    espelhar: boolean;
+  }): Promise<{
+    espelhado_meus_dados: boolean;
+    espelhar_skip_motivo?: DocumentoComEspelho['espelhar_skip_motivo'];
+  }> {
+    if (!input.espelhar) {
+      return {
+        espelhado_meus_dados: false,
+        espelhar_skip_motivo: 'flag_ausente',
+      };
+    }
+    if (input.id_usuario == null || input.id_usuario <= 0) {
+      return {
+        espelhado_meus_dados: false,
+        espelhar_skip_motivo: 'sem_usuario',
+      };
+    }
+    const tipo = await this.resolveTipoExigencia(input.id_edital, {
+      tipo: input.tipo_documento,
+    }).catch(() => null);
+    const idTipoBase = tipo?.id_tipo_base;
+    if (idTipoBase == null || Number(idTipoBase) <= 0) {
+      return {
+        espelhado_meus_dados: false,
+        espelhar_skip_motivo: 'sem_id_tipo_base',
+      };
+    }
+    try {
+      await this.documentosContaService.upsertFromBuffer(
+        input.id_usuario,
+        Number(idTipoBase),
+        {
+          nome_arquivo: input.nome_arquivo,
+          mime: input.mime,
+          arquivo: input.arquivo,
+        },
+      );
+      return { espelhado_meus_dados: true };
+    } catch {
+      return {
+        espelhado_meus_dados: false,
+        espelhar_skip_motivo: 'erro_upsert',
+      };
+    }
+  }
+
+  private withEspelho(
+    doc: Documento,
+    espelho: Awaited<ReturnType<DocumentosService['maybeEspelharMeusDados']>>,
+  ): DocumentoComEspelho {
+    return Object.assign(this.stripBinary(doc), espelho);
   }
 
   /**
@@ -196,7 +346,7 @@ export class DocumentosService {
     return qb.getMany();
   }
 
-  async create(input: UploadDocumentoInput): Promise<Documento> {
+  async create(input: UploadDocumentoInput): Promise<DocumentoComEspelho> {
     if (!input.id_candidatura || Number.isNaN(input.id_candidatura)) {
       throw new BadRequestException('id_candidatura é obrigatório');
     }
@@ -211,6 +361,9 @@ export class DocumentosService {
     );
     const fase = (input.fase as FaseDocumento) || FaseDocumento.INSCRICAO;
     const candidatura = await this.loadCandidatura(input.id_candidatura);
+    if (input.id_usuario != null) {
+      this.assertOwnership(candidatura, input.id_usuario);
+    }
     assertFaseMatriculaPermitida(candidatura.status, fase);
     await this.assertJanelaUploadAberta(candidatura.id_edital, fase);
 
@@ -228,6 +381,7 @@ export class DocumentosService {
         arquivo: input.arquivo,
         mime,
         id_usuario: input.id_usuario,
+        espelhar_meus_dados: input.espelhar_meus_dados,
       });
     }
 
@@ -250,7 +404,17 @@ export class DocumentosService {
       id_usuario: input.id_usuario ?? null,
       detalhe: `mime=${mime}; bytes=${input.arquivo.length}`,
     });
-    return this.stripBinary(saved);
+
+    const espelho = await this.maybeEspelharMeusDados({
+      id_usuario: input.id_usuario,
+      id_edital: candidatura.id_edital,
+      tipo_documento: input.tipo_documento.trim(),
+      nome_arquivo: input.nome_arquivo || 'upload.bin',
+      arquivo: input.arquivo,
+      mime,
+      espelhar: Boolean(input.espelhar_meus_dados),
+    });
+    return this.withEspelho(saved, espelho);
   }
 
   async replace(
@@ -260,8 +424,9 @@ export class DocumentosService {
       arquivo: Buffer;
       mime?: string | null;
       id_usuario?: number | null;
+      espelhar_meus_dados?: boolean;
     },
-  ): Promise<Documento> {
+  ): Promise<DocumentoComEspelho> {
     const doc = await this.documentoRepository
       .createQueryBuilder('d')
       .addSelect('d.arquivo')
@@ -273,6 +438,9 @@ export class DocumentosService {
     assertPodeSubstituir(doc.status_documento);
     const candidatura =
       doc.candidatura ?? (await this.loadCandidatura(doc.id_candidatura));
+    if (input.id_usuario != null) {
+      this.assertOwnership(candidatura, input.id_usuario);
+    }
     assertFaseMatriculaPermitida(candidatura.status, doc.fase);
     await this.assertJanelaUploadAberta(candidatura.id_edital, doc.fase);
 
@@ -301,7 +469,221 @@ export class DocumentosService {
       id_usuario: input.id_usuario ?? null,
       detalhe: `from_status=${previousStatus}; mime=${mime}; bytes=${input.arquivo.length}`,
     });
-    return this.stripBinary(saved);
+
+    const espelho = await this.maybeEspelharMeusDados({
+      id_usuario: input.id_usuario,
+      id_edital: candidatura.id_edital,
+      tipo_documento: saved.tipo_documento,
+      nome_arquivo: saved.nome_arquivo,
+      arquivo: input.arquivo,
+      mime,
+      espelhar: Boolean(input.espelhar_meus_dados),
+    });
+    return this.withEspelho(saved, espelho);
+  }
+
+  /**
+   * REQ-2.6: per edital exigência, Conta match meta (or null) for same account.
+   */
+  async listReutilizaveis(
+    idCandidatura: number,
+    idUsuario: number,
+  ): Promise<{ exigencias: ReutilizavelExigencia[] }> {
+    if (!idCandidatura || Number.isNaN(idCandidatura)) {
+      throw new BadRequestException('candidatura é obrigatório');
+    }
+    const candidatura = await this.loadCandidatura(idCandidatura);
+    this.assertOwnership(candidatura, idUsuario);
+
+    const tipos = await this.tipoDocumentoRepository.find({
+      where: { id_edital: candidatura.id_edital },
+      order: { ordem: 'ASC', id: 'ASC' },
+    });
+    const { documentos: contaDocs } =
+      await this.documentosContaService.listForUser(idUsuario);
+    const candidates = contaDocs.map((d) => ({
+      id: d.id,
+      id_tipo_base: d.id_tipo_base,
+      tipo_nome: d.tipo_nome,
+    }));
+
+    const exigencias: ReutilizavelExigencia[] = tipos.map((t) => {
+      const hit = matchDocumentoConta(
+        { id_tipo_base: t.id_tipo_base, nome: t.nome },
+        candidates,
+      );
+      const conta = hit
+        ? contaDocs.find((d) => d.id === hit.id) ?? null
+        : null;
+      return {
+        id_tipo_documento: t.id,
+        nome: t.nome,
+        id_tipo_base: t.id_tipo_base ?? null,
+        fase: String(t.fase),
+        obrigatorio: Boolean(t.obrigatorio),
+        match: conta
+          ? {
+              id_documento_conta: conta.id,
+              id_tipo_base: conta.id_tipo_base,
+              nome_arquivo: conta.nome_arquivo,
+              mime: conta.mime,
+              atualizado_em: conta.atualizado_em,
+              tipo_nome: conta.tipo_nome,
+              match_by: hit!.match_by,
+            }
+          : null,
+      };
+    });
+
+    return { exigencias };
+  }
+
+  /**
+   * Confirm reuse: immutable BYTEA snapshot into inscrição Documentos (no Conta FK).
+   */
+  async reutilizar(
+    dto: ReutilizarDocumentoDto,
+    idUsuario: number,
+  ): Promise<Documento> {
+    const idCandidatura = Number(dto.id_candidatura);
+    if (!idCandidatura || Number.isNaN(idCandidatura)) {
+      throw new BadRequestException('id_candidatura é obrigatório');
+    }
+    const candidatura = await this.loadCandidatura(idCandidatura);
+    this.assertOwnership(candidatura, idUsuario);
+
+    const tipo = await this.resolveTipoExigencia(candidatura.id_edital, {
+      id_tipo_documento: dto.id_tipo_documento
+        ? Number(dto.id_tipo_documento)
+        : undefined,
+      tipo: dto.tipo,
+    });
+    const fase =
+      (dto.fase as FaseDocumento) ||
+      (tipo.fase as FaseDocumento) ||
+      FaseDocumento.INSCRICAO;
+
+    assertFaseMatriculaPermitida(candidatura.status, fase);
+    await this.assertJanelaUploadAberta(candidatura.id_edital, fase);
+
+    const { documentos: contaDocs } =
+      await this.documentosContaService.listForUser(idUsuario);
+    const candidates = contaDocs.map((d) => ({
+      id: d.id,
+      id_tipo_base: d.id_tipo_base,
+      tipo_nome: d.tipo_nome,
+    }));
+    const autoMatch = matchDocumentoConta(
+      { id_tipo_base: tipo.id_tipo_base, nome: tipo.nome },
+      candidates,
+    );
+
+    let documentoContaId = dto.id_documento_conta
+      ? Number(dto.id_documento_conta)
+      : autoMatch?.id;
+    if (!documentoContaId) {
+      throw new BadRequestException(
+        'nenhum documento reutilizável correspondente em Meus Dados',
+      );
+    }
+
+    if (dto.id_documento_conta) {
+      const explicit = contaDocs.find((d) => d.id === documentoContaId);
+      if (!explicit) {
+        throw new ForbiddenException(
+          'documento da conta não pertence à conta autenticada',
+        );
+      }
+      const stillMatches = matchDocumentoConta(
+        { id_tipo_base: tipo.id_tipo_base, nome: tipo.nome },
+        [
+          {
+            id: explicit.id,
+            id_tipo_base: explicit.id_tipo_base,
+            tipo_nome: explicit.tipo_nome,
+          },
+        ],
+      );
+      if (!stillMatches) {
+        throw new BadRequestException(
+          'documento da conta não corresponde ao tipo exigido',
+        );
+      }
+    }
+
+    const source = await this.documentosContaService.loadArquivoOwned(
+      idUsuario,
+      documentoContaId,
+    );
+    // Defensive copy — inscrição snapshot must not share buffer refs with Conta.
+    const snapshot = Buffer.from(source.arquivo);
+
+    const { mime } = assertDocumentoUpload(
+      snapshot,
+      source.nome_arquivo,
+      source.mime,
+    );
+
+    const existing = await this.documentoRepository.findOne({
+      where: {
+        id_candidatura: idCandidatura,
+        tipo_documento: tipo.nome,
+        fase,
+      },
+    });
+
+    if (existing) {
+      assertPodeSubstituir(existing.status_documento);
+      const previousStatus = existing.status_documento;
+      existing.arquivo = snapshot;
+      existing.nome_arquivo = source.nome_arquivo;
+      existing.mime = mime;
+      existing.status_documento = StatusDocumento.EM_ANALISE;
+      existing.id_motivo = null;
+      existing.motivo_livre = null;
+      existing.decidido_em = null;
+      existing.id_gestor_decisao = null;
+      existing.sugestao_ia = null;
+      const saved = await this.documentoRepository.save(existing);
+      await this.audit({
+        id_documento: saved.id,
+        id_candidatura: idCandidatura,
+        acao: 'reuse_from_conta',
+        id_usuario: idUsuario,
+        detalhe: JSON.stringify({
+          id_documento_conta: source.id,
+          id_tipo_base: source.id_tipo_base,
+          from_status: previousStatus,
+          bytes: snapshot.length,
+        }),
+      });
+      return this.stripBinary(saved);
+    }
+
+    const created = await this.documentoRepository.save(
+      this.documentoRepository.create({
+        id_candidatura: idCandidatura,
+        tipo_documento: tipo.nome,
+        nome_arquivo: source.nome_arquivo,
+        arquivo: snapshot,
+        mime,
+        fase,
+        status_documento: StatusDocumento.EM_ANALISE,
+        candidatura: { id: idCandidatura } as Candidatura,
+      }),
+    );
+    await this.audit({
+      id_documento: created.id,
+      id_candidatura: idCandidatura,
+      acao: 'reuse_from_conta',
+      id_usuario: idUsuario,
+      detalhe: JSON.stringify({
+        id_documento_conta: source.id,
+        id_tipo_base: source.id_tipo_base,
+        bytes: snapshot.length,
+      }),
+    });
+    return this.stripBinary(created);
   }
 
   async downloadArquivo(

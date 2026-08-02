@@ -61,6 +61,13 @@ import {
   onOnlineFlush,
   type QueuedUpload,
 } from "./lib/upload-queue"
+import {
+  appendEspelharMeusDados,
+  fetchDocumentosReutilizaveis,
+  normalizeDocTipoNome,
+  postReutilizarDocumento,
+  type ReutilizavelExigencia,
+} from "./lib/document-reuse"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Screen =
@@ -1401,9 +1408,11 @@ async function postDocumentoUpload(opts: {
   file: Blob
   fileName: string
   replaceId?: number
+  espelharMeusDados?: boolean
 }): Promise<void> {
   const form = new FormData()
   form.append("arquivo", opts.file, opts.fileName)
+  appendEspelharMeusDados(form, opts.espelharMeusDados)
   if (opts.replaceId && opts.replaceId > 0) {
     await apiFetch(`/documentos/${opts.replaceId}`, { method: "PUT", body: form })
     return
@@ -1411,6 +1420,13 @@ async function postDocumentoUpload(opts: {
   form.append("id_candidatura", String(opts.candidaturaId))
   form.append("tipo_documento", opts.tipoDocumento)
   await apiFetch("/documentos", { method: "POST", body: form })
+}
+
+function askEspelharMeusDados(): boolean {
+  if (typeof window === "undefined") return false
+  return window.confirm(
+    "Espelhar em Meus Dados?\n\nSalvar também na sua conta para reutilizar em futuras inscrições.",
+  )
 }
 
 function validateDocFile(file: File | Blob, nameHint?: string): string | null {
@@ -1447,7 +1463,9 @@ function DocsScreen({
       })),
     [],
   )
-  const { docs, error: docsError, reload } = useDocumentos(candidaturaId, docsFallback)
+  const { docs: apiDocs, error: docsError, reload } = useDocumentos(candidaturaId, docsFallback)
+  const [reutilizaveis, setReutilizaveis] = useState<ReutilizavelExigencia[]>([])
+  const [reuseBusy, setReuseBusy] = useState<number | null>(null)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [queueCount, setQueueCount] = useState(0)
   const [syncMsg, setSyncMsg] = useState<string | null>(null)
@@ -1455,13 +1473,57 @@ function DocsScreen({
 
   useEffect(() => {
     setQueueCount(listUploadQueue().length)
-  }, [docs, syncMsg])
+  }, [apiDocs, syncMsg])
+
+  useEffect(() => {
+    if (shouldUseMocks() || !candidaturaId || candidaturaId <= 0 || !getAccessToken()) {
+      setReutilizaveis([])
+      return
+    }
+    let cancelled = false
+    void fetchDocumentosReutilizaveis(candidaturaId)
+      .then((rows) => {
+        if (!cancelled) setReutilizaveis(rows)
+      })
+      .catch(() => {
+        if (!cancelled) setReutilizaveis([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [candidaturaId, apiDocs])
+
+  const reuseByNome = useMemo(() => {
+    const map = new Map<string, ReutilizavelExigencia>()
+    for (const row of reutilizaveis) {
+      if (row.match) map.set(normalizeDocTipoNome(row.nome), row)
+    }
+    return map
+  }, [reutilizaveis])
+
+  /** Checklist: API docs, else exigências from reutilizáveis (W26-06 overlap for reuse UX). */
+  const docs = useMemo(() => {
+    if (apiDocs.length > 0) return apiDocs
+    if (reutilizaveis.length > 0) {
+      return reutilizaveis.map((e) => ({
+        id: `tipo-${e.id_tipo_documento}`,
+        nome: e.nome,
+        obrigatorio: e.obrigatorio,
+        status: "pendente" as const,
+        tipo: /foto|facial|autodeclara|ppi|c[aâ]mera/i.test(e.nome)
+          ? ("camera" as const)
+          : ("upload" as const),
+      }))
+    }
+    return apiDocs
+  }, [apiDocs, reutilizaveis])
 
   async function submitDocFile(opts: {
     docId: string
     tipoDocumento: string
     file: Blob
     fileName: string
+    espelharMeusDados?: boolean
   }) {
     if (shouldUseMocks()) return
     if (!candidaturaId || !getAccessToken()) {
@@ -1469,6 +1531,7 @@ function DocsScreen({
       return
     }
     const replaceId = /^\d+$/.test(opts.docId) ? Number(opts.docId) : undefined
+    const espelharMeusDados = opts.espelharMeusDados
     if (isBrowserOffline()) {
       const dataUrl = await fileToDataUrl(opts.file)
       enqueueUpload({
@@ -1478,6 +1541,7 @@ function DocsScreen({
         fileName: opts.fileName,
         mime: opts.file.type || "application/octet-stream",
         replaceId,
+        espelharMeusDados,
       })
       setQueueCount(listUploadQueue().length)
       setSyncMsg("Sem conexão — documento na fila offline. Será enviado ao voltar a rede.")
@@ -1489,8 +1553,36 @@ function DocsScreen({
       file: opts.file,
       fileName: opts.fileName,
       replaceId,
+      espelharMeusDados,
     })
     reload()
+  }
+
+  async function confirmReuse(exigencia: ReutilizavelExigencia) {
+    if (!candidaturaId || !exigencia.match) return
+    if (
+      !window.confirm(
+        `Reutilizar “${exigencia.match.nome_arquivo}” de Meus Dados para “${exigencia.nome}”?\n\nSerá gravada uma cópia na inscrição (não fica ligada à conta).`,
+      )
+    ) {
+      return
+    }
+    setReuseBusy(exigencia.id_tipo_documento)
+    setUploadError(null)
+    try {
+      await postReutilizarDocumento({
+        id_candidatura: candidaturaId,
+        id_tipo_documento: exigencia.id_tipo_documento,
+        id_documento_conta: exigencia.match.id_documento_conta,
+        fase: exigencia.fase,
+      })
+      setSyncMsg(`Documento “${exigencia.nome}” reutilizado de Meus Dados.`)
+      reload()
+    } catch {
+      setUploadError("Não foi possível reutilizar o documento. Tente novamente.")
+    } finally {
+      setReuseBusy(null)
+    }
   }
 
   useEffect(() => {
@@ -1509,11 +1601,13 @@ function DocsScreen({
         return
       }
       try {
+        const espelharMeusDados = askEspelharMeusDados()
         await submitDocFile({
           docId: ppi.id,
           tipoDocumento: ppi.nome,
           file: cameraBlob,
           fileName: "ppi-autodeclaracao.jpg",
+          espelharMeusDados,
         })
       } catch {
         setUploadError("Falha ao enviar a foto capturada.")
@@ -1618,6 +1712,26 @@ function DocsScreen({
                 {statusIcon(doc.status)}
               </div>
 
+              {(() => {
+                const reuse = reuseByNome.get(normalizeDocTipoNome(doc.nome))
+                return reuse?.match ? (
+                  <div className="mt-3 pt-3 border-t border-[#E4EBE6]">
+                    <p className="text-[11px] text-[#4E6859] mb-2 leading-relaxed">
+                      Disponível em Meus Dados: {reuse.match.nome_arquivo}
+                    </p>
+                    <button
+                      type="button"
+                      disabled={reuseBusy === reuse.id_tipo_documento}
+                      onClick={() => { void confirmReuse(reuse) }}
+                      className="w-full flex items-center justify-center gap-2 h-10 rounded-xl bg-[#E7F4EA] text-[#1D5C2E] text-sm font-semibold hover:bg-[#D1E8D7] transition-colors focus-visible:outline-2 focus-visible:outline-[#2A7B3E] disabled:opacity-60"
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                      {reuseBusy === reuse.id_tipo_documento ? "Reutilizando…" : "Reutilizar"}
+                    </button>
+                  </div>
+                ) : null
+              })()}
+
               {doc.status !== "na" && (
                 <div className="mt-3 pt-3 border-t border-[#E4EBE6] flex gap-2">
                   {doc.tipo === "camera" ? (
@@ -1645,11 +1759,13 @@ function DocsScreen({
                                 return
                               }
                               try {
+                                const espelharMeusDados = askEspelharMeusDados()
                                 await submitDocFile({
                                   docId: doc.id,
                                   tipoDocumento: doc.nome,
                                   file,
                                   fileName: file.name,
+                                  espelharMeusDados,
                                 })
                               } catch {
                                 setUploadError("Falha no envio do documento. Verifique formato/tamanho e tente de novo.")
@@ -2696,6 +2812,7 @@ export default function App() {
         file: blob,
         fileName: item.fileName,
         replaceId: item.replaceId,
+        espelharMeusDados: item.espelharMeusDados,
       })
     }
     const off = onOnlineFlush(flushOne)

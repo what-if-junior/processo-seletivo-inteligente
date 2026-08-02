@@ -32,7 +32,9 @@ import {
   DecidirDocumentoDto,
   DecidirLoteDto,
 } from './dto/decidir-documento.dto';
+import { ReutilizarDocumentoDto } from './dto/reutilizar-documento.dto';
 import { DOCUMENTO_UPLOAD_MAX_BYTES } from './documentos-validation.util';
+import { parseEspelharFlag } from './documentos-reuse.util';
 
 type JwtUser = { sub: number; email?: string };
 type UploadedBinary = {
@@ -80,6 +82,25 @@ export class DocumentosController {
     });
   }
 
+  @Get('reutilizaveis')
+  @ApiOperation({
+    summary:
+      'REQ-2.6: exigências do edital com match Meus Dados (mesma conta) ou vazio',
+  })
+  listReutilizaveis(
+    @Req() req: Request,
+    @Query('candidatura') candidatura?: string,
+  ) {
+    const uid = this.userId(req);
+    if (!uid) {
+      throw new BadRequestException('JWT inválido');
+    }
+    if (!candidatura) {
+      throw new BadRequestException('candidatura é obrigatório');
+    }
+    return this.documentosService.listReutilizaveis(Number(candidatura), uid);
+  }
+
   @Get()
   @ApiOperation({
     summary:
@@ -110,6 +131,19 @@ export class DocumentosController {
     return this.documentosService.findOne(id);
   }
 
+  @Post('reutilizar')
+  @ApiOperation({
+    summary:
+      'REQ-2.6: confirma reutilização — snapshot BYTEA imutável na inscrição',
+  })
+  reutilizar(@Req() req: Request, @Body() dto: ReutilizarDocumentoDto) {
+    const uid = this.userId(req);
+    if (!uid) {
+      throw new BadRequestException('JWT inválido');
+    }
+    return this.documentosService.reutilizar(dto, uid);
+  }
+
   @Post()
   @UseInterceptors(
     FileInterceptor('arquivo', {
@@ -127,6 +161,10 @@ export class DocumentosController {
         id_candidatura: { type: 'integer' },
         tipo_documento: { type: 'string' },
         fase: { type: 'string', enum: Object.values(FaseDocumento) },
+        espelhar_meus_dados: {
+          type: 'string',
+          description: 'true para espelhar em Meus Dados após upload',
+        },
       },
     },
   })
@@ -140,6 +178,7 @@ export class DocumentosController {
     @Body('id_candidatura') idCandidaturaRaw: string,
     @Body('tipo_documento') tipoDocumento: string,
     @Body('fase') fase?: string,
+    @Body('espelhar_meus_dados') espelharMeusDados?: string,
   ) {
     if (!file?.buffer?.length) {
       throw new BadRequestException('arquivo é obrigatório');
@@ -152,6 +191,7 @@ export class DocumentosController {
       mime: file.mimetype,
       fase,
       id_usuario: this.userId(req),
+      espelhar_meus_dados: parseEspelharFlag(espelharMeusDados),
     });
   }
 
@@ -171,6 +211,7 @@ export class DocumentosController {
     @Req() req: Request,
     @Param('id', ParseIntPipe) id: number,
     @UploadedFile() file: UploadedBinary | undefined,
+    @Body('espelhar_meus_dados') espelharMeusDados?: string,
   ) {
     if (!file?.buffer?.length) {
       throw new BadRequestException('arquivo é obrigatório');
@@ -180,6 +221,7 @@ export class DocumentosController {
       arquivo: file.buffer,
       mime: file.mimetype,
       id_usuario: this.userId(req),
+      espelhar_meus_dados: parseEspelharFlag(espelharMeusDados),
     });
   }
 

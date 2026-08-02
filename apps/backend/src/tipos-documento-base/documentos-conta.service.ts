@@ -167,4 +167,56 @@ export class DocumentosContaService {
     await this.docRepository.delete({ id: doc.id });
     return meta;
   }
+
+  /** W19: load Conta binary for immutable snapshot into inscrição Documentos. */
+  async loadArquivoOwned(
+    userId: number,
+    documentoContaId: number,
+  ): Promise<{
+    id: number;
+    id_usuario: number;
+    id_tipo_base: number;
+    nome_arquivo: string;
+    mime: string | null;
+    arquivo: Buffer;
+    tipo_nome: string | null;
+  }> {
+    const doc = await this.docRepository
+      .createQueryBuilder('d')
+      .addSelect('d.arquivo')
+      .leftJoinAndSelect('d.tipoBase', 'tb')
+      .where('d.id = :id AND d.id_usuario = :userId', {
+        id: documentoContaId,
+        userId,
+      })
+      .getOne();
+    if (!doc?.arquivo?.length) {
+      throw new NotFoundException(
+        `Documento da conta ${documentoContaId} não encontrado`,
+      );
+    }
+    return {
+      id: doc.id,
+      id_usuario: doc.id_usuario,
+      id_tipo_base: doc.id_tipo_base,
+      nome_arquivo: doc.nome_arquivo,
+      mime: doc.mime ?? null,
+      arquivo: Buffer.from(doc.arquivo),
+      tipo_nome: doc.tipoBase?.nome ?? null,
+    };
+  }
+
+  /** W19: mirror inscrição upload into Meus Dados (same-account upsert). */
+  async upsertFromBuffer(
+    userId: number,
+    tipoBaseId: number,
+    input: { nome_arquivo: string; mime?: string | null; arquivo: Buffer },
+  ): Promise<DocumentoContaMeta> {
+    return this.upsert(userId, tipoBaseId, {
+      buffer: input.arquivo,
+      size: input.arquivo.length,
+      originalname: input.nome_arquivo,
+      mimetype: input.mime || 'application/octet-stream',
+    } as Express.Multer.File);
+  }
 }

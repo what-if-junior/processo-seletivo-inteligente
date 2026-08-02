@@ -12,6 +12,8 @@ export type QueuedUpload = {
   enqueuedAt: string;
   /** When replacing an existing API row */
   replaceId?: number;
+  /** W19: mirror into Meus Dados after successful flush */
+  espelharMeusDados?: boolean;
 };
 
 function readQueue(): QueuedUpload[] {

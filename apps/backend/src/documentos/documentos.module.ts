@@ -9,6 +9,8 @@ import { Candidatura } from '../candidaturas/entities/candidatura.entity';
 import { CronogramaModule } from '../cronograma/cronograma.module';
 import { Notificacao } from '../notificacoes/entities/notificacao.entity';
 import { NotificacaoLeitura } from '../notificacoes/entities/notificacao-leitura.entity';
+import { TipoDocumento } from '../tipos-documento/entities/tipo-documento.entity';
+import { TiposDocumentoBaseModule } from '../tipos-documento-base/tipos-documento-base.module';
 
 @Module({
   imports: [
@@ -19,8 +21,10 @@ import { NotificacaoLeitura } from '../notificacoes/entities/notificacao-leitura
       Candidatura,
       Notificacao,
       NotificacaoLeitura,
+      TipoDocumento,
     ]),
     CronogramaModule,
+    TiposDocumentoBaseModule,
   ],
   controllers: [DocumentosController],
   providers: [DocumentosService],
