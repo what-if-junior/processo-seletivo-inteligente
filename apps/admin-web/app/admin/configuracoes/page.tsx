@@ -6,6 +6,7 @@ import { useToast } from "../../../components/ToastProvider";
 import { FaixasSmEditor } from "../../../components/FaixasSmEditor";
 import { TiposDocumentoBaseEditor } from "../../../components/TiposDocumentoBaseEditor";
 import { TemplatesBibliotecaEditor } from "../../../components/TemplatesBibliotecaEditor";
+import { CarrosselEditor } from "../../../components/CarrosselEditor";
 import {
   DEFAULT_SETTINGS,
   loadSettings,
@@ -17,6 +18,7 @@ const TAB_ITEMS = [
   { id: "docs-base", label: "Docs base" },
   { id: "faixas", label: "Faixas SM" },
   { id: "templates", label: "Templates" },
+  { id: "carrossel", label: "Carrossel" },
   { id: "geral", label: "Geral" },
   { id: "notificacoes", label: "Notificações" },
   { id: "seguranca", label: "Segurança" },
@@ -42,8 +44,8 @@ export default function ConfiguracoesPage() {
       <div>
         <h1 className="text-2xl font-semibold text-slate-900">Configurações</h1>
         <p className="text-sm text-slate-500">
-          Preferências globais — docs base e faixas SM via API; demais abas
-          ainda em localStorage.
+          Preferências globais — docs base, faixas SM, templates e carrossel via
+          API; demais abas ainda em localStorage.
         </p>
       </div>
 
@@ -56,6 +58,8 @@ export default function ConfiguracoesPage() {
           {tab === "faixas" ? <FaixasSmEditor /> : null}
 
           {tab === "templates" ? <TemplatesBibliotecaEditor /> : null}
+
+          {tab === "carrossel" ? <CarrosselEditor /> : null}
 
           {tab === "geral" ? (
             <>
