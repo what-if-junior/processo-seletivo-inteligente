@@ -1,7 +1,9 @@
 import {
   BadRequestException,
+  Inject,
   Injectable,
   NotFoundException,
+  forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -16,6 +18,7 @@ import {
   assertTermosOneMode,
 } from './termos.util';
 import { TiposDocumentoBaseService } from '../tipos-documento-base/tipos-documento-base.service';
+import { CarrosselService } from '../carrossel/carrossel.service';
 
 const PDF_MAGIC = Buffer.from('%PDF');
 const MAX_PDF_BYTES = 15 * 1024 * 1024;
@@ -35,6 +38,8 @@ export class EditaisService {
     @InjectRepository(EditalArquivo)
     private readonly arquivoRepository: Repository<EditalArquivo>,
     private readonly tiposDocumentoBaseService: TiposDocumentoBaseService,
+    @Inject(forwardRef(() => CarrosselService))
+    private readonly carrosselService: CarrosselService,
   ) {}
 
   async create(
@@ -147,6 +152,9 @@ export class EditaisService {
           : edital.termos_valor,
     });
 
+    const flagsChanged =
+      dto.publicado !== undefined || dto.inscricoes_abertas !== undefined;
+
     const willPublish =
       edital.publicado === true || edital.inscricoes_abertas === true;
     if (willPublish) {
@@ -162,7 +170,11 @@ export class EditaisService {
       }
     }
 
-    return this.editalRepository.save(edital);
+    const saved = await this.editalRepository.save(edital);
+    if (flagsChanged) {
+      await this.carrosselService.syncAutoForEdital(saved);
+    }
+    return saved;
   }
 
   async remove(id: number): Promise<void> {

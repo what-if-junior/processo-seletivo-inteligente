@@ -74,6 +74,18 @@ import {
   MinhasContestacoesScreen,
   useContestacaoElegibilidade,
 } from "./ContestacaoScreens"
+import {
+  fetchCarrosselPublic,
+  resolveCarrosselCta,
+  type CarrosselPublicItem,
+} from "./lib/carrossel-api"
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from "./components/ui/carousel"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Screen =
@@ -532,6 +544,90 @@ function OfertaFiltersBar({
 }
 
 // ─── HOME SCREEN ──────────────────────────────────────────────────────────────
+function carrosselIcon(name: string | null | undefined): ElementType {
+  const key = (name ?? "").trim()
+  const map: Record<string, ElementType> = {
+    GraduationCap,
+    FileText,
+    Bell,
+    Award,
+    Calendar,
+    HelpCircle,
+    Info,
+    Shield,
+    UserCheck,
+  }
+  return map[key] ?? GraduationCap
+}
+
+function HomeCarrosselBanner({
+  items,
+  onCta,
+}: {
+  items: CarrosselPublicItem[]
+  onCta: (item: CarrosselPublicItem) => void
+}) {
+  if (items.length === 0) return null
+
+  function Slide({ item }: { item: CarrosselPublicItem }) {
+    const Icon = carrosselIcon(item.icone)
+    return (
+      <div className="rounded-2xl overflow-hidden shadow-lg bg-gradient-to-br from-[#1D5C2E] to-[#3A9B54] p-4 flex items-center justify-between">
+        <div className="flex-1 min-w-0">
+          {item.rotulo ? (
+            <p className="text-emerald-200 text-[11px] font-semibold tracking-wide uppercase">
+              {item.rotulo}
+            </p>
+          ) : null}
+          <p className="text-white text-base font-bold mt-1 leading-snug">{item.titulo}</p>
+          {item.subtitulo ? (
+            <p className="text-emerald-200 text-xs mt-1">{item.subtitulo}</p>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => onCta(item)}
+            className="mt-3 inline-flex items-center gap-1.5 bg-white text-[#2A7B3E] text-xs font-bold px-3 py-1.5 rounded-full hover:bg-emerald-50 transition-colors"
+          >
+            {item.cta_texto?.trim() || "Ver editais"} <ChevronRight className="w-3 h-3" />
+          </button>
+        </div>
+        <div className="w-16 h-16 rounded-full bg-white/15 flex items-center justify-center flex-shrink-0 ml-3 overflow-hidden">
+          {item.imagem_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={item.imagem_url} alt="" className="w-full h-full object-cover" />
+          ) : (
+            <Icon className="w-9 h-9 text-white" />
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  if (items.length === 1) {
+    return (
+      <div className="mx-4 -mt-3">
+        <Slide item={items[0]!} />
+      </div>
+    )
+  }
+
+  return (
+    <div className="mx-4 -mt-3">
+      <Carousel opts={{ align: "start", loop: true }} className="w-full">
+        <CarouselContent className="-ml-0">
+          {items.map(item => (
+            <CarouselItem key={item.id} className="pl-0 basis-full">
+              <Slide item={item} />
+            </CarouselItem>
+          ))}
+        </CarouselContent>
+        <CarouselPrevious className="left-1 top-1/2 -translate-y-1/2 border-0 bg-white/80" />
+        <CarouselNext className="right-1 top-1/2 -translate-y-1/2 border-0 bg-white/80" />
+      </Carousel>
+    </div>
+  )
+}
+
 function HomeScreen({
   goto, setNav, onSelectEdital, onOpenChat, onRequestDocs,
 }: {
@@ -545,6 +641,7 @@ function HomeScreen({
   const [search, setSearch] = useState("")
   const [filterEditalId, setFilterEditalId] = useState<number | null>(null)
   const [filterCampusId, setFilterCampusId] = useState<number | null>(null)
+  const [carrossel, setCarrossel] = useState<CarrosselPublicItem[]>([])
   const fallback = useMemo(() => EDITAIS, [])
   const { editais, error: ofertasError, loading: ofertasLoading } = useOfertas(fallback)
   const { user, authed } = useProfile()
@@ -559,6 +656,33 @@ function HomeScreen({
       }),
     [editais, filterTipo, search, filterEditalId, filterCampusId],
   )
+
+  useEffect(() => {
+    let cancelled = false
+    void fetchCarrosselPublic()
+      .then(items => {
+        if (!cancelled) setCarrossel(items)
+      })
+      .catch(() => {
+        if (!cancelled) setCarrossel([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  function onCarrosselCta(item: CarrosselPublicItem) {
+    const action = resolveCarrosselCta(item)
+    if (action.kind === "filter_edital") {
+      setFilterEditalId(action.id_edital)
+      return
+    }
+    if (action.kind === "external") {
+      window.open(action.url, "_blank", "noopener,noreferrer")
+      return
+    }
+    goto("processos")
+  }
 
   return (
     <div>
@@ -581,21 +705,7 @@ function HomeScreen({
         )}
       </div>
 
-      {/* Banner */}
-      <div className="mx-4 -mt-3 rounded-2xl overflow-hidden shadow-lg bg-gradient-to-br from-[#1D5C2E] to-[#3A9B54] p-4 flex items-center justify-between">
-        <div className="flex-1">
-          <p className="text-emerald-200 text-[11px] font-semibold tracking-wide uppercase">Inscrições Abertas</p>
-          <p className="text-white text-base font-bold mt-1 leading-snug">Processo Seletivo 2025.1</p>
-          <p className="text-emerald-200 text-xs mt-1">Vagas para cursos técnicos e superiores</p>
-          <button onClick={() => goto("processos")}
-            className="mt-3 inline-flex items-center gap-1.5 bg-white text-[#2A7B3E] text-xs font-bold px-3 py-1.5 rounded-full hover:bg-emerald-50 transition-colors">
-            Ver editais <ChevronRight className="w-3 h-3" />
-          </button>
-        </div>
-        <div className="w-16 h-16 rounded-full bg-white/15 flex items-center justify-center flex-shrink-0 ml-3">
-          <GraduationCap className="w-9 h-9 text-white" />
-        </div>
-      </div>
+      <HomeCarrosselBanner items={carrossel} onCta={onCarrosselCta} />
 
       {/* Filters + list */}
       <div className="px-4 pt-5">

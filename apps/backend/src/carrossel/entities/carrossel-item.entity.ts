@@ -48,7 +48,7 @@ export class CarrosselItem {
   @Column({ type: 'boolean', default: true })
   ativo: boolean;
 
-  /** Soft ref until W1 Editais exists (auto_edital cards). */
+  /** FK → Editais (04_schema_extras). Auto cards: one row per id_edital (19_w32). */
   @Column({
     type: 'bigint',
     nullable: true,

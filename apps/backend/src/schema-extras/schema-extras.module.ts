@@ -13,7 +13,8 @@ import { TemplateEdital } from '../templates/entities/template-edital.entity';
 
 /**
  * W2 schema extras — entity registration only.
- * Faixas HTTP = FaixasModule (W7); others arrive in W29–W32.
+ * Faixas HTTP = FaixasModule (W7); Contestacoes/Templates = W29–W30;
+ * Carrossel HTTP = CarrosselModule (W32); Notificacoes → W31.
  */
 @Module({
   imports: [

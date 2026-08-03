@@ -18,6 +18,7 @@ import { TiposDocumentoModule } from './tipos-documento/tipos-documento.module';
 import { TiposDocumentoBaseModule } from './tipos-documento-base/tipos-documento-base.module';
 import { EntregaDocumentalModule } from './entrega-documental/entrega-documental.module';
 import { FaixasModule } from './faixas/faixas.module';
+import { CarrosselModule } from './carrossel/carrossel.module';
 import { SocioeconomicoModule } from './socioeconomico/socioeconomico.module';
 import { LotesModule } from './lotes/lotes.module';
 import { ChamadasModule } from './chamadas/chamadas.module';
@@ -65,6 +66,7 @@ import { JwtAuthGuard } from './auth/guards/jwt.guard';
     TiposDocumentoBaseModule,
     EntregaDocumentalModule,
     FaixasModule,
+    CarrosselModule,
     SocioeconomicoModule,
     LotesModule,
     ChamadasModule,

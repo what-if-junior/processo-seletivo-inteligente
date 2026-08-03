@@ -1,15 +1,17 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Edital } from './entities/edital.entity';
 import { EditalArquivo } from './entities/edital-arquivo.entity';
 import { EditaisController } from './editais.controller';
 import { EditaisService } from './editais.service';
 import { TiposDocumentoBaseModule } from '../tipos-documento-base/tipos-documento-base.module';
+import { CarrosselModule } from '../carrossel/carrossel.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Edital, EditalArquivo]),
     TiposDocumentoBaseModule,
+    forwardRef(() => CarrosselModule),
   ],
   controllers: [EditaisController],
   providers: [EditaisService],

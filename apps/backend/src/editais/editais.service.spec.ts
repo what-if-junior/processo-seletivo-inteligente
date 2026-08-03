@@ -6,6 +6,7 @@ import { EditaisService } from './editais.service';
 import { Edital } from './entities/edital.entity';
 import { EditalArquivo } from './entities/edital-arquivo.entity';
 import { TiposDocumentoBaseService } from '../tipos-documento-base/tipos-documento-base.service';
+import { CarrosselService } from '../carrossel/carrossel.service';
 
 describe('EditaisService', () => {
   let service: EditaisService;
@@ -33,6 +34,10 @@ describe('EditaisService', () => {
     create: jest.fn((x) => x),
     save: jest.fn(),
     createQueryBuilder: jest.fn(() => qb),
+  };
+
+  const carrosselService = {
+    syncAutoForEdital: jest.fn().mockResolvedValue({ action: 'created' }),
   };
 
   const draftEdital: Edital = {
@@ -73,6 +78,7 @@ describe('EditaisService', () => {
           provide: TiposDocumentoBaseService,
           useValue: { inheritIntoEdital: jest.fn().mockResolvedValue([]) },
         },
+        { provide: CarrosselService, useValue: carrosselService },
       ],
     }).compile();
 
@@ -214,6 +220,9 @@ describe('EditaisService', () => {
 
       const result = await service.update(10, { publicado: true });
       expect(result.publicado).toBe(true);
+      expect(carrosselService.syncAutoForEdital).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 10, publicado: true }),
+      );
     });
   });
 });
