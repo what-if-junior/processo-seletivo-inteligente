@@ -45,6 +45,7 @@ export type CreateCronogramaPayload = {
   elegivel_impugnacao?: boolean;
   elegivel_recurso?: boolean;
   template_instrucao_id?: number | null;
+  notificar_candidatos?: boolean;
 };
 
 export type UpdateCronogramaPayload = Partial<CreateCronogramaPayload>;
@@ -83,8 +84,10 @@ export function updateCronogramaEtapa(
 export function deleteCronogramaEtapa(
   editalId: number,
   id: number,
+  notificarCandidatos = false,
 ): Promise<void> {
-  return apiFetch<void>(`${base(editalId)}/${id}`, { method: "DELETE" });
+  const q = notificarCandidatos ? "?notificar_candidatos=true" : "";
+  return apiFetch<void>(`${base(editalId)}/${id}${q}`, { method: "DELETE" });
 }
 
 export function reorderCronograma(

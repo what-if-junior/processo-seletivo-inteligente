@@ -9,8 +9,7 @@ import { CronogramaModule } from '../cronograma/cronograma.module';
 import { TemplateEdital } from '../templates/entities/template-edital.entity';
 import { TemplateBiblioteca } from '../templates/entities/template-biblioteca.entity';
 import { Gestor } from '../gestores/entities/gestor.entity';
-import { Notificacao } from '../notificacoes/entities/notificacao.entity';
-import { NotificacaoLeitura } from '../notificacoes/entities/notificacao-leitura.entity';
+import { NotificacoesModule } from '../notificacoes/notificacoes.module';
 
 @Module({
   imports: [
@@ -21,10 +20,9 @@ import { NotificacaoLeitura } from '../notificacoes/entities/notificacao-leitura
       TemplateEdital,
       TemplateBiblioteca,
       Gestor,
-      Notificacao,
-      NotificacaoLeitura,
     ]),
     CronogramaModule,
+    NotificacoesModule,
   ],
   controllers: [ContestacoesController],
   providers: [ContestacoesService],

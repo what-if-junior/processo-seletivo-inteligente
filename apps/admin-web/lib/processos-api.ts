@@ -38,6 +38,7 @@ export type CreateEditalPayload = {
 export type UpdateEditalPayload = Partial<CreateEditalPayload> & {
   publicado?: boolean;
   inscricoes_abertas?: boolean;
+  notificar_candidatos?: boolean;
 };
 
 export type CreateOfertaPayload = {

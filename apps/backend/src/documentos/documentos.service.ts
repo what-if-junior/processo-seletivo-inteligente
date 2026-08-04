@@ -18,8 +18,7 @@ import { DocumentoAuditoria } from './entities/documento-auditoria.entity';
 import { MotivoHomologacaoDocumento } from './entities/motivo-homologacao-documento.entity';
 import { Candidatura } from '../candidaturas/entities/candidatura.entity';
 import { CronogramaService } from '../cronograma/cronograma.service';
-import { Notificacao } from '../notificacoes/entities/notificacao.entity';
-import { NotificacaoLeitura } from '../notificacoes/entities/notificacao-leitura.entity';
+import { NotificacoesService } from '../notificacoes/notificacoes.service';
 import { TipoDocumento } from '../tipos-documento/entities/tipo-documento.entity';
 import { DocumentosContaService } from '../tipos-documento-base/documentos-conta.service';
 import {
@@ -84,14 +83,11 @@ export class DocumentosService {
     private readonly motivoRepository: Repository<MotivoHomologacaoDocumento>,
     @InjectRepository(Candidatura)
     private readonly candidaturaRepository: Repository<Candidatura>,
-    @InjectRepository(Notificacao)
-    private readonly notificacaoRepository: Repository<Notificacao>,
-    @InjectRepository(NotificacaoLeitura)
-    private readonly leituraRepository: Repository<NotificacaoLeitura>,
     @InjectRepository(TipoDocumento)
     private readonly tipoDocumentoRepository: Repository<TipoDocumento>,
     private readonly documentosContaService: DocumentosContaService,
     private readonly cronogramaService: CronogramaService,
+    private readonly notificacoesService: NotificacoesService,
   ) {}
 
   private stripBinary(doc: Documento): Documento {
@@ -871,31 +867,18 @@ export class DocumentosService {
             doc.motivo_livre || 'ver catálogo'
           }. Reenvio apenas pelo aplicativo enquanto a janela estiver aberta.`;
 
-    const notificacao = await this.notificacaoRepository.save(
-      this.notificacaoRepository.create({
-        titulo,
-        corpo,
-        deep_link: `/docs?candidatura=${doc.id_candidatura}`,
-        origem: OrigemNotificacao.MANUAL,
-        id_edital: candidatura.id_edital,
-        filtro_status: String(doc.status_documento),
-        enviado_em: new Date(),
-        id_gestor: doc.id_gestor_decisao ?? null,
-      }),
-    );
-
-    await this.leituraRepository.save(
-      this.leituraRepository.create({
-        id_notificacao: notificacao.id,
-        id_usuario: candidatura.id_usuario,
-        notificacao: { id: notificacao.id } as Notificacao,
-        usuario: {
-          id: candidatura.id_usuario,
-        } as import('../user/entities/user.entity').User,
-        lida_em: null,
-      }),
-    );
-    return notificacao.id;
+    return this.notificacoesService.notifyUser({
+      id_usuario: candidatura.id_usuario,
+      titulo,
+      corpo,
+      deep_link: `/docs?candidatura=${doc.id_candidatura}`,
+      origem: OrigemNotificacao.MANUAL,
+      id_edital: candidatura.id_edital,
+      filtro_status: String(doc.status_documento),
+      id_gestor: doc.id_gestor_decisao ?? null,
+      oficial: false,
+      canais: ['pwa', 'email'],
+    });
   }
 
   /** Test helper surface: suggestion alone never flips status. */

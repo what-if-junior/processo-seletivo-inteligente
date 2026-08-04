@@ -1,7 +1,9 @@
 import {
   BadRequestException,
+  Inject,
   Injectable,
   NotFoundException,
+  forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -23,6 +25,7 @@ import {
   type CronogramaWarning,
   type JanelaInscricaoEfetiva,
 } from './cronograma-validation.util';
+import { NotificacoesService } from '../notificacoes/notificacoes.service';
 
 export type CronogramaListResponse = {
   etapas: CronogramaEtapa[];
@@ -33,6 +36,11 @@ export type CronogramaListResponse = {
 export type CronogramaEtapaResponse = CronogramaEtapa & {
   warnings: CronogramaWarning[];
   efetivamente_aberta: boolean;
+  notificacao_disparo?: {
+    destinatarios: number;
+    leituras_criadas: number;
+    notificacao_id: number;
+  } | null;
 };
 
 @Injectable()
@@ -42,6 +50,8 @@ export class CronogramaService {
     private readonly etapaRepository: Repository<CronogramaEtapa>,
     @InjectRepository(Edital)
     private readonly editalRepository: Repository<Edital>,
+    @Inject(forwardRef(() => NotificacoesService))
+    private readonly notificacoesService: NotificacoesService,
   ) {}
 
   private async requireEdital(editalId: number): Promise<Edital> {
@@ -155,7 +165,23 @@ export class CronogramaService {
       edital: { id: editalId } as Edital,
     });
     const saved = await this.etapaRepository.save(etapa);
-    return this.findOneGestao(editalId, saved.id);
+    const response = await this.findOneGestao(editalId, saved.id);
+    if (dto.notificar_candidatos) {
+      const disparo = await this.notificacoesService.notifyCohortChange({
+        id_edital: editalId,
+        titulo: `Nova etapa no cronograma: ${saved.nome_exibido}`,
+        corpo: `Foi adicionada a etapa “${saved.nome_exibido}” (${saved.tipo}) no cronograma do processo. Início: ${new Date(saved.data_inicio).toISOString()}; fim: ${new Date(saved.data_fim).toISOString()}.`,
+        deep_link: `/inscricoes?edital=${editalId}`,
+      });
+      response.notificacao_disparo = disparo
+        ? {
+            destinatarios: disparo.destinatarios,
+            leituras_criadas: disparo.leituras_criadas,
+            notificacao_id: disparo.notificacao.id,
+          }
+        : null;
+    }
+    return response;
   }
 
   async update(
@@ -212,11 +238,38 @@ export class CronogramaService {
     etapa.data_fim = df;
 
     await this.etapaRepository.save(etapa);
-    return this.findOneGestao(editalId, id);
+    const response = await this.findOneGestao(editalId, id);
+    if (dto.notificar_candidatos) {
+      const disparo = await this.notificacoesService.notifyCohortChange({
+        id_edital: editalId,
+        titulo: `Cronograma atualizado: ${etapa.nome_exibido}`,
+        corpo: `A etapa “${etapa.nome_exibido}” do cronograma foi alterada. Novo período: ${new Date(etapa.data_inicio).toISOString()} — ${new Date(etapa.data_fim).toISOString()}.`,
+        deep_link: `/inscricoes?edital=${editalId}`,
+      });
+      response.notificacao_disparo = disparo
+        ? {
+            destinatarios: disparo.destinatarios,
+            leituras_criadas: disparo.leituras_criadas,
+            notificacao_id: disparo.notificacao.id,
+          }
+        : null;
+    }
+    return response;
   }
 
-  async remove(editalId: number, id: number): Promise<void> {
+  async remove(
+    editalId: number,
+    id: number,
+    notificarCandidatos = false,
+  ): Promise<{ notificacao_disparo?: CronogramaEtapaResponse['notificacao_disparo'] }> {
     await this.requireEdital(editalId);
+    const etapa = await this.etapaRepository.findOne({
+      where: { id, id_edital: editalId },
+    });
+    if (!etapa) {
+      throw new NotFoundException(`Etapa ${id} não encontrada no edital ${editalId}`);
+    }
+    const nome = etapa.nome_exibido;
     const result = await this.etapaRepository.delete({
       id,
       id_edital: editalId,
@@ -224,6 +277,22 @@ export class CronogramaService {
     if (!result.affected) {
       throw new NotFoundException(`Etapa ${id} não encontrada no edital ${editalId}`);
     }
+    if (!notificarCandidatos) return {};
+    const disparo = await this.notificacoesService.notifyCohortChange({
+      id_edital: editalId,
+      titulo: `Etapa removida do cronograma: ${nome}`,
+      corpo: `A etapa “${nome}” foi removida do cronograma do processo. Consulte o aplicativo para o calendário atualizado.`,
+      deep_link: `/inscricoes?edital=${editalId}`,
+    });
+    return {
+      notificacao_disparo: disparo
+        ? {
+            destinatarios: disparo.destinatarios,
+            leituras_criadas: disparo.leituras_criadas,
+            notificacao_id: disparo.notificacao.id,
+          }
+        : null,
+    };
   }
 
   async reorder(

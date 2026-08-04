@@ -20,8 +20,7 @@ import { CronogramaService } from '../cronograma/cronograma.service';
 import { TemplateEdital } from '../templates/entities/template-edital.entity';
 import { TemplateBiblioteca } from '../templates/entities/template-biblioteca.entity';
 import { Gestor } from '../gestores/entities/gestor.entity';
-import { Notificacao } from '../notificacoes/entities/notificacao.entity';
-import { NotificacaoLeitura } from '../notificacoes/entities/notificacao-leitura.entity';
+import { NotificacoesService } from '../notificacoes/notificacoes.service';
 import { ERR_ETAPA_CONTESTACAO_FECHADA } from './contestacoes-eligibility.util';
 
 describe('ContestacoesService', () => {
@@ -52,13 +51,7 @@ describe('ContestacoesService', () => {
   const findTplBib = jest.fn();
   const findOneGestor = jest.fn();
   const qbGestor = jest.fn();
-  const saveNotif = jest.fn(async (row: unknown) => ({
-    ...(row as object),
-    id: 77,
-  }));
-  const createNotif = jest.fn((row: unknown) => row);
-  const saveLeitura = jest.fn(async (row: unknown) => row);
-  const createLeitura = jest.fn((row: unknown) => row);
+  const notifyUser = jest.fn().mockResolvedValue(77);
 
   const openEtapas = {
     etapas: [
@@ -85,6 +78,7 @@ describe('ContestacoesService', () => {
     qbGestor.mockReturnValue({
       where: () => ({ getOne: async () => ({ id: 5 }) }),
     });
+    notifyUser.mockResolvedValue(77);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -123,16 +117,12 @@ describe('ContestacoesService', () => {
           },
         },
         {
-          provide: getRepositoryToken(Notificacao),
-          useValue: { save: saveNotif, create: createNotif },
-        },
-        {
-          provide: getRepositoryToken(NotificacaoLeitura),
-          useValue: { save: saveLeitura, create: createLeitura },
-        },
-        {
           provide: CronogramaService,
           useValue: { findAllGestao },
+        },
+        {
+          provide: NotificacoesService,
+          useValue: { notifyUser },
         },
       ],
     }).compile();
@@ -271,7 +261,7 @@ describe('ContestacoesService', () => {
       canais: ['email', 'pwa'],
     });
     expect(saveHist).toHaveBeenCalledTimes(2);
-    expect(saveNotif).toHaveBeenCalled();
+    expect(notifyUser).toHaveBeenCalled();
     expect(res.historico_criado).toHaveLength(2);
     // id_contestacao must be set (insertable FK)
     expect(createHist).toHaveBeenCalledWith(

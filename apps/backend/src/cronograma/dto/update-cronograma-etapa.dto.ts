@@ -31,4 +31,11 @@ export class UpdateCronogramaEtapaDto {
 
   @ApiPropertyOptional({ nullable: true })
   template_instrucao_id?: number | null;
+
+  @ApiPropertyOptional({
+    description:
+      'W31: se true, notifica coorte ativa do edital sobre a alteração de etapa',
+    default: false,
+  })
+  notificar_candidatos?: boolean;
 }

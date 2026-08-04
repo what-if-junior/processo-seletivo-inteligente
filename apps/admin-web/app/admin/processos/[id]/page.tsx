@@ -26,6 +26,7 @@ import { EntregaDocumentalEditor } from "../../../../components/EntregaDocumenta
 import { TemplatesEditalEditor } from "../../../../components/TemplatesEditalEditor";
 import { StatusBadge } from "../../../../components/StatusBadge";
 import { formatDate } from "../../../../lib/format";
+import { ConfirmNotifyModal } from "../../../../components/ConfirmNotifyModal";
 
 export default function ProcessoDetailPage() {
   const params = useParams();
@@ -39,6 +40,11 @@ export default function ProcessoDetailPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
+  const [pendingFlag, setPendingFlag] = useState<{
+    publicado?: boolean;
+    inscricoes_abertas?: boolean;
+  } | null>(null);
+  const [pendingSave, setPendingSave] = useState(false);
 
   const reload = useCallback(async () => {
     if (!Number.isFinite(id)) return;
@@ -70,12 +76,25 @@ export default function ProcessoDetailPage() {
   async function onSave(e: FormEvent) {
     e.preventDefault();
     if (!form) return;
+    setPendingSave(true);
+  }
+
+  async function applySave(notificarCandidatos: boolean) {
+    if (!form) return;
     setSaving(true);
     try {
-      const updated = await updateEdital(id, toCreatePayload(form));
+      const updated = await updateEdital(id, {
+        ...toCreatePayload(form),
+        notificar_candidatos: notificarCandidatos,
+      });
       setEdital(updated);
       setForm(formFromEdital(updated));
-      push("Dados do processo salvos.");
+      push(
+        notificarCandidatos
+          ? "Dados salvos e coorte notificada."
+          : "Dados do processo salvos.",
+      );
+      setPendingSave(false);
     } catch (err) {
       push(
         err instanceof ApiError ? err.message : "Erro ao salvar.",
@@ -105,15 +124,28 @@ export default function ProcessoDetailPage() {
     }
   }
 
-  async function setFlag(
+  function requestFlag(
     patch: { publicado?: boolean; inscricoes_abertas?: boolean },
   ) {
+    setPendingFlag(patch);
+  }
+
+  async function applyFlag(notificarCandidatos: boolean) {
+    if (!pendingFlag) return;
     setSaving(true);
     try {
-      const updated = await updateEdital(id, patch);
+      const updated = await updateEdital(id, {
+        ...pendingFlag,
+        notificar_candidatos: notificarCandidatos,
+      });
       setEdital(updated);
       setForm(formFromEdital(updated));
-      push("Status atualizado.");
+      push(
+        notificarCandidatos
+          ? "Status atualizado e coorte notificada."
+          : "Status atualizado.",
+      );
+      setPendingFlag(null);
     } catch (err) {
       push(
         err instanceof ApiError ? err.message : "Erro ao atualizar status.",
@@ -203,14 +235,14 @@ export default function ProcessoDetailPage() {
           label="Publicado (visível no catálogo público)"
           checked={edital.publicado}
           disabled={saving || (!edital.publicado && !hasPdf)}
-          onChange={(v) => void setFlag({ publicado: v })}
+          onChange={(v) => requestFlag({ publicado: v })}
           hint={publishHint}
         />
         <Toggle
           label="Inscrições abertas"
           checked={edital.inscricoes_abertas}
           disabled={saving || (!edital.inscricoes_abertas && !hasPdf)}
-          onChange={(v) => void setFlag({ inscricoes_abertas: v })}
+          onChange={(v) => requestFlag({ inscricoes_abertas: v })}
           hint="Candidatos só se inscrevem após publicação/abertura."
         />
       </section>
@@ -308,6 +340,32 @@ export default function ProcessoDetailPage() {
       <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
         <EntregaDocumentalEditor editalId={id} />
       </div>
+
+      <ConfirmNotifyModal
+        open={pendingFlag != null}
+        title="Confirmar alteração do processo?"
+        description="Publicação / abertura de inscrições afeta candidatos. Marque se deseja notificar a coorte ativa deste edital."
+        busy={saving}
+        onCancel={() => {
+          if (!saving) setPendingFlag(null);
+        }}
+        onConfirm={(notificar) => {
+          void applyFlag(notificar);
+        }}
+      />
+
+      <ConfirmNotifyModal
+        open={pendingSave}
+        title="Salvar alterações do processo?"
+        description="Alterações nos dados gerais podem ser comunicadas aos candidatos inscritos neste processo."
+        busy={saving}
+        onCancel={() => {
+          if (!saving) setPendingSave(false);
+        }}
+        onConfirm={(notificar) => {
+          void applySave(notificar);
+        }}
+      />
     </div>
   );
 }

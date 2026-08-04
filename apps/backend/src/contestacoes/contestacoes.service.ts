@@ -20,8 +20,7 @@ import { TemplateEdital } from '../templates/entities/template-edital.entity';
 import { TemplateBiblioteca } from '../templates/entities/template-biblioteca.entity';
 import { TemplateTipoUso } from '../templates/template-tipo-uso';
 import { Gestor } from '../gestores/entities/gestor.entity';
-import { Notificacao } from '../notificacoes/entities/notificacao.entity';
-import { NotificacaoLeitura } from '../notificacoes/entities/notificacao-leitura.entity';
+import { NotificacoesService } from '../notificacoes/notificacoes.service';
 import {
   assertJanelaContestacaoAberta,
   computeElegibilidade,
@@ -54,11 +53,8 @@ export class ContestacoesService {
     private readonly templateBibRepo: Repository<TemplateBiblioteca>,
     @InjectRepository(Gestor)
     private readonly gestorRepo: Repository<Gestor>,
-    @InjectRepository(Notificacao)
-    private readonly notificacaoRepo: Repository<Notificacao>,
-    @InjectRepository(NotificacaoLeitura)
-    private readonly leituraRepo: Repository<NotificacaoLeitura>,
     private readonly cronogramaService: CronogramaService,
+    private readonly notificacoesService: NotificacoesService,
   ) {}
 
   private stripBinary(row: Contestacao): Contestacao {
@@ -426,25 +422,19 @@ export class ContestacoesService {
     idGestor: number | null,
   ): Promise<number | undefined> {
     if (!contest.id_usuario) return undefined;
-    const notificacao = await this.notificacaoRepo.save(
-      this.notificacaoRepo.create({
-        titulo: `Resposta à contestação #${contest.id} (${canal})`,
-        corpo,
-        deep_link: `/minhas-contestacoes?id=${contest.id}`,
-        origem: OrigemNotificacao.MANUAL,
-        id_edital: contest.id_edital ?? null,
-        filtro_status: String(contest.status),
-        enviado_em: new Date(),
-        id_gestor: idGestor,
-      }),
-    );
-    await this.leituraRepo.save(
-      this.leituraRepo.create({
-        id_notificacao: notificacao.id,
-        id_usuario: contest.id_usuario,
-        lida_em: null,
-      }),
-    );
-    return notificacao.id;
+    const canais =
+      canal === 'email' ? (['email'] as const) : (['pwa'] as const);
+    return this.notificacoesService.notifyUser({
+      id_usuario: contest.id_usuario,
+      titulo: `Resposta à contestação #${contest.id} (${canal})`,
+      corpo,
+      deep_link: `/minhas-contestacoes?id=${contest.id}`,
+      origem: OrigemNotificacao.MANUAL,
+      id_edital: contest.id_edital ?? null,
+      filtro_status: String(contest.status),
+      id_gestor: idGestor,
+      oficial: false,
+      canais: [...canais],
+    });
   }
 }

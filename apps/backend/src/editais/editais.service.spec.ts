@@ -7,6 +7,7 @@ import { Edital } from './entities/edital.entity';
 import { EditalArquivo } from './entities/edital-arquivo.entity';
 import { TiposDocumentoBaseService } from '../tipos-documento-base/tipos-documento-base.service';
 import { CarrosselService } from '../carrossel/carrossel.service';
+import { NotificacoesService } from '../notificacoes/notificacoes.service';
 
 describe('EditaisService', () => {
   let service: EditaisService;
@@ -38,6 +39,10 @@ describe('EditaisService', () => {
 
   const carrosselService = {
     syncAutoForEdital: jest.fn().mockResolvedValue({ action: 'created' }),
+  };
+
+  const notificacoesService = {
+    notifyCohortChange: jest.fn().mockResolvedValue(null),
   };
 
   const draftEdital: Edital = {
@@ -79,6 +84,7 @@ describe('EditaisService', () => {
           useValue: { inheritIntoEdital: jest.fn().mockResolvedValue([]) },
         },
         { provide: CarrosselService, useValue: carrosselService },
+        { provide: NotificacoesService, useValue: notificacoesService },
       ],
     }).compile();
 

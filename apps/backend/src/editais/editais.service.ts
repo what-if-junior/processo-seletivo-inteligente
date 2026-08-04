@@ -19,6 +19,7 @@ import {
 } from './termos.util';
 import { TiposDocumentoBaseService } from '../tipos-documento-base/tipos-documento-base.service';
 import { CarrosselService } from '../carrossel/carrossel.service';
+import { NotificacoesService } from '../notificacoes/notificacoes.service';
 
 const PDF_MAGIC = Buffer.from('%PDF');
 const MAX_PDF_BYTES = 15 * 1024 * 1024;
@@ -40,6 +41,8 @@ export class EditaisService {
     private readonly tiposDocumentoBaseService: TiposDocumentoBaseService,
     @Inject(forwardRef(() => CarrosselService))
     private readonly carrosselService: CarrosselService,
+    @Inject(forwardRef(() => NotificacoesService))
+    private readonly notificacoesService: NotificacoesService,
   ) {}
 
   async create(
@@ -143,8 +146,9 @@ export class EditaisService {
       assertTermosOneMode(nextModo, nextValor);
     }
 
+    const { notificar_candidatos: notificarCandidatos, ...persistDto } = dto;
     Object.assign(edital, {
-      ...dto,
+      ...persistDto,
       termos_modo: nextModo,
       termos_valor:
         dto.termos_valor !== undefined
@@ -174,7 +178,44 @@ export class EditaisService {
     if (flagsChanged) {
       await this.carrosselService.syncAutoForEdital(saved);
     }
-    return saved;
+
+    let notificacao: Awaited<
+      ReturnType<NotificacoesService['notifyCohortChange']>
+    > = null;
+    if (notificarCandidatos) {
+      const parts: string[] = [];
+      if (dto.publicado !== undefined) {
+        parts.push(
+          dto.publicado ? 'processo publicado' : 'processo despublicado',
+        );
+      }
+      if (dto.inscricoes_abertas !== undefined) {
+        parts.push(
+          dto.inscricoes_abertas
+            ? 'inscrições abertas'
+            : 'inscrições encerradas',
+        );
+      }
+      if (parts.length === 0) {
+        parts.push('dados do processo atualizados');
+      }
+      notificacao = await this.notificacoesService.notifyCohortChange({
+        id_edital: saved.id,
+        titulo: `Atualização do processo ${saved.numero_ano}`,
+        corpo: `Houve alteração no processo seletivo ${saved.numero_ano}: ${parts.join('; ')}.`,
+        deep_link: `/inscricoes?edital=${saved.id}`,
+      });
+    }
+
+    return Object.assign(saved, {
+      notificacao_disparo: notificacao
+        ? {
+            destinatarios: notificacao.destinatarios,
+            leituras_criadas: notificacao.leituras_criadas,
+            notificacao_id: notificacao.notificacao.id,
+          }
+        : null,
+    });
   }
 
   async remove(id: number): Promise<void> {

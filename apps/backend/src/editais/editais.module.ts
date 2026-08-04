@@ -6,12 +6,14 @@ import { EditaisController } from './editais.controller';
 import { EditaisService } from './editais.service';
 import { TiposDocumentoBaseModule } from '../tipos-documento-base/tipos-documento-base.module';
 import { CarrosselModule } from '../carrossel/carrossel.module';
+import { NotificacoesModule } from '../notificacoes/notificacoes.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Edital, EditalArquivo]),
     TiposDocumentoBaseModule,
     forwardRef(() => CarrosselModule),
+    forwardRef(() => NotificacoesModule),
   ],
   controllers: [EditaisController],
   providers: [EditaisService],

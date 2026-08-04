@@ -16,6 +16,7 @@ import {
   updateCronogramaEtapa,
   type CronogramaEtapa,
   type CronogramaWarning,
+  type UpdateCronogramaPayload,
 } from "../lib/cronograma-api";
 import { useToast } from "./ToastProvider";
 import { Field, inputClass, Toggle } from "./ProcessoFormFields";
@@ -25,6 +26,7 @@ import {
   listTemplatesEdital,
   type TemplateEdital,
 } from "../lib/templates-api";
+import { ConfirmNotifyModal } from "./ConfirmNotifyModal";
 
 const DEFAULT_TIPO = TipoEtapaCronograma.INSCRICAO;
 
@@ -51,6 +53,15 @@ export function CronogramaEditor({ editalId }: { editalId: number }) {
   const [instrucaoTemplates, setInstrucaoTemplates] = useState<
     TemplateEdital[]
   >([]);
+  const [pendingAction, setPendingAction] = useState<
+    | {
+        kind: "save";
+        mode: "create" | "update";
+        payload: UpdateCronogramaPayload & { tipo: TipoEtapaCronograma; data_inicio: string; data_fim: string };
+      }
+    | { kind: "delete"; id: number }
+    | null
+  >(null);
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -112,7 +123,6 @@ export function CronogramaEditor({ editalId }: { editalId: number }) {
       push("Informe data início e fim.", "error");
       return;
     }
-    setBusy(true);
     const payload = {
       tipo,
       nome_exibido: nome.trim() || undefined,
@@ -126,19 +136,57 @@ export function CronogramaEditor({ editalId }: { editalId: number }) {
         ? Number(templateId)
         : null,
     };
+    setPendingAction({
+      kind: "save",
+      mode: editId != null ? "update" : "create",
+      payload,
+    });
+  }
+
+  async function applyPending(notificarCandidatos: boolean) {
+    if (!pendingAction) return;
+    setBusy(true);
     try {
-      if (editId != null) {
-        await updateCronogramaEtapa(editalId, editId, payload);
-        push("Etapa atualizada.");
+      if (pendingAction.kind === "save") {
+        const payload = {
+          ...pendingAction.payload,
+          notificar_candidatos: notificarCandidatos,
+        };
+        if (pendingAction.mode === "update" && editId != null) {
+          await updateCronogramaEtapa(editalId, editId, payload);
+          push(
+            notificarCandidatos
+              ? "Etapa atualizada e coorte notificada."
+              : "Etapa atualizada.",
+          );
+        } else {
+          await createCronogramaEtapa(editalId, payload);
+          push(
+            notificarCandidatos
+              ? "Etapa criada e coorte notificada."
+              : "Etapa criada.",
+          );
+        }
+        resetForm();
+        await reload();
       } else {
-        await createCronogramaEtapa(editalId, payload);
-        push("Etapa criada.");
+        await deleteCronogramaEtapa(
+          editalId,
+          pendingAction.id,
+          notificarCandidatos,
+        );
+        if (editId === pendingAction.id) resetForm();
+        push(
+          notificarCandidatos
+            ? "Etapa removida e coorte notificada."
+            : "Etapa removida.",
+        );
+        await reload();
       }
-      resetForm();
-      await reload();
+      setPendingAction(null);
     } catch (err) {
       push(
-        err instanceof ApiError ? err.message : "Erro ao salvar etapa.",
+        err instanceof ApiError ? err.message : "Erro ao aplicar alteração.",
         "error",
       );
     } finally {
@@ -146,22 +194,8 @@ export function CronogramaEditor({ editalId }: { editalId: number }) {
     }
   }
 
-  async function onDelete(id: number) {
-    if (!window.confirm("Remover esta etapa?")) return;
-    setBusy(true);
-    try {
-      await deleteCronogramaEtapa(editalId, id);
-      if (editId === id) resetForm();
-      push("Etapa removida.");
-      await reload();
-    } catch (err) {
-      push(
-        err instanceof ApiError ? err.message : "Erro ao remover.",
-        "error",
-      );
-    } finally {
-      setBusy(false);
-    }
+  function onDelete(id: number) {
+    setPendingAction({ kind: "delete", id });
   }
 
   async function move(id: number, dir: -1 | 1) {
@@ -410,6 +444,29 @@ export function CronogramaEditor({ editalId }: { editalId: number }) {
           ) : null}
         </div>
       </form>
+
+      <ConfirmNotifyModal
+        open={pendingAction != null}
+        title={
+          pendingAction?.kind === "delete"
+            ? "Remover etapa do cronograma?"
+            : editId != null
+              ? "Confirmar alteração da etapa?"
+              : "Confirmar nova etapa?"
+        }
+        description={
+          pendingAction?.kind === "delete"
+            ? "A etapa será removida do cronograma. Você pode avisar os candidatos inscritos neste processo."
+            : "A alteração pode afetar candidatos já inscritos (inclusive no meio do cronograma). Escolha se deseja notificar a coorte."
+        }
+        busy={busy}
+        onCancel={() => {
+          if (!busy) setPendingAction(null);
+        }}
+        onConfirm={(notificar) => {
+          void applyPending(notificar);
+        }}
+      />
     </section>
   );
 }

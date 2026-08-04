@@ -8,6 +8,7 @@ import {
 import { CronogramaService } from './cronograma.service';
 import { CronogramaEtapa } from './entities/cronograma-etapa.entity';
 import { Edital } from '../editais/entities/edital.entity';
+import { NotificacoesService } from '../notificacoes/notificacoes.service';
 
 describe('CronogramaService', () => {
   let service: CronogramaService;
@@ -35,6 +36,10 @@ describe('CronogramaService', () => {
     findOne: jest.fn(),
   };
 
+  const notificacoesService = {
+    notifyCohortChange: jest.fn().mockResolvedValue(null),
+  };
+
   beforeEach(async () => {
     jest.clearAllMocks();
     const module: TestingModule = await Test.createTestingModule({
@@ -42,6 +47,7 @@ describe('CronogramaService', () => {
         CronogramaService,
         { provide: getRepositoryToken(CronogramaEtapa), useValue: etapaRepo },
         { provide: getRepositoryToken(Edital), useValue: editalRepo },
+        { provide: NotificacoesService, useValue: notificacoesService },
       ],
     }).compile();
     service = module.get(CronogramaService);
@@ -156,5 +162,44 @@ describe('CronogramaService', () => {
     expect(etapaRepo.manager.transaction).toHaveBeenCalled();
     expect(result.etapas[0].id).toBe(2);
     expect(result.etapas[0].ordem).toBe(1);
+  });
+
+  it('update with notificar_candidatos dispatches cohort notify', async () => {
+    editalRepo.findOne.mockResolvedValue(publishedEdital);
+    const etapa = {
+      id: 5,
+      id_edital: 1,
+      tipo: TipoEtapaCronograma.MATRICULA,
+      nome_exibido: 'Matrícula',
+      data_inicio: new Date('2026-02-01'),
+      data_fim: new Date('2026-02-10'),
+      ordem: 3,
+      override: EtapaStatusOverride.AUTOMATICO,
+      elegivel_impugnacao: false,
+      elegivel_recurso: false,
+      template_instrucao_id: null,
+      descricao: null,
+    };
+    etapaRepo.findOne.mockResolvedValue({ ...etapa });
+    etapaRepo.find.mockResolvedValue([{ ...etapa }]);
+    notificacoesService.notifyCohortChange.mockResolvedValue({
+      notificacao: { id: 99 },
+      destinatarios: 3,
+      leituras_criadas: 3,
+      entregas_email: 3,
+      email_adiados: 3,
+      omitidos_preferencia: 0,
+    });
+
+    const result = await service.update(1, 5, {
+      data_fim: '2026-02-15T00:00:00.000Z',
+      notificar_candidatos: true,
+    });
+
+    expect(notificacoesService.notifyCohortChange).toHaveBeenCalledWith(
+      expect.objectContaining({ id_edital: 1 }),
+    );
+    expect(result.notificacao_disparo?.notificacao_id).toBe(99);
+    expect(result.notificacao_disparo?.destinatarios).toBe(3);
   });
 });

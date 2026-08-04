@@ -9,6 +9,7 @@ import {
   Patch,
   Post,
   Put,
+  Query,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -109,10 +110,15 @@ export class CronogramaController {
   @ApiBearerAuth()
   @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
   @ApiOperation({ summary: 'Remove etapa do cronograma (JWT)' })
-  remove(
+  async remove(
     @Param('editalId', ParseIntPipe) editalId: number,
     @Param('id', ParseIntPipe) id: number,
+    @Query('notificar_candidatos') notificar?: string,
   ) {
-    return this.cronogramaService.remove(editalId, id);
+    await this.cronogramaService.remove(
+      editalId,
+      id,
+      notificar === 'true' || notificar === '1',
+    );
   }
 }

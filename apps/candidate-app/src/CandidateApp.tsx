@@ -39,6 +39,18 @@ import {
   updateCurrentUser,
 } from "./lib/session"
 import {
+  canFetchNotificacoes,
+  fetchMinhasNotificacoes,
+  fetchPreferenciasAvisos,
+  inferNotifTipo,
+  markNotificacaoLida,
+  markTodasNotificacoesLidas,
+  relativeTime,
+  updatePreferenciasAvisos,
+  type CandidateNotificacao,
+  type PreferenciaAvisos,
+} from "./lib/notificacoes-api"
+import {
   deleteDocumentoConta,
   fetchDocumentosConta,
   fetchTiposBaseAtivos,
@@ -91,7 +103,7 @@ import {
 type Screen =
   | "home" | "processos" | "edital" | "wizard" | "docs"
   | "camera" | "inscricoes" | "notificacoes" | "perfil" | "meus-dados"
-  | "contestacao" | "minhas-contestacoes"
+  | "contestacao" | "minhas-contestacoes" | "preferencias-avisos"
 type NavTab = "home" | "inscricoes" | "notificacoes" | "perfil"
 type WizardStep = 1 | 2 | 3 | 4
 
@@ -308,10 +320,30 @@ function BackHeader({ title, onBack, right }: { title: string; onBack: () => voi
 
 // ─── Bottom Nav ───────────────────────────────────────────────────────────────
 function BottomNav({ active, onChange }: { active: NavTab; onChange: (t: NavTab) => void }) {
+  const [unread, setUnread] = useState(0)
+
+  useEffect(() => {
+    if (shouldUseMocks() || !canFetchNotificacoes()) {
+      setUnread(2)
+      return
+    }
+    let cancelled = false
+    void fetchMinhasNotificacoes()
+      .then((res) => {
+        if (!cancelled) setUnread(res.unread)
+      })
+      .catch(() => {
+        if (!cancelled) setUnread(0)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [active])
+
   const tabs: { id: NavTab; label: string; Icon: ElementType; badge?: number }[] = [
     { id: "home", label: "Início", Icon: Home },
     { id: "inscricoes", label: "Inscrições", Icon: FileText },
-    { id: "notificacoes", label: "Avisos", Icon: Bell, badge: 2 },
+    { id: "notificacoes", label: "Avisos", Icon: Bell, badge: unread > 0 ? unread : undefined },
     { id: "perfil", label: "Perfil", Icon: User },
   ]
   return (
@@ -2402,7 +2434,7 @@ function InscricoesScreen({
 }
 
 // ─── NOTIFICAÇÕES SCREEN ──────────────────────────────────────────────────────
-function NotifScreen() {
+function NotifScreen({ onOpenDeepLink }: { onOpenDeepLink?: (link: string) => void }) {
   const iconMap: Record<string, { icon: ElementType; cls: string; bg: string }> = {
     erro: { icon: AlertCircle, cls: "text-red-600", bg: "bg-red-100" },
     info: { icon: Info, cls: "text-blue-600", bg: "bg-blue-100" },
@@ -2410,7 +2442,79 @@ function NotifScreen() {
     aviso: { icon: AlertTriangle, cls: "text-amber-600", bg: "bg-amber-100" },
   }
 
-  const unread = NOTIFS.filter(n => !n.lida).length
+  const [items, setItems] = useState<CandidateNotificacao[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const useMock = shouldUseMocks() || !canFetchNotificacoes()
+
+  const reload = async () => {
+    if (useMock) {
+      setItems(
+        NOTIFS.map((n) => ({
+          id: Number(n.id),
+          titulo: n.titulo,
+          corpo: n.msg,
+          deep_link: null,
+          origem: "manual",
+          id_edital: null,
+          criado_em: new Date().toISOString(),
+          enviado_em: new Date().toISOString(),
+          lida: n.lida,
+          lida_em: n.lida ? new Date().toISOString() : null,
+          leitura_id: Number(n.id),
+        })),
+      )
+      setLoading(false)
+      return
+    }
+    setLoading(true)
+    try {
+      const res = await fetchMinhasNotificacoes()
+      setItems(res.items)
+      setError(null)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Falha ao carregar avisos")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    void reload()
+  }, [useMock])
+
+  const unread = items.filter((n) => !n.lida).length
+
+  async function markAll() {
+    if (useMock) {
+      setItems((prev) => prev.map((n) => ({ ...n, lida: true, lida_em: new Date().toISOString() })))
+      return
+    }
+    await markTodasNotificacoesLidas()
+    await reload()
+  }
+
+  async function onOpen(n: CandidateNotificacao) {
+    if (!n.lida && !useMock) {
+      try {
+        await markNotificacaoLida(n.id)
+        setItems((prev) =>
+          prev.map((x) =>
+            x.id === n.id ? { ...x, lida: true, lida_em: new Date().toISOString() } : x,
+          ),
+        )
+      } catch {
+        /* ignore mark errors on open */
+      }
+    } else if (!n.lida && useMock) {
+      setItems((prev) =>
+        prev.map((x) =>
+          x.id === n.id ? { ...x, lida: true, lida_em: new Date().toISOString() } : x,
+        ),
+      )
+    }
+    if (n.deep_link && onOpenDeepLink) onOpenDeepLink(n.deep_link)
+  }
 
   return (
     <div>
@@ -2421,7 +2525,11 @@ function NotifScreen() {
             {unread > 0 && <p className="text-emerald-200 text-sm mt-0.5">{unread} não lida{unread > 1 ? "s" : ""}</p>}
           </div>
           {unread > 0 && (
-            <button className="text-emerald-200 text-xs font-semibold focus-visible:outline-2 focus-visible:outline-white rounded px-2 py-1 hover:text-white">
+            <button
+              type="button"
+              onClick={() => { void markAll() }}
+              className="text-emerald-200 text-xs font-semibold focus-visible:outline-2 focus-visible:outline-white rounded px-2 py-1 hover:text-white"
+            >
               Marcar todas
             </button>
           )}
@@ -2429,26 +2537,124 @@ function NotifScreen() {
       </div>
 
       <div className="px-4 pt-4 flex flex-col gap-2 pb-4">
-        {NOTIFS.map(n => {
-          const cfg = iconMap[n.tipo] ?? iconMap.info!
-          const Icon = cfg.icon
-          return (
-            <div key={n.id}
-              className={`bg-white rounded-2xl border p-4 flex gap-3 transition-all ${!n.lida ? "border-[#2A7B3E]/40 shadow-sm" : "border-[#E4EBE6]"}`}>
-              <div className={`w-10 h-10 rounded-full ${cfg.bg} flex items-center justify-center flex-shrink-0`}>
-                <Icon className={`w-5 h-5 ${cfg.cls}`} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-start justify-between gap-2">
-                  <p className={`text-sm font-bold text-[#0D1E12] ${!n.lida ? "" : "font-semibold"}`}>{n.titulo}</p>
-                  {!n.lida && <div className="w-2.5 h-2.5 rounded-full bg-[#2A7B3E] flex-shrink-0 mt-1.5" />}
+        {loading ? (
+          <p className="text-sm text-[#4E6859]">Carregando avisos…</p>
+        ) : error ? (
+          <p className="text-sm text-red-600" role="alert">{error}</p>
+        ) : items.length === 0 ? (
+          <p className="text-sm text-[#4E6859]">Nenhum aviso por enquanto.</p>
+        ) : (
+          items.map((n) => {
+            const tipo = inferNotifTipo(n.titulo, n.origem)
+            const cfg = iconMap[tipo] ?? iconMap.info!
+            const Icon = cfg.icon
+            return (
+              <button
+                key={n.id}
+                type="button"
+                onClick={() => { void onOpen(n) }}
+                className={`bg-white rounded-2xl border p-4 flex gap-3 text-left transition-all ${!n.lida ? "border-[#2A7B3E]/40 shadow-sm" : "border-[#E4EBE6]"}`}
+              >
+                <div className={`w-10 h-10 rounded-full ${cfg.bg} flex items-center justify-center flex-shrink-0`}>
+                  <Icon className={`w-5 h-5 ${cfg.cls}`} />
                 </div>
-                <p className="text-xs text-[#4E6859] mt-1 leading-relaxed">{n.msg}</p>
-                <p className="text-[11px] text-[#A8C4B0] font-mono mt-2">{n.tempo}</p>
-              </div>
-            </div>
-          )
-        })}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className={`text-sm font-bold text-[#0D1E12] ${!n.lida ? "" : "font-semibold"}`}>{n.titulo}</p>
+                    {!n.lida && <div className="w-2.5 h-2.5 rounded-full bg-[#2A7B3E] flex-shrink-0 mt-1.5" />}
+                  </div>
+                  <p className="text-xs text-[#4E6859] mt-1 leading-relaxed">{n.corpo}</p>
+                  <p className="text-[11px] text-[#A8C4B0] font-mono mt-2">{relativeTime(n.criado_em)}</p>
+                </div>
+              </button>
+            )
+          })
+        )}
+      </div>
+    </div>
+  )
+}
+
+function PreferenciasAvisosScreen({ onBack }: { onBack: () => void }) {
+  const [prefs, setPrefs] = useState<PreferenciaAvisos | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const useMock = shouldUseMocks() || !canFetchNotificacoes()
+
+  useEffect(() => {
+    if (useMock) {
+      setPrefs({
+        id: 0,
+        id_usuario: 0,
+        silenciar_email: false,
+        silenciar_push: false,
+        silenciar_oficiais: false,
+      })
+      setLoading(false)
+      return
+    }
+    void fetchPreferenciasAvisos()
+      .then(setPrefs)
+      .catch((e) => setError(e instanceof Error ? e.message : "Erro"))
+      .finally(() => setLoading(false))
+  }, [useMock])
+
+  async function toggle(
+    key: "silenciar_email" | "silenciar_push" | "silenciar_oficiais",
+  ) {
+    if (!prefs) return
+    const next = { ...prefs, [key]: !prefs[key] }
+    setPrefs(next)
+    if (useMock) return
+    setSaving(true)
+    try {
+      const saved = await updatePreferenciasAvisos({ [key]: next[key] })
+      setPrefs(saved)
+      setError(null)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Falha ao salvar")
+      setPrefs(prefs)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div>
+      <BackHeader title="Preferência de Avisos" onBack={onBack} />
+      <div className="px-4 pt-4 space-y-3">
+        {loading ? (
+          <p className="text-sm text-[#4E6859]">Carregando…</p>
+        ) : (
+          <>
+            {error && <p className="text-sm text-red-600" role="alert">{error}</p>}
+            {(
+              [
+                ["silenciar_email", "Silenciar e-mail"],
+                ["silenciar_push", "Silenciar push"],
+                ["silenciar_oficiais", "Silenciar leitura de avisos oficiais"],
+              ] as const
+            ).map(([key, label]) => (
+              <label
+                key={key}
+                className="flex items-center justify-between gap-3 bg-white border border-[#E4EBE6] rounded-2xl px-4 py-3"
+              >
+                <span className="text-sm font-semibold text-[#0D1E12]">{label}</span>
+                <input
+                  type="checkbox"
+                  className="h-5 w-5 accent-[#2A7B3E]"
+                  checked={Boolean(prefs?.[key])}
+                  disabled={saving}
+                  onChange={() => { void toggle(key) }}
+                />
+              </label>
+            ))}
+            <p className="text-xs text-[#4E6859]">
+              Avisos oficiais incluem alterações de cronograma e comunicados do processo.
+            </p>
+          </>
+        )}
       </div>
     </div>
   )
@@ -2911,6 +3117,7 @@ function PerfilScreen({
         <div className="bg-white rounded-2xl border border-[#D1E8D7] overflow-hidden divide-y divide-[#E4EBE6]">
           {[
             { icon: User, label: "Meus Dados", sub: "Informações pessoais", action: () => goto("meus-dados") },
+            { icon: Bell, label: "Preferência de Avisos", sub: "E-mail, push e oficiais", action: () => goto("preferencias-avisos") },
             { icon: FileText, label: "Minhas Inscrições", sub: "Histórico de candidaturas", action: () => {
               if (!authed && !shouldUseMocks()) return
               goto("inscricoes"); setNav("inscricoes")
@@ -3107,7 +3314,18 @@ export default function App() {
         onOpenDocs={(id) => openDocs(id, "inscricoes")}
       />
     ),
-    notificacoes: <NotifScreen />,
+    notificacoes: (
+      <NotifScreen
+        onOpenDeepLink={(link) => {
+          if (link.includes("contestacoes")) goto("minhas-contestacoes")
+          else if (link.includes("docs")) goto("docs")
+          else if (link.includes("inscricoes")) {
+            goto("inscricoes")
+            setNav("inscricoes")
+          }
+        }}
+      />
+    ),
     perfil: (
       <PerfilScreen
         goto={goto}
@@ -3118,6 +3336,9 @@ export default function App() {
       />
     ),
     "meus-dados": <MeusDadosScreen onBack={() => goto("perfil")} />,
+    "preferencias-avisos": (
+      <PreferenciasAvisosScreen onBack={() => goto("perfil")} />
+    ),
     contestacao: (
       <ContestacaoFormScreen
         editalId={

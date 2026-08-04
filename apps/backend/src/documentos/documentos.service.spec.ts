@@ -11,8 +11,7 @@ import { DocumentoAuditoria } from './entities/documento-auditoria.entity';
 import { MotivoHomologacaoDocumento } from './entities/motivo-homologacao-documento.entity';
 import { Candidatura } from '../candidaturas/entities/candidatura.entity';
 import { CronogramaService } from '../cronograma/cronograma.service';
-import { Notificacao } from '../notificacoes/entities/notificacao.entity';
-import { NotificacaoLeitura } from '../notificacoes/entities/notificacao-leitura.entity';
+import { NotificacoesService } from '../notificacoes/notificacoes.service';
 import { TipoDocumento } from '../tipos-documento/entities/tipo-documento.entity';
 import { DocumentosContaService } from '../tipos-documento-base/documentos-conta.service';
 import { DocumentosService } from './documentos.service';
@@ -41,10 +40,7 @@ describe('DocumentosService', () => {
   const loadArquivoOwned = jest.fn();
   const upsertFromBuffer = jest.fn();
 
-  const saveNotif = jest.fn(async (row: unknown) => ({ ...(row as object), id: 77 }));
-  const createNotif = jest.fn((row: unknown) => row);
-  const saveLeitura = jest.fn(async (row: unknown) => row);
-  const createLeitura = jest.fn((row: unknown) => row);
+  const notifyUser = jest.fn().mockResolvedValue(77);
 
   const getJanelaPorTipo = jest.fn();
 
@@ -53,6 +49,7 @@ describe('DocumentosService', () => {
     getJanelaPorTipo.mockResolvedValue({ aberta: true, etapa: { id: 1 } });
     listForUser.mockResolvedValue({ documentos: [] });
     upsertFromBuffer.mockResolvedValue({ id: 1 });
+    notifyUser.mockResolvedValue(77);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -80,14 +77,6 @@ describe('DocumentosService', () => {
           useValue: { findOne: findOneCand },
         },
         {
-          provide: getRepositoryToken(Notificacao),
-          useValue: { save: saveNotif, create: createNotif },
-        },
-        {
-          provide: getRepositoryToken(NotificacaoLeitura),
-          useValue: { save: saveLeitura, create: createLeitura },
-        },
-        {
           provide: getRepositoryToken(TipoDocumento),
           useValue: { find: findTipo, findOne: findOneTipo },
         },
@@ -98,6 +87,10 @@ describe('DocumentosService', () => {
         {
           provide: CronogramaService,
           useValue: { getJanelaPorTipo },
+        },
+        {
+          provide: NotificacoesService,
+          useValue: { notifyUser },
         },
       ],
     }).compile();
@@ -284,7 +277,7 @@ describe('DocumentosService', () => {
 
     expect(result.status_documento).toBe(StatusDocumento.APROVADO);
     expect(result.notificacao_stub_id).toBe(77);
-    expect(saveNotif).toHaveBeenCalled();
+    expect(notifyUser).toHaveBeenCalled();
   });
 
   it('requires catalogue motivo to reject', async () => {

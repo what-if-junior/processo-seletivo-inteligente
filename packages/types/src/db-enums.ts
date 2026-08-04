@@ -32,6 +32,9 @@ export const PG_ENUM_NAMES = {
   modoEntrega: 'modo_entrega',
   subtipoEntregaOnline: 'subtipo_entrega_online',
   listaClassificacao: 'lista_classificacao',
+  canalNotificacao: 'canal_notificacao',
+  statusEntregaNotificacao: 'status_entrega_notificacao',
+  tipoLembreteNotificacao: 'tipo_lembrete_notificacao',
 } as const;
 
 export enum MetodoSelecao {
@@ -159,6 +162,28 @@ export enum StatusContestacao {
 export enum OrigemNotificacao {
   MANUAL = 'manual',
   AUTOMATICO_CRONOGRAMA = 'automatico_cronograma',
+}
+
+/** W31 — NotificacaoEntregas.canal. */
+export enum CanalNotificacao {
+  PWA = 'pwa',
+  EMAIL = 'email',
+}
+
+/** W31 — NotificacaoEntregas.status (email outbox / channel log). */
+export enum StatusEntregaNotificacao {
+  PENDENTE = 'pendente',
+  ENVIADO = 'enviado',
+  FALHOU = 'falhou',
+  OMITIDO_PREFERENCIA = 'omitido_preferencia',
+  ADIADO_SMTP = 'adiado_smtp',
+}
+
+/** W31 — LembretesNotificacao.tipo (admin reminders). */
+export enum TipoLembreteNotificacao {
+  MATRICULA_PRAZO = 'matricula_prazo',
+  ETAPA_INICIO = 'etapa_inicio',
+  ETAPA_FIM = 'etapa_fim',
 }
 
 /** W2 — CarrosselItens.tipo (REQ-6.2 / RS09). */
