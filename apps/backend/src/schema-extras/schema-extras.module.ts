@@ -14,7 +14,8 @@ import { TemplateEdital } from '../templates/entities/template-edital.entity';
 /**
  * W2 schema extras — entity registration only.
  * Faixas HTTP = FaixasModule (W7); Contestacoes/Templates = W29–W30;
- * Carrossel HTTP = CarrosselModule (W32); Notificacoes HTTP = NotificacoesModule (W31).
+ * Carrossel HTTP = CarrosselModule (W32); Notificacoes HTTP = NotificacoesModule (W31);
+ * Hub FAQ/contactos/LGPD = HubModule (W33).
  */
 @Module({
   imports: [

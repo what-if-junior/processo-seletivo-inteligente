@@ -21,6 +21,10 @@ export class ConfiguracaoGlobal {
   })
   salario_minimo_referencia: number;
 
+  /** Optional LGPD copy for PWA (W33). Null → client fallback. */
+  @Column({ type: 'text', nullable: true })
+  texto_lgpd?: string | null;
+
   @UpdateDateColumn({ type: 'timestamp' })
   atualizado_em: Date;
 }
