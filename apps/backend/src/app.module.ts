@@ -20,6 +20,7 @@ import { EntregaDocumentalModule } from './entrega-documental/entrega-documental
 import { FaixasModule } from './faixas/faixas.module';
 import { CarrosselModule } from './carrossel/carrossel.module';
 import { NotificacoesModule } from './notificacoes/notificacoes.module';
+import { HubModule } from './hub/hub.module';
 import { SocioeconomicoModule } from './socioeconomico/socioeconomico.module';
 import { LotesModule } from './lotes/lotes.module';
 import { ChamadasModule } from './chamadas/chamadas.module';
@@ -69,6 +70,7 @@ import { JwtAuthGuard } from './auth/guards/jwt.guard';
     FaixasModule,
     CarrosselModule,
     NotificacoesModule,
+    HubModule,
     SocioeconomicoModule,
     LotesModule,
     ChamadasModule,
