@@ -21,11 +21,20 @@ describe("CandidateApp inscription clarity", () => {
     expect(screen.queryByText(/João/)).not.toBeInTheDocument();
   });
 
-  it("opens chat from Ajuda Rápida", async () => {
+  it("opens hub from Ajuda Rápida and chat from hub", async () => {
     const user = userEvent.setup();
     render(<CandidateApp />);
     await user.click(screen.getByRole("button", { name: /Ajuda/ }));
-    expect(await screen.findByText(/assistente virtual do PSI-IFB/i)).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "Central de Ajuda" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Perguntas frequentes/i)).toBeInTheDocument();
+    await user.click(
+      screen.getByRole("button", { name: /Falar com o assistente/i }),
+    );
+    expect(
+      await screen.findByText(/assistente virtual do PSI-IFB/i),
+    ).toBeInTheDocument();
   });
 
   it("shows Entrar | Criar conta on profile when logged out", async () => {

@@ -92,6 +92,16 @@ import {
   type CarrosselPublicItem,
 } from "./lib/carrossel-api"
 import {
+  fetchHubPublic,
+  HUB_CONTACTOS_FALLBACK,
+  HUB_FAQ_FALLBACK,
+  LGPD_EXCLUSAO_EMAIL,
+  LGPD_FALLBACK_TEXT,
+  resolveLgpdText,
+  type HubContactoPublic,
+  type HubFaqPublic,
+} from "./lib/hub-api"
+import {
   Carousel,
   CarouselContent,
   CarouselItem,
@@ -104,6 +114,7 @@ type Screen =
   | "home" | "processos" | "edital" | "wizard" | "docs"
   | "camera" | "inscricoes" | "notificacoes" | "perfil" | "meus-dados"
   | "contestacao" | "minhas-contestacoes" | "preferencias-avisos"
+  | "hub" | "lgpd"
 type NavTab = "home" | "inscricoes" | "notificacoes" | "perfil"
 type WizardStep = 1 | 2 | 3 | 4
 
@@ -661,12 +672,11 @@ function HomeCarrosselBanner({
 }
 
 function HomeScreen({
-  goto, setNav, onSelectEdital, onOpenChat, onRequestDocs,
+  goto, setNav, onSelectEdital, onRequestDocs,
 }: {
   goto: (s: Screen) => void
   setNav: (t: NavTab) => void
   onSelectEdital: (e: EditalCardData) => void
-  onOpenChat: () => void
   onRequestDocs: () => void
 }) {
   const [filterTipo, setFilterTipo] = useState("Todos")
@@ -790,7 +800,7 @@ function HomeScreen({
               goto("inscricoes"); setNav("inscricoes")
             } },
             { icon: Upload, label: "Enviar\nDocumentos", action: onRequestDocs },
-            { icon: HelpCircle, label: "Ajuda\nRápida", action: onOpenChat },
+            { icon: HelpCircle, label: "Ajuda\nRápida", action: () => goto("hub") },
           ].map(({ icon: Icon, label, action }) => (
             <button key={label} onClick={action}
               className="flex flex-col items-center justify-center gap-2 bg-white border border-[#D1E8D7] rounded-2xl py-4 px-2 hover:border-[#2A7B3E]/40 hover:bg-[#F0F6F2] transition-all focus-visible:outline-2 focus-visible:outline-[#2A7B3E] active:scale-95">
@@ -2107,7 +2117,7 @@ function CameraScreen({
               {[
                 { title: "Por que coletamos sua foto?", text: "Para verificar a autodeclaração de raça/cor como parte do processo de cotas étnico-raciais do IFB, conforme exigido pelo edital." },
                 { title: "Como seus dados são usados?", text: "A imagem é usada apenas para análise de heteroidentificação por comissão designada. Não é compartilhada com terceiros. Não há classificação automática por CNN nesta versão." },
-                { title: "Seus direitos (LGPD)", text: "Você pode solicitar exclusão dos dados a qualquer momento pelo e-mail privacidade@ifb.edu.br, conforme a Lei 13.709/2018." },
+                { title: "Seus direitos (LGPD)", text: `Você pode solicitar exclusão dos dados a qualquer momento pelo e-mail ${LGPD_EXCLUSAO_EMAIL}, conforme a Lei 13.709/2018.` },
               ].map(({ title, text }) => (
                 <div key={title}>
                   <p className="text-sm font-bold text-[#0D1E12]">{title}</p>
@@ -2575,6 +2585,202 @@ function NotifScreen({ onOpenDeepLink }: { onOpenDeepLink?: (link: string) => vo
   )
 }
 
+function HubScreen({
+  onBack,
+  onOpenChat,
+}: {
+  onBack: () => void
+  onOpenChat: () => void
+}) {
+  const [faqs, setFaqs] = useState<HubFaqPublic[]>(HUB_FAQ_FALLBACK)
+  const [contactos, setContactos] = useState<HubContactoPublic[]>(HUB_CONTACTOS_FALLBACK)
+  const [openId, setOpenId] = useState<number | null>(null)
+  const [loading, setLoading] = useState(!shouldUseMocks())
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (shouldUseMocks()) {
+      setLoading(false)
+      return
+    }
+    let cancelled = false
+    void fetchHubPublic()
+      .then((data) => {
+        if (cancelled) return
+        setFaqs(data.faqs.length ? data.faqs : HUB_FAQ_FALLBACK)
+        setContactos(data.contactos.length ? data.contactos : HUB_CONTACTOS_FALLBACK)
+        setError(null)
+      })
+      .catch((e) => {
+        if (cancelled) return
+        setError(e instanceof Error ? e.message : "Falha ao carregar hub")
+        setFaqs(HUB_FAQ_FALLBACK)
+        setContactos(HUB_CONTACTOS_FALLBACK)
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  function contactoHref(c: HubContactoPublic): string | null {
+    if (c.tipo === "email") return `mailto:${c.valor}`
+    if (c.tipo === "telefone") return `tel:${c.valor.replace(/\s/g, "")}`
+    if (c.tipo === "url" || /^https?:\/\//i.test(c.valor)) return c.valor
+    return null
+  }
+
+  return (
+    <div>
+      <BackHeader title="Central de Ajuda" onBack={onBack} />
+      <div className="px-4 pt-4 pb-6 space-y-5">
+        {loading ? (
+          <p className="text-sm text-[#4E6859]">Carregando…</p>
+        ) : (
+          <>
+            {error && (
+              <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-3" role="status">
+                Conteúdo local (API indisponível). {error}
+              </p>
+            )}
+
+            <section>
+              <h2 className="text-base font-bold text-[#0D1E12] mb-3">Perguntas frequentes</h2>
+              <div className="bg-white rounded-2xl border border-[#D1E8D7] overflow-hidden divide-y divide-[#E4EBE6]">
+                {faqs.map((f) => {
+                  const open = openId === f.id
+                  return (
+                    <div key={f.id}>
+                      <button
+                        type="button"
+                        onClick={() => setOpenId(open ? null : f.id)}
+                        className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-[#F5F8F5] focus-visible:outline-2 focus-visible:outline-[#2A7B3E]"
+                        aria-expanded={open}
+                      >
+                        <span className="flex-1 text-sm font-semibold text-[#0D1E12]">{f.pergunta}</span>
+                        <ChevronDown
+                          className={`w-4 h-4 text-[#A8C4B0] transition-transform ${open ? "rotate-180" : ""}`}
+                        />
+                      </button>
+                      {open ? (
+                        <p className="px-4 pb-3.5 text-xs text-[#4E6859] leading-relaxed">{f.resposta}</p>
+                      ) : null}
+                    </div>
+                  )
+                })}
+              </div>
+            </section>
+
+            <section>
+              <h2 className="text-base font-bold text-[#0D1E12] mb-3">Contactos</h2>
+              <div className="bg-white rounded-2xl border border-[#D1E8D7] overflow-hidden divide-y divide-[#E4EBE6]">
+                {contactos.map((c) => {
+                  const href = contactoHref(c)
+                  const inner = (
+                    <>
+                      <p className="text-sm font-semibold text-[#0D1E12]">{c.titulo}</p>
+                      <p className="text-xs text-[#4E6859] mt-0.5">{c.valor}</p>
+                    </>
+                  )
+                  return href ? (
+                    <a
+                      key={c.id}
+                      href={href}
+                      target={c.tipo === "url" ? "_blank" : undefined}
+                      rel={c.tipo === "url" ? "noreferrer" : undefined}
+                      className="block px-4 py-3.5 hover:bg-[#F5F8F5] focus-visible:outline-2 focus-visible:outline-[#2A7B3E]"
+                    >
+                      {inner}
+                    </a>
+                  ) : (
+                    <div key={c.id} className="px-4 py-3.5">
+                      {inner}
+                    </div>
+                  )
+                })}
+              </div>
+            </section>
+
+            <Btn v="primary" cls="w-full h-12" onClick={onOpenChat}>
+              <MessageCircle className="w-5 h-5" /> Falar com o assistente
+            </Btn>
+            <p className="text-[11px] text-center text-[#A8C4B0]">
+              Chat em modo demonstração (integração RAG = W34).
+            </p>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function LgpdScreen({ onBack }: { onBack: () => void }) {
+  const [texto, setTexto] = useState(LGPD_FALLBACK_TEXT)
+  const [email, setEmail] = useState(LGPD_EXCLUSAO_EMAIL)
+  const [loading, setLoading] = useState(!shouldUseMocks())
+
+  useEffect(() => {
+    if (shouldUseMocks()) {
+      setLoading(false)
+      return
+    }
+    let cancelled = false
+    void fetchHubPublic()
+      .then((data) => {
+        if (cancelled) return
+        setTexto(resolveLgpdText(data.texto_lgpd))
+        setEmail(data.email_exclusao_dados || LGPD_EXCLUSAO_EMAIL)
+      })
+      .catch(() => {
+        if (cancelled) return
+        setTexto(resolveLgpdText(null))
+        setEmail(LGPD_EXCLUSAO_EMAIL)
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  return (
+    <div>
+      <BackHeader title="Privacidade / LGPD" onBack={onBack} />
+      <div className="px-4 pt-4 pb-6 space-y-4">
+        {loading ? (
+          <p className="text-sm text-[#4E6859]">Carregando…</p>
+        ) : (
+          <>
+            <div className="bg-white rounded-2xl border border-[#D1E8D7] overflow-hidden">
+              <div className="bg-[#2A7B3E] px-4 py-3 flex items-center gap-2">
+                <Shield className="w-5 h-5 text-white" />
+                <p className="text-white font-bold text-sm">Lei 13.709/2018</p>
+              </div>
+              <p className="p-4 text-sm text-[#4E6859] leading-relaxed whitespace-pre-wrap">{texto}</p>
+            </div>
+            <div className="bg-[#E7F4EA] border border-[#D1E8D7] rounded-2xl p-4">
+              <p className="text-sm font-semibold text-[#0D1E12] mb-1">Remoção de dados</p>
+              <p className="text-xs text-[#4E6859] leading-relaxed">
+                Solicite exclusão pelo e-mail{" "}
+                <a
+                  href={`mailto:${email}`}
+                  className="font-semibold text-[#2A7B3E] underline underline-offset-2"
+                >
+                  {email}
+                </a>
+                .
+              </p>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function PreferenciasAvisosScreen({ onBack }: { onBack: () => void }) {
   const [prefs, setPrefs] = useState<PreferenciaAvisos | null>(null)
   const [loading, setLoading] = useState(true)
@@ -2943,12 +3149,11 @@ function MeusDadosScreen({ onBack }: { onBack: () => void }) {
 
 // ─── PERFIL SCREEN ────────────────────────────────────────────────────────────
 function PerfilScreen({
-  goto, setNav, onAuthChange, onOpenChat, onRequestDocs,
+  goto, setNav, onAuthChange, onRequestDocs,
 }: {
   goto: (s: Screen) => void
   setNav: (t: NavTab) => void
   onAuthChange: () => void
-  onOpenChat: () => void
   onRequestDocs: () => void
 }) {
   const { user, authed, refresh } = useProfile()
@@ -3118,12 +3323,13 @@ function PerfilScreen({
           {[
             { icon: User, label: "Meus Dados", sub: "Informações pessoais", action: () => goto("meus-dados") },
             { icon: Bell, label: "Preferência de Avisos", sub: "E-mail, push e oficiais", action: () => goto("preferencias-avisos") },
+            { icon: HelpCircle, label: "Central de Ajuda", sub: "FAQ, contactos e chat", action: () => goto("hub") },
+            { icon: Shield, label: "Privacidade / LGPD", sub: "Direitos e remoção de dados", action: () => goto("lgpd") },
             { icon: FileText, label: "Minhas Inscrições", sub: "Histórico de candidaturas", action: () => {
               if (!authed && !shouldUseMocks()) return
               goto("inscricoes"); setNav("inscricoes")
             } },
             { icon: Upload, label: "Documentos Enviados", sub: "Gerenciar arquivos", action: onRequestDocs },
-            { icon: HelpCircle, label: "Central de Ajuda", sub: "Assistente e dúvidas", action: onOpenChat },
           ].map(({ icon: Icon, label, sub, action }) => (
             <button key={label} onClick={action}
               className="w-full flex items-center gap-4 px-4 py-3.5 text-left hover:bg-[#F5F8F5] transition-colors focus-visible:outline-2 focus-visible:outline-[#2A7B3E] active:bg-[#E7F4EA]">
@@ -3248,7 +3454,6 @@ export default function App() {
         goto={goto}
         setNav={setNav}
         onSelectEdital={setSelectedEdital}
-        onOpenChat={() => setChat(true)}
         onRequestDocs={requestDocs}
       />
     ),
@@ -3331,7 +3536,6 @@ export default function App() {
         goto={goto}
         setNav={setNav}
         onAuthChange={onAuthChange}
-        onOpenChat={() => setChat(true)}
         onRequestDocs={requestDocs}
       />
     ),
@@ -3339,6 +3543,13 @@ export default function App() {
     "preferencias-avisos": (
       <PreferenciasAvisosScreen onBack={() => goto("perfil")} />
     ),
+    hub: (
+      <HubScreen
+        onBack={() => goto(nav === "perfil" ? "perfil" : "home")}
+        onOpenChat={() => setChat(true)}
+      />
+    ),
+    lgpd: <LgpdScreen onBack={() => goto("perfil")} />,
     contestacao: (
       <ContestacaoFormScreen
         editalId={
