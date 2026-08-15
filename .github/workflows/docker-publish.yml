@@ -2,7 +2,8 @@ name: Build and Push Docker Images
 
 on:
   push:
-  - main
+    branches:
+      - db/extra-schemas
 
 jobs:
   build-and-push:
