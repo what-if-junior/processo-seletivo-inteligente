@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - db/extra-schemas
+  workflow_dispatch:
 
 jobs:
   build-and-push:
@@ -45,6 +46,8 @@ jobs:
         target: admin-web
         push: true
         tags: ghcr.io/${{ github.repository }}-admin-web:latest
+        build-args: |
+          NEXT_PUBLIC_API_URL=http://64.181.185.59:5005
         cache-from: type=gha
         cache-to: type=gha,mode=max
 
@@ -56,5 +59,7 @@ jobs:
         target: candidate-app
         push: true
         tags: ghcr.io/${{ github.repository }}-candidate-app:latest
+        build-args: |
+          NEXT_PUBLIC_API_URL=http://64.181.185.59:5005
         cache-from: type=gha
         cache-to: type=gha,mode=max
