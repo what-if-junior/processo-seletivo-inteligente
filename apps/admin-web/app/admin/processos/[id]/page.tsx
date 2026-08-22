@@ -270,23 +270,65 @@ export default function ProcessoDetailPage() {
             PDFs do edital
           </h2>
           <p className="text-sm text-slate-500">
-            Histórico retido; o último enviado é o vigente.
+            O último PDF enviado se torna automaticamente o documento vigente para os candidatos.
           </p>
         </div>
-        <form onSubmit={onUpload} className="flex flex-wrap items-end gap-3">
-          <input
-            type="file"
-            accept="application/pdf"
-            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-            className="text-sm"
-          />
-          <button
-            type="submit"
-            disabled={!file || saving}
-            className="rounded-lg bg-[#2f9e41] px-4 py-2 text-sm font-medium text-white hover:bg-[#278a37] disabled:opacity-60"
-          >
-            Enviar PDF
-          </button>
+
+        <form onSubmit={onUpload} className="space-y-3">
+          <div className="relative rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 p-6 text-center hover:border-[#2f9e41] hover:bg-emerald-50/20 transition cursor-pointer">
+            <input
+              type="file"
+              accept="application/pdf"
+              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+              className="absolute inset-0 h-full w-full opacity-0 cursor-pointer"
+            />
+            <div className="flex flex-col items-center gap-2 pointer-events-none">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-[#2f9e41]">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-slate-700">
+                  {file ? (
+                    <span className="font-semibold text-emerald-700">{file.name}</span>
+                  ) : (
+                    <>
+                      <span className="font-semibold text-[#2f9e41]">Clique para selecionar</span> ou arraste o arquivo PDF aqui
+                    </>
+                  )}
+                </p>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  {file ? `${(file.size / (1024 * 1024)).toFixed(2)} MB` : "Formato aceito: apenas arquivos .PDF"}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {file && (
+            <div className="flex items-center justify-between gap-3 bg-emerald-50 border border-emerald-200 rounded-lg p-3">
+              <div className="flex items-center gap-2">
+                <span className="text-emerald-700 font-medium text-sm">Arquivo pronto para envio:</span>
+                <span className="text-slate-800 text-sm">{file.name}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setFile(null)}
+                  className="text-xs text-slate-500 hover:text-slate-700 px-2 py-1"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="rounded-lg bg-[#2f9e41] px-4 py-2 text-sm font-semibold text-white hover:bg-[#278a37] disabled:opacity-60 shadow-sm"
+                >
+                  {saving ? "Enviando..." : "Fazer Upload do PDF"}
+                </button>
+              </div>
+            </div>
+          )}
         </form>
         <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200">
           {arquivos.map((a) => (

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Tabs } from "../../../components/Tabs";
 import { useToast } from "../../../components/ToastProvider";
 import { FaixasSmEditor } from "../../../components/FaixasSmEditor";
+import { CursosEditor } from "../../../components/CursosEditor";
 import { TiposDocumentoBaseEditor } from "../../../components/TiposDocumentoBaseEditor";
 import { TemplatesBibliotecaEditor } from "../../../components/TemplatesBibliotecaEditor";
 import { CarrosselEditor } from "../../../components/CarrosselEditor";
@@ -55,6 +56,7 @@ export default function ConfiguracoesPage() {
         <Tabs tabs={TAB_ITEMS} active={tab} onChange={setTab} />
 
         <div className="mt-6 space-y-4">
+          {tab === "cursos" ? <CursosEditor /> : null}
           {tab === "docs-base" ? <TiposDocumentoBaseEditor /> : null}
 
           {tab === "faixas" ? <FaixasSmEditor /> : null}

@@ -190,6 +190,7 @@ export class ChamadasService {
       async (em) => {
         const chamada = await em.save(
           em.create(Chamada, {
+            id_oferta: oferta.id,
             numero: (anterior?.numero ?? 0) + 1,
             fallback_ac_para_rv: fallbackAcParaRv,
             observacao: options.observacao ?? null,
@@ -199,6 +200,7 @@ export class ChamadasService {
 
         const vagas = resultado.vagas.map((linha) =>
           em.create(ChamadaVaga, {
+            id_chamada: chamada.id,
             tipo_cota: linha.tipo_cota,
             vagas: linha.vagas,
             preenchidas: linha.preenchidas,
@@ -210,6 +212,8 @@ export class ChamadasService {
 
         const itens = resultado.itens.map((item) =>
           em.create(ClassificacaoItem, {
+            id_chamada: chamada.id,
+            id_candidatura: item.id_candidatura,
             lista: item.lista,
             tipo_cota: item.tipo_cota,
             posicao: item.posicao,

@@ -22,6 +22,7 @@ import {
 import { useToast } from "./ToastProvider";
 import { Field, inputClass } from "./ProcessoFormFields";
 import { StatusBadge } from "./StatusBadge";
+import { CursosEditor } from "./CursosEditor";
 
 type CotaRow = { tipo_cota: string; vagas: string; percentual: string };
 
@@ -68,6 +69,7 @@ export function OfertasEditor({ editalId }: { editalId: number }) {
   const [editId, setEditId] = useState<number | null>(null);
   const [cotaRows, setCotaRows] = useState<CotaRow[]>([]);
   const [warnings, setWarnings] = useState<string[]>([]);
+  const [showCursoModal, setShowCursoModal] = useState(false);
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -211,7 +213,17 @@ export function OfertasEditor({ editalId }: { editalId: number }) {
         onSubmit={onCreate}
         className="grid gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 sm:grid-cols-2 lg:grid-cols-5"
       >
-        <Field label="Curso">
+        <div>
+          <div className="flex items-center justify-between mb-1">
+            <span className="block text-sm font-medium text-slate-700">Curso</span>
+            <button
+              type="button"
+              onClick={() => setShowCursoModal(true)}
+              className="text-xs text-[#2f9e41] hover:underline font-semibold"
+            >
+              + Novo Curso
+            </button>
+          </div>
           <select
             className={inputClass}
             value={idCurso}
@@ -224,7 +236,7 @@ export function OfertasEditor({ editalId }: { editalId: number }) {
               </option>
             ))}
           </select>
-        </Field>
+        </div>
         <Field label="Campus">
           <select
             className={inputClass}
@@ -398,6 +410,29 @@ export function OfertasEditor({ editalId }: { editalId: number }) {
           </div>
         </div>
       ) : null}
+      {showCursoModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
+          <div className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-lg font-semibold text-slate-900">Cadastrar Novo Curso</h3>
+              <button
+                type="button"
+                onClick={() => setShowCursoModal(false)}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                ✕
+              </button>
+            </div>
+            <CursosEditor
+              onCourseCreated={(c) => {
+                void reload();
+                setIdCurso(String(c.id));
+                setShowCursoModal(false);
+              }}
+            />
+          </div>
+        </div>
+      )}
     </section>
   );
 }

@@ -4,11 +4,13 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { logout } from "../lib/auth";
 import { apiFetch } from "../lib/api";
+import { useSidebar } from "./SidebarContext";
 
 type MeResponse = { id: number; nome?: string; email: string };
 
 export function TopBar() {
   const router = useRouter();
+  const { toggleSidebar } = useSidebar();
   const [open, setOpen] = useState(false);
   const [me, setMe] = useState<MeResponse | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -19,7 +21,6 @@ export function TopBar() {
       .catch(() => null);
   }, []);
 
-  // Close on click outside
   useEffect(() => {
     function handler(e: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
@@ -40,7 +41,18 @@ export function TopBar() {
     : "AD";
 
   return (
-    <header className="flex h-14 items-center justify-end border-b border-slate-200 bg-white px-6">
+    <header className="flex h-14 items-center justify-between border-b border-slate-200 bg-white px-4 sm:px-6">
+      <button
+        type="button"
+        title="Alternar menu lateral"
+        onClick={toggleSidebar}
+        className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      </button>
+
       <div className="relative" ref={menuRef}>
         <button
           type="button"
@@ -48,7 +60,7 @@ export function TopBar() {
           aria-haspopup="true"
           aria-expanded={open}
           onClick={() => setOpen((v) => !v)}
-          className="flex h-9 w-9 items-center justify-center rounded-full bg-[#2f9e41] text-sm font-semibold text-white hover:bg-emerald-700 transition"
+          className="flex h-9 w-9 items-center justify-center rounded-full bg-[#2f9e41] text-sm font-semibold text-white hover:bg-emerald-700 transition shadow-sm"
         >
           {initials}
         </button>
