@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   EtapaStatusOverride,
   TipoEtapaCronograma,
@@ -53,6 +53,8 @@ export function CronogramaEditor({ editalId }: { editalId: number }) {
   const [instrucaoTemplates, setInstrucaoTemplates] = useState<
     TemplateEdital[]
   >([]);
+  const [dateError, setDateError] = useState<string | null>(null);
+  const fimRef = useRef<HTMLInputElement>(null);
   const [pendingAction, setPendingAction] = useState<
     | {
         kind: "save";
@@ -123,6 +125,12 @@ export function CronogramaEditor({ editalId }: { editalId: number }) {
       push("Informe data início e fim.", "error");
       return;
     }
+    if (fim < inicio) {
+      setDateError("A data de fim não pode ser anterior à data de início.");
+      fimRef.current?.focus();
+      return;
+    }
+    setDateError(null);
     const payload = {
       tipo,
       nome_exibido: nome.trim() || undefined,
@@ -132,7 +140,7 @@ export function CronogramaEditor({ editalId }: { editalId: number }) {
       override,
       elegivel_impugnacao: impugnacao,
       elegivel_recurso: recurso,
-      template_instrucao_id: templateId.trim()
+      template_instrucao_id: templateId && templateId.trim()
         ? Number(templateId)
         : null,
     };
@@ -356,18 +364,34 @@ export function CronogramaEditor({ editalId }: { editalId: number }) {
               type="datetime-local"
               className={inputClass}
               value={inicio}
-              onChange={(e) => setInicio(e.target.value)}
+              onChange={(e) => {
+                setInicio(e.target.value);
+                setDateError(null);
+                if (e.target.value) {
+                  setTimeout(() => fimRef.current?.showPicker?.(), 100);
+                }
+              }}
               required
             />
           </Field>
           <Field label="Data fim">
-            <input
-              type="datetime-local"
-              className={inputClass}
-              value={fim}
-              onChange={(e) => setFim(e.target.value)}
-              required
-            />
+            <>
+              <input
+                ref={fimRef}
+                type="datetime-local"
+                className={inputClass}
+                value={fim}
+                min={inicio || undefined}
+                onChange={(e) => {
+                  setFim(e.target.value);
+                  setDateError(null);
+                }}
+                required
+              />
+              {dateError && (
+                <p className="mt-1 text-xs text-red-600">{dateError}</p>
+              )}
+            </>
           </Field>
           <Field label="Override de status">
             <select

@@ -27,33 +27,25 @@ export class ConfiguracaoEntregaDocumental {
 
   @Column({
     type: 'bigint',
-    insert: false,
-    update: false,
-    transformer: numericTransformer,
+        transformer: numericTransformer,
   })
   id_edital: number;
 
   @Column({
     type: 'bigint',
-    insert: false,
-    update: false,
-    transformer: numericTransformer,
+        transformer: numericTransformer,
   })
   id_campus: number;
 
   @Column({
     type: 'bigint',
-    insert: false,
-    update: false,
-    transformer: numericTransformer,
+        transformer: numericTransformer,
   })
   id_curso: number;
 
   @Column({
     type: 'bigint',
-    insert: false,
-    update: false,
-    transformer: numericTransformer,
+        transformer: numericTransformer,
   })
   id_cronograma_etapa: number;
 

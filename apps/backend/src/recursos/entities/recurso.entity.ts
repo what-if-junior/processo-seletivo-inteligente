@@ -17,17 +17,13 @@ export class Recurso {
 
   @Column({
     type: 'bigint',
-    insert: false,
-    update: false,
-    transformer: numericTransformer,
+        transformer: numericTransformer,
   })
   id_etapa_processo: number;
 
   @Column({
     type: 'bigint',
-    insert: false,
-    update: false,
-    transformer: numericTransformer,
+        transformer: numericTransformer,
   })
   id_gestor: number;
 

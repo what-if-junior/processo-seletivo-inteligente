@@ -40,6 +40,9 @@ export class OfertasService {
     const oferta = this.ofertaRepository.create({
       turno: dto.turno,
       vagas_totais: dto.vagas_totais,
+      id_edital: dto.id_edital,
+      id_curso: dto.id_curso,
+      id_campus: dto.id_campus,
       edital: { id: dto.id_edital } as Edital,
       curso: { id: dto.id_curso } as Curso,
       campus: { id: dto.id_campus } as Campus,

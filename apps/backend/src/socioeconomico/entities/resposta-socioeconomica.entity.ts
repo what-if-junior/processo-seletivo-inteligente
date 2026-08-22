@@ -17,18 +17,14 @@ export class RespostaSocioeconomica {
 
   @Column({
     type: 'bigint',
-    insert: false,
-    update: false,
-    transformer: numericTransformer,
+        transformer: numericTransformer,
   })
   id_candidatura: number;
 
   @Column({
     type: 'bigint',
     nullable: true,
-    insert: false,
-    update: false,
-    transformer: numericTransformer,
+        transformer: numericTransformer,
   })
   id_faixa?: number | null;
 

@@ -99,6 +99,15 @@ export function OfertasEditor({ editalId }: { editalId: number }) {
 
   async function onCreate(e: React.FormEvent) {
     e.preventDefault();
+    if (!idCurso || !idCampus) {
+      push("Selecione curso e campus antes de adicionar.", "error");
+      return;
+    }
+    const vagasNum = Number(vagas);
+    if (!Number.isFinite(vagasNum) || vagasNum < 1) {
+      push("Informe um número válido de vagas (mínimo 1).", "error");
+      return;
+    }
     setBusy(true);
     try {
       await createOferta({
@@ -106,7 +115,7 @@ export function OfertasEditor({ editalId }: { editalId: number }) {
         id_curso: Number(idCurso),
         id_campus: Number(idCampus),
         turno,
-        vagas_totais: Number(vagas),
+        vagas_totais: vagasNum,
       });
       push("Oferta criada.");
       await reload();

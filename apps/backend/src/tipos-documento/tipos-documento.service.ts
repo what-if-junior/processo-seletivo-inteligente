@@ -299,6 +299,7 @@ export class TiposDocumentoService {
       for (const row of parsed) {
         const entity = em.create(TipoDocumentoCampo, {
           ...row,
+          id_tipo_documento: id,
           tipoDocumento: { id } as TipoDocumento,
         });
         await em.save(entity);

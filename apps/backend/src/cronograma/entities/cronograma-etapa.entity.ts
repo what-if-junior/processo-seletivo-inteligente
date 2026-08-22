@@ -21,8 +21,6 @@ export class CronogramaEtapa {
 
   @Column({
     type: 'bigint',
-    insert: false,
-    update: false,
     transformer: numericTransformer,
   })
   id_edital: number;

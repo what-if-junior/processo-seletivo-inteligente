@@ -99,6 +99,7 @@ export function TiposDocumentoEditor({ editalId }: { editalId: number }) {
   const [tamanhoMax, setTamanhoMax] = useState(String(BACKEND_UPLOAD_MAX_BYTES));
   const [fase, setFase] = useState<FaseDocumento>(FaseDocumento.INSCRICAO);
   const [tipoCota, setTipoCota] = useState("");
+  const [formatosFocused, setFormatosFocused] = useState(false);
   const [campos, setCampos] = useState<CampoDraft[]>([emptyCampo()]);
   const [templateFile, setTemplateFile] = useState<File | null>(null);
   const [templateNome, setTemplateNome] = useState<string | null>(null);
@@ -423,12 +424,21 @@ export function TiposDocumentoEditor({ editalId }: { editalId: number }) {
               ))}
             </select>
           </Field>
-          <Field label="Formatos" hint="Separados por vírgula">
+          <Field label="Formatos">
             <input
               className={inputClass}
               value={formatos}
               onChange={(e) => setFormatos(e.target.value)}
+              onFocus={() => setFormatosFocused(true)}
+              onBlur={() => setFormatosFocused(false)}
+              placeholder="pdf,jpg,png"
             />
+            {formatosFocused && (
+              <p className="mt-1 text-xs text-red-600">
+                Digite os formatos separados por vírgula, sem espaços. Ex.:{" "}
+                <code className="font-mono">pdf,jpg,png</code>
+              </p>
+            )}
           </Field>
           <Field
             label="Tamanho máx. (bytes)"

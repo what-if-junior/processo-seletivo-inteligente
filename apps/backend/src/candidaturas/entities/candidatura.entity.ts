@@ -27,26 +27,20 @@ export class Candidatura {
 
   @Column({
     type: 'bigint',
-    insert: false,
-    update: false,
-    transformer: numericTransformer,
+        transformer: numericTransformer,
   })
   id_usuario: number;
 
   @Column({
     type: 'bigint',
-    insert: false,
-    update: false,
-    transformer: numericTransformer,
+        transformer: numericTransformer,
   })
   id_oferta: number;
 
   /** Denormalizado para unicidade parcial ativa por usuario x edital. */
   @Column({
     type: 'bigint',
-    insert: false,
-    update: false,
-    transformer: numericTransformer,
+        transformer: numericTransformer,
   })
   id_edital: number;
 

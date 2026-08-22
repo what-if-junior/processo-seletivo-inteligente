@@ -159,7 +159,7 @@ export function ProcessoFormFields({ form, onChange, disabled }: Props) {
       <div className="grid gap-4 sm:grid-cols-2">
         <Field
           label="Método de seleção"
-          hint="ALEATORIO = sorteio; MERITO / HIBRIDO usam mérito_tipo."
+          hint="Define como os candidatos serão selecionados — por sorteio, mérito escolar ou método híbrido."
         >
           <select
             className={inputClass}
@@ -177,46 +177,44 @@ export function ProcessoFormFields({ form, onChange, disabled }: Props) {
           </select>
         </Field>
 
-        <Field
-          label="Tipo de mérito"
-          hint={
-            needsMerito
-              ? "Obrigatório para MERITO e para a 2ª etapa de HIBRIDO."
-              : "Só aplicável a MERITO / HIBRIDO."
-          }
-        >
-          <select
-            className={inputClass}
-            value={form.merito_tipo}
-            disabled={disabled || !needsMerito}
-            onChange={(e) =>
-              set("merito_tipo", e.target.value as MeritoTipo | "")
-            }
+        {needsMerito && (
+          <Field
+            label="Tipo de mérito"
+            hint="Obrigatório para MERITO e para a 2ª etapa de HIBRIDO."
           >
-            <option value="">—</option>
-            {Object.values(MeritoTipo).map((m) => (
-              <option key={m} value={m}>
-                {m}
-              </option>
-            ))}
-          </select>
-        </Field>
+            <select
+              className={inputClass}
+              value={form.merito_tipo}
+              disabled={disabled}
+              onChange={(e) =>
+                set("merito_tipo", e.target.value as MeritoTipo | "")
+              }
+            >
+              <option value="">—</option>
+              {Object.values(MeritoTipo).map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
+            </select>
+          </Field>
+        )}
       </div>
 
       <Toggle
-        label="Processo simplificado (is_simplificado)"
+        label="Processo simplificado"
         checked={form.is_simplificado}
         disabled={disabled}
         onChange={(v) => set("is_simplificado", v)}
-        hint="Formato administrativo (menos burocracia / etapas). Independente do método de seleção — não é um método concorrente ao sorteio."
+        hint="Formato administrativo com menos etapas burocráticas. Independente do método de seleção."
       />
 
       <Toggle
-        label="Fallback AC → RV (fallback_ac_para_rv)"
+        label="Cotistas avaliados primeiro na Ampla Concorrência"
         checked={form.fallback_ac_para_rv}
         disabled={disabled}
         onChange={(v) => set("fallback_ac_para_rv", v)}
-        hint="Quando ativo, cotistas são avaliados primeiro na ampla concorrência (Fluxo L); se não colocados em AC, seguem para a fila da reserva. O motor de classificação é W23 — aqui só a flag."
+        hint="Quando ativo, candidatos cotistas concorrem primeiro pela ampla concorrência. Se não classificados, passam para a fila de reserva de vagas."
       />
 
       <fieldset className="space-y-3 rounded-lg border border-slate-200 p-4">
@@ -255,6 +253,7 @@ export function ProcessoFormFields({ form, onChange, disabled }: Props) {
           />
         ) : (
           <input
+            key={form.termos_modo}
             className={inputClass}
             value={form.termos_valor}
             disabled={disabled}

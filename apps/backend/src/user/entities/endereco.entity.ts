@@ -19,9 +19,7 @@ export class Endereco {
    */
   @Column({
     type: 'bigint',
-    insert: false,
-    update: false,
-    transformer: numericTransformer,
+        transformer: numericTransformer,
   })
   id_usuario: number;
 

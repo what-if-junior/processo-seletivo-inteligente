@@ -16,9 +16,7 @@ export class ChamadaVaga {
 
   @Column({
     type: 'bigint',
-    insert: false,
-    update: false,
-    transformer: numericTransformer,
+        transformer: numericTransformer,
   })
   id_chamada: number;
 
