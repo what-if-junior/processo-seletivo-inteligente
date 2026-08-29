@@ -21,8 +21,6 @@ Na raiz do monorepo (ou neste pacote):
 ```bash
 # API (Nest) precisa estar em :5005 para dados reais
 export NEXT_PUBLIC_API_URL=http://localhost:5005
-pnpm --filter admin-web dev
-# ou
 npm run dev --workspace=admin-web
 ```
 
