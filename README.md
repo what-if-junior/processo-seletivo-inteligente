@@ -4,25 +4,36 @@ Monorepo npm workspaces com NestJS (`apps/backend`), painel admin Next.js (`apps
 
 ## Docker (db + backend + admin-web + candidate-app)
 
+Há **dois fluxos** de deploy, controlados por variáveis de ambiente em `.env`
+(que **não** é versionado — apenas `.env.sample` é commitado):
+
+| Fluxo | Arquivo | Comportamento |
+| --- | --- | --- |
+| **Local** | `docker-compose.yaml` | Compila as imagens a partir do `Dockerfile` (`--build`) |
+| **Servidor** | `docker-compose.yaml` + `docker-compose.prod.yaml` | Puxa imagens pré-construídas do GHCR (sem build) |
+
 ### Produção / operação de servidor (imagens pré-construídas)
 
-Por padrão, `docker compose` **puxa as imagens pré-construídas do GHCR**
-(GitHub Container Registry), publicadas pelo pipeline de CI/CD:
+No servidor, use o override `docker-compose.prod.yaml`, que remove a seção
+`build:` e faz o compose **puxar as imagens publicadas pelo CI** do GHCR:
 
 ```bash
 cp .env.sample .env
+# Ajuste no .env: NEXT_PUBLIC_API_URL, WEB_ORIGIN, etc. (ver tabela abaixo)
 
 # Puxa as imagens mais recentes do GHCR e reinicia os containers
-docker compose pull
-docker compose up -d
+docker compose -f docker-compose.yaml -f docker-compose.prod.yaml pull
+docker compose -f docker-compose.yaml -f docker-compose.prod.yaml up -d
 ```
 
-### Build local (forçar compilação a partir do Dockerfile)
+### Build local (compilar a partir do Dockerfile)
 
-Use `--build` **apenas** se quiser forçar a compilação local dos containers a
-partir do `Dockerfile`, em vez de puxar as imagens prontas do GHCR:
+O `docker-compose.yaml` possui seções `build:` apontando para o `Dockerfile`
+multi-stage. `docker compose up --build` compila as imagens **localmente** a
+partir do `Dockerfile`:
 
 ```bash
+cp .env.sample .env
 docker compose up --build
 ```
 
@@ -55,6 +66,17 @@ Copie `.env.sample` para `.env` e ajuste os valores conforme o ambiente:
 | `JWT_SECRET_TO_SIGN` | segredo para assinar o JWT |
 | `SECRET_OR_KEY` | segredo para validar o JWT (deve ser igual ao de assinatura) |
 | `WEB_ORIGIN` | origens CORS permitidas (separadas por vírgula; ex: `http://localhost:3000,http://localhost:3001`) |
+| `BACKEND_SERVICE_URL` | URL interna do backend na rede Docker (server-side/SSR; ex: `http://backend:5005`) |
+| `NEXT_PUBLIC_API_URL` | URL pública do backend acessível pelo navegador; **inlinada no bundle em build** (ex: `http://localhost:5005` local |
+| `REGISTRY` | prefixo das imagens GHCR (ex: `ghcr.io/what-if-junior/processo-seletivo-inteligente`) |
+| `IMAGE_TAG` | tag das imagens pré-construídas (ex: `latest`) |
+| `BACKEND_PORT` | porta pública do backend no host (5005) |
+
+> **Importante:** `NEXT_PUBLIC_API_URL` é embutida no bundle do navegador
+> **em tempo de build**. Por isso, no fluxo de servidor (imagens GHCR) o valor
+> correto deve ser definido como **variável de repositório do GitHub Actions**
+> (`vars.NEXT_PUBLIC_API_URL`) para o CI publicar a imagem com a URL certa.
+> No build local, o valor vem do `build-arg` do `docker-compose.yaml`.
 
 Documentação:
 

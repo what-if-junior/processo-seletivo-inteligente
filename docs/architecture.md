@@ -44,7 +44,7 @@ flowchart LR
 
 ### Regra de rede (importante)
 
-- **Server-side dentro dos containers** admin-web / candidate-app usa `API_URL=http://backend:5005` (nome do serviço na rede Docker).
+- **Server-side dentro dos containers** admin-web / candidate-app usa `BACKEND_SERVICE_URL=http://backend:5005` (nome do serviço na rede Docker).
 - **Browser** usa `NEXT_PUBLIC_API_URL=http://localhost:5005`.
 - `localhost` dentro do container apontaria para o próprio container — por isso a distinção.
 - Backend `WEB_ORIGIN` deve incluir `http://localhost:3000,http://localhost:3001`.

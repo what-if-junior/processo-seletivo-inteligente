@@ -4,7 +4,7 @@ const AUTH_FLAG = "psi.admin.authenticated";
 export function getApiBaseUrl(): string {
   if (typeof window === "undefined") {
     return (
-      process.env.API_URL ??
+      process.env.BACKEND_SERVICE_URL ??
       process.env.NEXT_PUBLIC_API_URL ??
       "http://localhost:5005"
     );

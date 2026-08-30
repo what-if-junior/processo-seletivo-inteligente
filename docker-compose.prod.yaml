@@ -1,0 +1,21 @@
+# =============================================================================
+# Override de produção: puxa imagens pré-construídas do GHCR em vez de
+# compilar localmente a partir do Dockerfile.
+#
+# Uso no servidor:
+#   docker compose -f docker-compose.yaml -f docker-compose.prod.yaml pull
+#   docker compose -f docker-compose.yaml -f docker-compose.prod.yaml up -d
+#
+# `build: !reset null` remove a seção `build:` herdada do arquivo base,
+# fazendo o compose apenas puxar/rodar a imagem publicada pelo CI.
+# =============================================================================
+
+services:
+  backend:
+    build: !reset null
+
+  admin-web:
+    build: !reset null
+
+  candidate-app:
+    build: !reset null

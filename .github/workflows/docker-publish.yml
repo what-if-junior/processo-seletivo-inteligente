@@ -47,7 +47,7 @@ jobs:
         push: true
         tags: ghcr.io/${{ github.repository }}-admin-web:latest
         build-args: |
-          NEXT_PUBLIC_API_URL=http://64.181.185.59:5005
+          NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
 
@@ -60,6 +60,6 @@ jobs:
         push: true
         tags: ghcr.io/${{ github.repository }}-candidate-app:latest
         build-args: |
-          NEXT_PUBLIC_API_URL=http://64.181.185.59:5005
+          NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL }}
         cache-from: type=gha
         cache-to: type=gha,mode=max

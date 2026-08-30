@@ -41,9 +41,12 @@ RUN npm run build -w backend
 # admin-web-build
 # ---------------------------------------------------------------------------
 FROM types-build AS admin-web-build
+# NEXT_PUBLIC_API_URL é INLINADO no bundle do navegador em tempo de build.
+# O valor é passado via build-arg (compose local / CI). Runtime `environment:`
+# NÃO afeta o bundle do navegador — só o SSR (que usa BACKEND_SERVICE_URL).
 ARG NEXT_PUBLIC_API_URL=http://localhost:5005
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
-ENV API_URL=http://backend:5005
+ENV BACKEND_SERVICE_URL=http://backend:5005
 COPY apps/admin-web ./apps/admin-web
 RUN npm run build -w admin-web
 
@@ -53,7 +56,7 @@ RUN npm run build -w admin-web
 FROM types-build AS candidate-app-build
 ARG NEXT_PUBLIC_API_URL=http://localhost:5005
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
-ENV API_URL=http://backend:5005
+ENV BACKEND_SERVICE_URL=http://backend:5005
 COPY apps/candidate-app ./apps/candidate-app
 RUN npm run build -w candidate-app
 
@@ -99,7 +102,7 @@ FROM base AS admin-web
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
-ENV API_URL=http://backend:5005
+ENV BACKEND_SERVICE_URL=http://backend:5005
 COPY --from=admin-web-build /app/apps/admin-web/public ./apps/admin-web/public
 COPY --from=admin-web-build /app/apps/admin-web/.next/standalone ./
 COPY --from=admin-web-build /app/apps/admin-web/.next/static ./apps/admin-web/.next/static
@@ -113,7 +116,7 @@ FROM base AS candidate-app
 ENV NODE_ENV=production
 ENV PORT=3001
 ENV HOSTNAME=0.0.0.0
-ENV API_URL=http://backend:5005
+ENV BACKEND_SERVICE_URL=http://backend:5005
 COPY --from=candidate-app-build /app/apps/candidate-app/public ./apps/candidate-app/public
 COPY --from=candidate-app-build /app/apps/candidate-app/.next/standalone ./
 COPY --from=candidate-app-build /app/apps/candidate-app/.next/static ./apps/candidate-app/.next/static

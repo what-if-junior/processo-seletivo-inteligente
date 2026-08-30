@@ -2,7 +2,7 @@ const TOKEN_KEY = "psi.candidate.access_token";
 
 export function getApiBaseUrl(): string {
   if (typeof window === "undefined") {
-    return process.env.API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5005";
+    return process.env.BACKEND_SERVICE_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5005";
   }
   return process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5005";
 }

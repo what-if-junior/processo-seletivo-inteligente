@@ -24,8 +24,10 @@ docker compose up --build
 - Postgres: localhost:5432
 
 > `docker compose up --build` compila as imagens localmente a partir do
-> `Dockerfile`. Para usar as imagens pré-construídas do GHCR, veja o
-> `README.md` raiz.
+> `Dockerfile`. Para usar as imagens pré-construídas do GHCR no servidor, use o
+> override `docker-compose.prod.yaml`:
+> `docker compose -f docker-compose.yaml -f docker-compose.prod.yaml up -d`
+> (veja o `README.md` raiz).
 
 ### Variáveis de ambiente
 
