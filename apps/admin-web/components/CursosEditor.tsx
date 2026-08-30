@@ -1,11 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { GrauCurso, ModalidadeCurso, type Cursos } from "@repo/types";
+import { type Cursos } from "@repo/types";
 import { apiFetch, ApiError } from "../lib/api";
 import { useToast } from "./ToastProvider";
 import { DataTable } from "./DataTable";
-import { StatusBadge } from "./StatusBadge";
 
 export function CursosEditor({ onCourseCreated }: { onCourseCreated?: (curso: Cursos) => void }) {
   const { push } = useToast();
@@ -14,9 +13,9 @@ export function CursosEditor({ onCourseCreated }: { onCourseCreated?: (curso: Cu
   const [busy, setBusy] = useState(false);
 
   const [nome, setNome] = useState("");
-  const [sigla, setSigla] = useState("");
-  const [grau, setGrau] = useState<GrauCurso>(GrauCurso.TECNICO);
-  const [modalidade, setModalidade] = useState<ModalidadeCurso>(ModalidadeCurso.PRESENCIAL);
+  const [eixoTecnologico, setEixoTecnologico] = useState("");
+  const [requisitoEscolaridade, setRequisitoEscolaridade] = useState("");
+  const [areaConhecimento, setAreaConhecimento] = useState("");
 
   async function load() {
     setLoading(true);
@@ -46,15 +45,16 @@ export function CursosEditor({ onCourseCreated }: { onCourseCreated?: (curso: Cu
         method: "POST",
         body: JSON.stringify({
           nome: nome.trim(),
-          sigla: sigla.trim() || undefined,
-          grau,
-          modalidade,
-          ativo: true,
+          eixo_tecnologico: eixoTecnologico.trim() || undefined,
+          requisito_escolaridade: requisitoEscolaridade.trim() || undefined,
+          area_conhecimento: areaConhecimento.trim() || undefined,
         }),
       });
       push(`Curso "${created.nome}" cadastrado com sucesso!`);
       setNome("");
-      setSigla("");
+      setEixoTecnologico("");
+      setRequisitoEscolaridade("");
+      setAreaConhecimento("");
       await load();
       if (onCourseCreated) onCourseCreated(created);
     } catch (err) {
@@ -82,9 +82,9 @@ export function CursosEditor({ onCourseCreated }: { onCourseCreated?: (curso: Cu
     <div className="space-y-6">
       <form
         onSubmit={onSubmit}
-        className="grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:grid-cols-2 lg:grid-cols-5"
+        className="grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:grid-cols-2 lg:grid-cols-4"
       >
-        <div className="lg:col-span-2">
+        <div>
           <label className="block text-xs font-medium text-slate-700">
             Nome do Curso
             <input
@@ -98,32 +98,38 @@ export function CursosEditor({ onCourseCreated }: { onCourseCreated?: (curso: Cu
         </div>
         <div>
           <label className="block text-xs font-medium text-slate-700">
-            Sigla (opcional)
+            Eixo Tecnológico (opcional)
             <input
               className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-              value={sigla}
-              onChange={(e) => setSigla(e.target.value)}
-              placeholder="Ex: TINF"
+              value={eixoTecnologico}
+              onChange={(e) => setEixoTecnologico(e.target.value)}
+              placeholder="Ex: Informação e Comunicação"
             />
           </label>
         </div>
         <div>
           <label className="block text-xs font-medium text-slate-700">
-            Grau
-            <select
+            Requisito de Escolaridade (opcional)
+            <input
               className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-              value={grau}
-              onChange={(e) => setGrau(e.target.value as GrauCurso)}
-            >
-              {Object.values(GrauCurso).map((g) => (
-                <option key={g} value={g}>
-                  {g}
-                </option>
-              ))}
-            </select>
+              value={requisitoEscolaridade}
+              onChange={(e) => setRequisitoEscolaridade(e.target.value)}
+              placeholder="Ex: Ensino Fundamental completo"
+            />
           </label>
         </div>
-        <div className="flex items-end">
+        <div>
+          <label className="block text-xs font-medium text-slate-700">
+            Área de Conhecimento (opcional)
+            <input
+              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              value={areaConhecimento}
+              onChange={(e) => setAreaConhecimento(e.target.value)}
+              placeholder="Ex: Ciências Exatas"
+            />
+          </label>
+        </div>
+        <div className="sm:col-span-2 lg:col-span-4">
           <button
             type="submit"
             disabled={busy}
@@ -139,16 +145,14 @@ export function CursosEditor({ onCourseCreated }: { onCourseCreated?: (curso: Cu
       ) : cursos.length === 0 ? (
         <p className="text-sm text-slate-500">Nenhum curso cadastrado ainda. Use o formulário acima para adicionar.</p>
       ) : (
-        <DataTable headers={["ID", "Nome", "Sigla", "Grau", "Modalidade", "Ações"]}>
+        <DataTable headers={["ID", "Nome", "Eixo Tecnológico", "Requisito", "Área de Conhecimento", "Ações"]}>
           {cursos.map((c) => (
             <tr key={c.id} className="hover:bg-slate-50">
               <td className="px-4 py-2 text-slate-500 font-mono text-xs">#{c.id}</td>
               <td className="px-4 py-2 font-medium text-slate-900">{c.nome}</td>
-              <td className="px-4 py-2 text-slate-600">{c.sigla || "—"}</td>
-              <td className="px-4 py-2">
-                <StatusBadge label={c.grau} tone="blue" />
-              </td>
-              <td className="px-4 py-2 text-xs text-slate-600">{c.modalidade}</td>
+              <td className="px-4 py-2 text-xs text-slate-600">{c.eixo_tecnologico || "—"}</td>
+              <td className="px-4 py-2 text-xs text-slate-600">{c.requisito_escolaridade || "—"}</td>
+              <td className="px-4 py-2 text-xs text-slate-600">{c.area_conhecimento || "—"}</td>
               <td className="px-4 py-2">
                 <button
                   type="button"
