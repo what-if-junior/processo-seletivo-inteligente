@@ -201,6 +201,23 @@ function Badge({ s }: { s: string }) {
   )
 }
 
+/**
+ * ISSUE-006 (Option C): visible "dados de demonstração" badge whenever mock
+ * data is painted, so it is never mistaken for live data.
+ */
+function MockBadge({ label = "Dados de demonstração" }: { label?: string }) {
+  return (
+    <span
+      role="status"
+      aria-label={label}
+      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold tracking-wide bg-amber-100 text-amber-800 border border-amber-300"
+    >
+      <AlertTriangle className="w-3.5 h-3.5" aria-hidden="true" />
+      {label}
+    </span>
+  )
+}
+
 function IFBLogo({ inv = false }: { inv?: boolean }) {
   return (
     <div className="flex items-center gap-2.5">
@@ -685,7 +702,7 @@ function HomeScreen({
   const [filterCampusId, setFilterCampusId] = useState<number | null>(null)
   const [carrossel, setCarrossel] = useState<CarrosselPublicItem[]>([])
   const fallback = useMemo(() => EDITAIS, [])
-  const { editais, error: ofertasError, loading: ofertasLoading } = useOfertas(fallback)
+  const { editais, source: ofertasSource, error: ofertasError, loading: ofertasLoading } = useOfertas(fallback)
   const { user, authed } = useProfile()
   const greetName = authed && user ? firstNameFrom(user.nome_completo) : null
   const shown = useMemo(
@@ -757,6 +774,11 @@ function HomeScreen({
             Ver todos
           </button>
         </div>
+        {ofertasSource === "mock" && (
+          <div className="mb-3">
+            <MockBadge />
+          </div>
+        )}
         <OfertaFiltersBar
           editais={editais}
           search={search}
@@ -829,7 +851,7 @@ function ProcessosScreen({
   const [filterEditalId, setFilterEditalId] = useState<number | null>(null)
   const [filterCampusId, setFilterCampusId] = useState<number | null>(null)
   const fallback = useMemo(() => EDITAIS, [])
-  const { editais, error: ofertasError } = useOfertas(fallback)
+  const { editais, source: ofertasSource, error: ofertasError } = useOfertas(fallback)
   const shown = useMemo(
     () =>
       filterEditalCards(editais, {
@@ -848,6 +870,11 @@ function ProcessosScreen({
       <div className="px-4 pt-4">
         {ofertasError && (
           <p className="text-sm text-red-700 mb-3" role="alert">{ofertasError}</p>
+        )}
+        {ofertasSource === "mock" && (
+          <div className="mb-3">
+            <MockBadge />
+          </div>
         )}
         <p className="text-[#4E6859] text-sm mb-3">
           <span className="font-rawline font-semibold text-[#0D1E12]">{abertos}</span> cursos com inscrições abertas
@@ -1671,7 +1698,7 @@ function DocsScreen({
       })),
     [],
   )
-  const { docs: apiDocs, error: docsError, reload } = useDocumentos(candidaturaId, docsFallback)
+  const { docs: apiDocs, source: docsSource, error: docsError, reload } = useDocumentos(candidaturaId, docsFallback)
   const [reutilizaveis, setReutilizaveis] = useState<ReutilizavelExigencia[]>([])
   const [reuseBusy, setReuseBusy] = useState<number | null>(null)
   const [uploadError, setUploadError] = useState<string | null>(null)
@@ -1855,6 +1882,11 @@ function DocsScreen({
       <BackHeader title="Envio de Documentos" onBack={onBack} />
 
       <div className="px-4 pt-4">
+        {docsSource === "mock" && (
+          <div className="mb-4">
+            <MockBadge />
+          </div>
+        )}
         <div className="bg-white rounded-2xl border border-[#D1E8D7] p-4 mb-4">
           <div className="flex items-center justify-between mb-2">
             <p className="text-sm font-bold text-[#0D1E12]">Progresso</p>
@@ -2305,6 +2337,11 @@ function InscricoesScreen({
       <div className="bg-[#2A7B3E] px-4 pt-10 pb-5">
         <h1 className="text-white text-xl font-extrabold">Minhas Inscrições</h1>
         <p className="text-emerald-200 text-sm mt-0.5">Acompanhe o status das suas candidaturas</p>
+        {source === "mock" && (
+          <div className="mt-3">
+            <MockBadge label="Inscrições de demonstração" />
+          </div>
+        )}
       </div>
 
       <div className="px-4 pt-4 flex flex-col gap-4 pb-4">
@@ -2544,6 +2581,11 @@ function NotifScreen({ onOpenDeepLink }: { onOpenDeepLink?: (link: string) => vo
             </button>
           )}
         </div>
+        {useMock && (
+          <div className="mt-3">
+            <MockBadge label="Avisos de demonstração" />
+          </div>
+        )}
       </div>
 
       <div className="px-4 pt-4 flex flex-col gap-2 pb-4">
