@@ -381,12 +381,13 @@ function BottomNav({ active, onChange }: { active: NavTab; onChange: (t: NavTab)
           const on = active === id
           return (
             <button key={id} onClick={() => onChange(id)}
+              aria-label={label}
               className={`flex-1 flex flex-col items-center gap-1 py-1 rounded-xl transition-all focus-visible:outline-2 focus-visible:outline-[#2A7B3E] active:scale-95 ${on ? "text-[#2A7B3E]" : "text-[#A8C4B0]"}`}
             >
               <div className="relative">
                 <Icon className="w-6 h-6" strokeWidth={on ? 2.5 : 2} />
                 {badge && !on && (
-                  <span className="absolute -top-1 -right-1.5 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
+                  <span aria-hidden="true" className="absolute -top-1 -right-1.5 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
                     {badge}
                   </span>
                 )}
