@@ -3,6 +3,8 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 export class AuthPayloadDto {
   sub: number;
   email: string;
+  /** ISSUE-012: 'gestor' | 'candidato' — usado pelo RolesGuard. */
+  role: 'gestor' | 'candidato';
 }
 
 export class LoginDto {

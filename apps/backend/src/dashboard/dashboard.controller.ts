@@ -6,6 +6,7 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { DashboardService, type DashboardFiltros } from './dashboard.service';
 
 function toId(valor?: string): number | null {
@@ -29,6 +30,7 @@ function buildFiltros(query: Record<string, string | undefined>): DashboardFiltr
 @ApiQuery({ name: 'id_campus', required: false, type: Number })
 @ApiQuery({ name: 'turno', required: false })
 @ApiQuery({ name: 'id_edital', required: false, type: Number })
+@Roles('gestor')
 @Controller('dashboard')
 export class DashboardController {
   constructor(private readonly service: DashboardService) {}

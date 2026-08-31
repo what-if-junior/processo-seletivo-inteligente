@@ -4,6 +4,7 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { AuthService } from './auth.service';
 import { UserService } from '../user/user.service';
+import { GestoresService } from '../gestores/gestores.service';
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -14,6 +15,9 @@ describe('AuthService', () => {
   const jwtService = {
     sign: jest.fn().mockReturnValue('tok'),
   };
+  const gestoresService = {
+    isGestor: jest.fn().mockResolvedValue(false),
+  };
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -22,6 +26,7 @@ describe('AuthService', () => {
         AuthService,
         { provide: UserService, useValue: userService },
         { provide: JwtService, useValue: jwtService },
+        { provide: GestoresService, useValue: gestoresService },
       ],
     }).compile();
 
@@ -96,5 +101,29 @@ describe('AuthService', () => {
         senha: 'senha123',
       }),
     ).rejects.toThrow('Conta desativada');
+  });
+
+  // ─── ISSUE-012: role claim no JWT ─────────────────────────────────────────
+
+  it('login issues role candidato when user is not a gestor', async () => {
+    gestoresService.isGestor.mockResolvedValue(false);
+    const result = await service.login({ id: 7, email: 'cand@teste.com' });
+    expect(gestoresService.isGestor).toHaveBeenCalledWith(7);
+    expect(jwtService.sign).toHaveBeenCalledWith({
+      sub: 7,
+      email: 'cand@teste.com',
+      role: 'candidato',
+    });
+    expect(result.access_token).toBe('tok');
+  });
+
+  it('login issues role gestor when user belongs to Gestores', async () => {
+    gestoresService.isGestor.mockResolvedValue(true);
+    await service.login({ id: 3, email: 'admin@teste.com' });
+    expect(jwtService.sign).toHaveBeenCalledWith({
+      sub: 3,
+      email: 'admin@teste.com',
+      role: 'gestor',
+    });
   });
 });

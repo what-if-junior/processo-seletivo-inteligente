@@ -31,6 +31,7 @@ import { ProtocolosModule } from './protocolos/protocolos.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { JwtAuthGuard } from './auth/guards/jwt.guard';
+import { RolesGuard } from './auth/guards/roles.guard';
 
 @Module({
   imports: [
@@ -87,6 +88,11 @@ import { JwtAuthGuard } from './auth/guards/jwt.guard';
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
+    },
+    {
+      // ISSUE-012: roda depois do JWT; exige @Roles('gestor') onde declarado.
+      provide: APP_GUARD,
+      useClass: RolesGuard,
     },
   ],
 })

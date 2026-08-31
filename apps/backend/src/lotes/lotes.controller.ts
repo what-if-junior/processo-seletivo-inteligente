@@ -15,6 +15,7 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { memoryStorage } from 'multer';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { LotesService } from './lotes.service';
 import { LOTE_ENCODINGS } from './lote-parse.util';
 
@@ -50,6 +51,7 @@ const LoteUploadInterceptor = FileInterceptor('arquivo', {
 @ApiTags('lotes')
 @ApiBearerAuth()
 @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
+@Roles('gestor')
 @Controller('lotes')
 export class LotesController {
   constructor(private readonly service: LotesService) {}

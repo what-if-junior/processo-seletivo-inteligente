@@ -25,4 +25,12 @@ export class GestoresService {
     if (!gestor) throw new NotFoundException(`Gestor ${id} não encontrado`);
     return gestor;
   }
+
+  /** True se o usuário (id_usuario) pertence à tabela Gestores. */
+  async isGestor(idUsuario: number): Promise<boolean> {
+    const count = await this.gestorRepository.count({
+      where: { id_usuario: idUsuario },
+    });
+    return count > 0;
+  }
 }

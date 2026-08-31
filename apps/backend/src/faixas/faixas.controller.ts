@@ -18,6 +18,7 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { Public } from '../auth/decorators/public.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { FaixasService } from './faixas.service';
 import { CreateFaixaDto } from './dto/create-faixa.dto';
 import { UpdateFaixaDto } from './dto/update-faixa.dto';
@@ -40,6 +41,7 @@ export class FaixasController {
   }
 
   @Get('gestao')
+  @Roles('gestor')
   @ApiBearerAuth()
   @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
   @ApiOperation({
@@ -50,6 +52,7 @@ export class FaixasController {
   }
 
   @Get('gestao/:id')
+  @Roles('gestor')
   @ApiBearerAuth()
   @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
   @ApiOperation({ summary: 'Detalhe de faixa com envelope de warnings (JWT)' })
@@ -58,6 +61,7 @@ export class FaixasController {
   }
 
   @Patch('referencia')
+  @Roles('gestor')
   @ApiBearerAuth()
   @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
   @ApiOperation({ summary: 'Atualiza salário mínimo de referência (JWT)' })
@@ -66,6 +70,7 @@ export class FaixasController {
   }
 
   @Put('ordem')
+  @Roles('gestor')
   @ApiBearerAuth()
   @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
   @ApiOperation({ summary: 'Reordena faixas SM (JWT)' })
@@ -74,6 +79,7 @@ export class FaixasController {
   }
 
   @Post()
+  @Roles('gestor')
   @ApiBearerAuth()
   @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
   @ApiOperation({ summary: 'Cria faixa SM (JWT)' })
@@ -82,6 +88,7 @@ export class FaixasController {
   }
 
   @Patch(':id')
+  @Roles('gestor')
   @ApiBearerAuth()
   @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
   @ApiOperation({ summary: 'Atualiza faixa SM (JWT)' })
@@ -93,6 +100,7 @@ export class FaixasController {
   }
 
   @Delete(':id')
+  @Roles('gestor')
   @ApiBearerAuth()
   @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
   @ApiQuery({

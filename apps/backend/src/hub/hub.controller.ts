@@ -16,6 +16,7 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { Public } from '../auth/decorators/public.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { HubService } from './hub.service';
 import {
   CreateHubContactoDto,
@@ -41,6 +42,7 @@ export class HubController {
   }
 
   @Get('gestao')
+  @Roles('gestor')
   @ApiBearerAuth()
   @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
   @ApiOperation({ summary: 'Hub gestão (incl. inativos) + LGPD (JWT)' })
@@ -49,6 +51,7 @@ export class HubController {
   }
 
   @Post('faqs')
+  @Roles('gestor')
   @ApiBearerAuth()
   @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
   createFaq(@Body() dto: CreateHubFaqDto) {
@@ -56,6 +59,7 @@ export class HubController {
   }
 
   @Patch('faqs/:id')
+  @Roles('gestor')
   @ApiBearerAuth()
   @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
   updateFaq(
@@ -66,6 +70,7 @@ export class HubController {
   }
 
   @Delete('faqs/:id')
+  @Roles('gestor')
   @ApiBearerAuth()
   @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
   deleteFaq(@Param('id', ParseIntPipe) id: number) {
@@ -73,6 +78,7 @@ export class HubController {
   }
 
   @Put('faqs/reorder')
+  @Roles('gestor')
   @ApiBearerAuth()
   @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
   reorderFaqs(@Body() dto: ReorderHubDto) {
@@ -80,6 +86,7 @@ export class HubController {
   }
 
   @Post('contactos')
+  @Roles('gestor')
   @ApiBearerAuth()
   @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
   createContacto(@Body() dto: CreateHubContactoDto) {
@@ -87,6 +94,7 @@ export class HubController {
   }
 
   @Patch('contactos/:id')
+  @Roles('gestor')
   @ApiBearerAuth()
   @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
   updateContacto(
@@ -97,6 +105,7 @@ export class HubController {
   }
 
   @Delete('contactos/:id')
+  @Roles('gestor')
   @ApiBearerAuth()
   @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
   deleteContacto(@Param('id', ParseIntPipe) id: number) {
@@ -104,6 +113,7 @@ export class HubController {
   }
 
   @Put('contactos/reorder')
+  @Roles('gestor')
   @ApiBearerAuth()
   @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
   reorderContactos(@Body() dto: ReorderHubDto) {
@@ -111,6 +121,7 @@ export class HubController {
   }
 
   @Put('lgpd')
+  @Roles('gestor')
   @ApiBearerAuth()
   @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
   @ApiOperation({ summary: 'Atualiza texto LGPD global (null = fallback PWA)' })

@@ -5,11 +5,13 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { GestoresService } from './gestores.service';
 
 @ApiTags('gestores')
 @ApiBearerAuth()
 @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
+@Roles('gestor')
 @Controller('gestores')
 export class GestoresController {
   constructor(private readonly gestoresService: GestoresService) {}

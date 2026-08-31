@@ -18,6 +18,7 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { Public } from '../auth/decorators/public.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { CarrosselService } from './carrossel.service';
 import { CreateCarrosselManualDto } from './dto/create-carrossel-manual.dto';
 import { UpdateCarrosselItemDto } from './dto/update-carrossel-item.dto';
@@ -40,6 +41,7 @@ export class CarrosselController {
   }
 
   @Get('gestao')
+  @Roles('gestor')
   @ApiBearerAuth()
   @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
   @ApiOperation({
@@ -50,6 +52,7 @@ export class CarrosselController {
   }
 
   @Post('sincronizar-auto')
+  @Roles('gestor')
   @ApiBearerAuth()
   @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
   @ApiOperation({
@@ -61,6 +64,7 @@ export class CarrosselController {
   }
 
   @Put('reorder')
+  @Roles('gestor')
   @ApiBearerAuth()
   @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
   @ApiOperation({ summary: 'Reordena itens do carrossel (JWT)' })
@@ -69,6 +73,7 @@ export class CarrosselController {
   }
 
   @Post()
+  @Roles('gestor')
   @ApiBearerAuth()
   @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
   @ApiOperation({ summary: 'Cria item manual do carrossel (JWT)' })
@@ -77,6 +82,7 @@ export class CarrosselController {
   }
 
   @Patch(':id/auto-habilitado')
+  @Roles('gestor')
   @ApiBearerAuth()
   @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
   @ApiOperation({ summary: 'Toggle auto_edital_habilitado (JWT)' })
@@ -91,6 +97,7 @@ export class CarrosselController {
   }
 
   @Patch(':id')
+  @Roles('gestor')
   @ApiBearerAuth()
   @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
   @ApiOperation({ summary: 'Atualiza item do carrossel (JWT)' })
@@ -102,6 +109,7 @@ export class CarrosselController {
   }
 
   @Delete(':id')
+  @Roles('gestor')
   @ApiBearerAuth()
   @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
   @ApiQuery({

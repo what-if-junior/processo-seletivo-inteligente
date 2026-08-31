@@ -10,6 +10,7 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { TemplatesService } from './templates.service';
 import {
   CopiarTemplateEditalDto,
@@ -20,6 +21,7 @@ import {
 
 @ApiTags('templates')
 @ApiBearerAuth()
+@Roles('gestor')
 @Controller()
 export class TemplatesController {
   constructor(private readonly templatesService: TemplatesService) {}

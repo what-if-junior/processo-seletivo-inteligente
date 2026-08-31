@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UserService } from '../user/user.service';
+import { GestoresService } from '../gestores/gestores.service';
 import * as bcrypt from 'bcrypt';
 import { AuthPayloadDto } from './dto/auth.dto';
 
@@ -19,6 +20,7 @@ export class AuthService {
   constructor(
     private userService: UserService,
     private jwtService: JwtService,
+    private gestoresService: GestoresService,
   ) {}
 
   /** Accepts e-mail or CPF + senha. Missing user and bad password both → 401. */
@@ -60,7 +62,13 @@ export class AuthService {
   }
 
   async login(user: { id: number; email: string }) {
-    const payload: AuthPayloadDto = { sub: user.id, email: user.email };
+    // ISSUE-012: claim de papel no JWT — 'gestor' se membro de Gestores, senão 'candidato'.
+    const isGestor = await this.gestoresService.isGestor(user.id);
+    const payload: AuthPayloadDto = {
+      sub: user.id,
+      email: user.email,
+      role: isGestor ? 'gestor' : 'candidato',
+    };
     const access_token = this.jwtService.sign(payload);
 
     return { access_token };

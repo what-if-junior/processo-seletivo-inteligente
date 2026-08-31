@@ -20,6 +20,7 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { memoryStorage } from 'multer';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { ChamadasService } from './chamadas.service';
 import { cpfsDoArquivo } from './matriculados.util';
 
@@ -33,6 +34,7 @@ const MatriculadosUploadInterceptor = FileInterceptor('arquivo', {
 @ApiTags('chamadas')
 @ApiBearerAuth()
 @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
+@Roles('gestor')
 @Controller('chamadas')
 export class ChamadasController {
   constructor(private readonly service: ChamadasService) {}
