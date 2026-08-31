@@ -132,7 +132,8 @@ export class ChamadasController {
 
   @Post(':id/notificar')
   @ApiOperation({
-    summary: 'Notifica os convocados da chamada (stub: devolve o total)',
+    summary:
+      'Notifica a coorte de pré-selecionados do edital da chamada (W31-11)',
   })
   notificar(@Param('id', ParseIntPipe) id: number) {
     return this.service.notificar(id);

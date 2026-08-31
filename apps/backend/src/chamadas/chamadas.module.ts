@@ -7,6 +7,7 @@ import { ChamadaVaga } from './entities/chamada-vaga.entity';
 import { ClassificacaoItem } from './entities/classificacao-item.entity';
 import { Oferta } from '../ofertas/entities/oferta.entity';
 import { Candidatura } from '../candidaturas/entities/candidatura.entity';
+import { NotificacoesModule } from '../notificacoes/notificacoes.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { Candidatura } from '../candidaturas/entities/candidatura.entity';
       Oferta,
       Candidatura,
     ]),
+    NotificacoesModule,
   ],
   controllers: [ChamadasController],
   providers: [ChamadasService],

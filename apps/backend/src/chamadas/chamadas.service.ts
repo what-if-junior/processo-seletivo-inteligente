@@ -19,6 +19,7 @@ import {
   totalVagas,
   type SeatPlan,
 } from '../classificacao/remanescentes.util';
+import { NotificacoesService } from '../notificacoes/notificacoes.service';
 import { Chamada } from './entities/chamada.entity';
 import { ChamadaVaga } from './entities/chamada-vaga.entity';
 import { ClassificacaoItem } from './entities/classificacao-item.entity';
@@ -60,6 +61,7 @@ export class ChamadasService {
     private readonly ofertaRepository: Repository<Oferta>,
     @InjectRepository(Candidatura)
     private readonly candidaturaRepository: Repository<Candidatura>,
+    private readonly notificacoesService: NotificacoesService,
   ) {}
 
   async findByOferta(idOferta: number): Promise<Chamada[]> {
@@ -293,24 +295,42 @@ export class ChamadasService {
   }
 
   /**
-   * Stub de notificação: o disparo real (e-mail/push) entra com o módulo de
-   * Notificacoes; aqui só se reporta quantos seriam avisados.
+   * W31-11 — notifica a coorte de pré-selecionados do edital (os convocados
+   * desta chamada viram PRE_SELECIONADO no gerar). Usa notifyCohortChange e
+   * devolve o total real de destinatários; 0 se ninguém foi alcançado.
    */
   async notificar(idChamada: number): Promise<{ notified: number }> {
-    const total = await this.classificacaoItemRepository.count({
+    const chamada = await this.chamadaRepository.findOne({
+      where: { id: idChamada },
+      relations: { oferta: true },
+    });
+    if (!chamada) {
+      throw new NotFoundException(`Chamada ${idChamada} não encontrada`);
+    }
+
+    const convocados = await this.classificacaoItemRepository.count({
       where: {
         id_chamada: idChamada,
         lista: ListaClassificacao.CHAMADA_REGULAR,
       },
     });
-    if (!total) {
-      const existe = await this.chamadaRepository.exists({
-        where: { id: idChamada },
-      });
-      if (!existe) {
-        throw new NotFoundException(`Chamada ${idChamada} não encontrada`);
-      }
+    if (convocados === 0) {
+      return { notified: 0 };
     }
-    return { notified: total };
+
+    const idEdital = Number(chamada.oferta?.id_edital);
+    if (!Number.isFinite(idEdital) || idEdital <= 0) {
+      return { notified: 0 };
+    }
+
+    const resultado = await this.notificacoesService.notifyCohortChange({
+      id_edital: idEdital,
+      titulo: `Convocação — Chamada ${chamada.numero}`,
+      corpo: `Você foi convocado(a) na ${chamada.numero}ª chamada. Verifique os documentos exigidos e os prazos no cronograma.`,
+      deep_link: `/inscricoes?edital=${idEdital}`,
+      statusIn: [StatusCandidatura.PRE_SELECIONADO],
+    });
+
+    return { notified: resultado?.destinatarios ?? 0 };
   }
 }

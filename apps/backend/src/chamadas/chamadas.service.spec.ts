@@ -3,6 +3,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { ListaClassificacao, StatusCandidatura } from '@repo/types';
 import { Candidatura } from '../candidaturas/entities/candidatura.entity';
 import { Oferta } from '../ofertas/entities/oferta.entity';
+import { NotificacoesService } from '../notificacoes/notificacoes.service';
 import { ChamadasService } from './chamadas.service';
 import { Chamada } from './entities/chamada.entity';
 import { ChamadaVaga } from './entities/chamada-vaga.entity';
@@ -25,6 +26,7 @@ describe('ChamadasService (W24 / REQ-3.1 a 3.5)', () => {
   const classificacaoItemRepository = { find: jest.fn(), count: jest.fn() };
   const ofertaRepository = { findOne: jest.fn() };
   const candidaturaRepository = { find: jest.fn(), update: jest.fn() };
+  const notificacoesService = { notifyCohortChange: jest.fn() };
 
   const entityManager = {
     create: (_entity: unknown, obj: Saved) => ({ ...obj }),
@@ -85,6 +87,7 @@ describe('ChamadasService (W24 / REQ-3.1 a 3.5)', () => {
           provide: getRepositoryToken(Candidatura),
           useValue: candidaturaRepository,
         },
+        { provide: NotificacoesService, useValue: notificacoesService },
       ],
     }).compile();
 
@@ -204,5 +207,85 @@ describe('ChamadasService (W24 / REQ-3.1 a 3.5)', () => {
     expect(candidaturaRepository.update).toHaveBeenCalledWith([1], {
       status: StatusCandidatura.MATRICULADO,
     });
+  });
+
+  // ─── W31-11 — notificar → notifyCohortChange ──────────────────────────────
+
+  it('notificar lança NotFound quando a chamada não existe', async () => {
+    chamadaRepository.findOne.mockResolvedValue(null);
+    await expect(service.notificar(99)).rejects.toThrow(/não encontrada/i);
+    expect(notificacoesService.notifyCohortChange).not.toHaveBeenCalled();
+  });
+
+  it('notificar devolve notified 0 sem convocados (sem disparar)', async () => {
+    chamadaRepository.findOne.mockResolvedValue({
+      id: 1,
+      numero: 1,
+      id_oferta: 10,
+      oferta: { id: 10, id_edital: 5 },
+    });
+    classificacaoItemRepository.count.mockResolvedValue(0);
+
+    await expect(service.notificar(1)).resolves.toEqual({ notified: 0 });
+    expect(notificacoesService.notifyCohortChange).not.toHaveBeenCalled();
+    expect(classificacaoItemRepository.count).toHaveBeenCalledWith({
+      where: {
+        id_chamada: 1,
+        lista: ListaClassificacao.CHAMADA_REGULAR,
+      },
+    });
+  });
+
+  it('notificar chama notifyCohortChange do edital e devolve destinatários reais', async () => {
+    chamadaRepository.findOne.mockResolvedValue({
+      id: 1,
+      numero: 2,
+      id_oferta: 10,
+      oferta: { id: 10, id_edital: 5 },
+    });
+    classificacaoItemRepository.count.mockResolvedValue(8);
+    notificacoesService.notifyCohortChange.mockResolvedValue({
+      destinatarios: 8,
+      leituras_criadas: 8,
+      entregas_email: 8,
+      email_adiados: 8,
+      omitidos_preferencia: 0,
+      notificacao: { id: 42 },
+    });
+
+    await expect(service.notificar(1)).resolves.toEqual({ notified: 8 });
+    expect(notificacoesService.notifyCohortChange).toHaveBeenCalledWith({
+      id_edital: 5,
+      titulo: 'Convocação — Chamada 2',
+      corpo: expect.stringContaining('2ª chamada'),
+      deep_link: '/inscricoes?edital=5',
+      statusIn: [StatusCandidatura.PRE_SELECIONADO],
+    });
+  });
+
+  it('notificar devolve notified 0 quando notifyCohortChange retorna null', async () => {
+    chamadaRepository.findOne.mockResolvedValue({
+      id: 1,
+      numero: 1,
+      id_oferta: 10,
+      oferta: { id: 10, id_edital: 5 },
+    });
+    classificacaoItemRepository.count.mockResolvedValue(3);
+    notificacoesService.notifyCohortChange.mockResolvedValue(null);
+
+    await expect(service.notificar(1)).resolves.toEqual({ notified: 0 });
+  });
+
+  it('notificar devolve notified 0 quando falta id_edital', async () => {
+    chamadaRepository.findOne.mockResolvedValue({
+      id: 1,
+      numero: 1,
+      id_oferta: 10,
+      oferta: { id: 10, id_edital: null },
+    });
+    classificacaoItemRepository.count.mockResolvedValue(3);
+
+    await expect(service.notificar(1)).resolves.toEqual({ notified: 0 });
+    expect(notificacoesService.notifyCohortChange).not.toHaveBeenCalled();
   });
 });
