@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { FaseDocumento, StatusCandidatura, StatusDocumento } from '@repo/types';
+import { FaseDocumento, ModoEntrega, StatusCandidatura, StatusDocumento, SubtipoEntregaOnline } from '@repo/types';
 import { Documento } from './entities/documento.entity';
 import { DocumentoAuditoria } from './entities/documento-auditoria.entity';
 import { MotivoHomologacaoDocumento } from './entities/motivo-homologacao-documento.entity';
@@ -13,6 +13,7 @@ import { Candidatura } from '../candidaturas/entities/candidatura.entity';
 import { CronogramaService } from '../cronograma/cronograma.service';
 import { NotificacoesService } from '../notificacoes/notificacoes.service';
 import { TipoDocumento } from '../tipos-documento/entities/tipo-documento.entity';
+import { ConfiguracaoEntregaDocumental } from '../entrega-documental/entities/configuracao-entrega-documental.entity';
 import { DocumentosContaService } from '../tipos-documento-base/documentos-conta.service';
 import { DocumentosService } from './documentos.service';
 
@@ -36,6 +37,9 @@ describe('DocumentosService', () => {
   const findTipo = jest.fn();
   const findOneTipo = jest.fn();
 
+  const findEntrega = jest.fn();
+  const findOneEntrega = jest.fn();
+
   const listForUser = jest.fn();
   const loadArquivoOwned = jest.fn();
   const upsertFromBuffer = jest.fn();
@@ -50,6 +54,7 @@ describe('DocumentosService', () => {
     listForUser.mockResolvedValue({ documentos: [] });
     upsertFromBuffer.mockResolvedValue({ id: 1 });
     notifyUser.mockResolvedValue(77);
+    findEntrega.mockResolvedValue([]);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -81,6 +86,10 @@ describe('DocumentosService', () => {
           useValue: { find: findTipo, findOne: findOneTipo },
         },
         {
+          provide: getRepositoryToken(ConfiguracaoEntregaDocumental),
+          useValue: { find: findEntrega, findOne: findOneEntrega },
+        },
+        {
           provide: DocumentosContaService,
           useValue: { listForUser, loadArquivoOwned, upsertFromBuffer },
         },
@@ -107,6 +116,15 @@ describe('DocumentosService', () => {
       id_edital: 5,
       id_oferta: 2,
       status: StatusCandidatura.INSCRICAO_RECEBIDA,
+      tipo_vaga: 'AC',
+      oferta: {
+        id: 2,
+        id_edital: 5,
+        id_curso: 7,
+        id_campus: 3,
+        curso: { id: 7, nome: 'Técnico em Informática' },
+        campus: { id: 3, nome: 'Campus Brasília' },
+      } as unknown as Candidatura['oferta'],
       ...overrides,
     } as Candidatura;
   }
@@ -374,6 +392,133 @@ describe('DocumentosService', () => {
     expect(result.exigencias[0]?.match?.id_documento_conta).toBe(55);
     expect(result.exigencias[0]?.match?.match_by).toBe('id_tipo_base');
     expect(result.exigencias[1]?.match).toBeNull();
+    // W26-06: no entrega config → honest empty state (configurado: false).
+    expect(result.configurado).toBe(false);
+    expect(result.pode_upload).toBe(false);
+    expect(result.uploads_ocultos).toBe(false);
+    expect(result.entrega).toBeNull();
+  });
+
+  it('listReutilizaveis exposes W6 entrega config (presencial → uploads ocultos)', async () => {
+    findOneCand.mockResolvedValue(stubCandidatura({ id_usuario: 10 }));
+    findTipo.mockResolvedValue([
+      {
+        id: 1,
+        nome: 'RG',
+        id_tipo_base: 4,
+        fase: FaseDocumento.INSCRICAO,
+        obrigatorio: true,
+      },
+    ]);
+    findEntrega.mockResolvedValue([
+      {
+        id: 9,
+        id_edital: 5,
+        id_campus: 3,
+        id_curso: 7,
+        id_cronograma_etapa: 4,
+        modo: ModoEntrega.PRESENCIAL,
+        local_nome: 'Secretaria Acadêmica',
+        endereco: 'Rua A, 123',
+        horario: '09h-17h',
+        contactos: 'sec@ifb.edu.br',
+        uplOads: undefined,
+      } as unknown as ConfiguracaoEntregaDocumental,
+    ]);
+
+    const result = await service.listReutilizaveis(1, 10);
+    expect(result.configurado).toBe(true);
+    expect(result.pode_upload).toBe(false);
+    expect(result.uploads_ocultos).toBe(true);
+    expect(result.entrega?.modo).toBe(ModoEntrega.PRESENCIAL);
+    expect(result.entrega?.local_nome).toBe('Secretaria Acadêmica');
+  });
+
+  it('listReutilizaveis marks pode_upload for UPLOAD_NATIVO_PWA', async () => {
+    findOneCand.mockResolvedValue(stubCandidatura({ id_usuario: 10 }));
+    findTipo.mockResolvedValue([]);
+    findEntrega.mockResolvedValue([
+      {
+        id: 9,
+        id_edital: 5,
+        id_campus: 3,
+        id_curso: 7,
+        id_cronograma_etapa: 4,
+        modo: ModoEntrega.ONLINE,
+        subtipo_online: SubtipoEntregaOnline.UPLOAD_NATIVO_PWA,
+      } as unknown as ConfiguracaoEntregaDocumental,
+    ]);
+
+    const result = await service.listReutilizaveis(1, 10);
+    expect(result.configurado).toBe(true);
+    expect(result.pode_upload).toBe(true);
+    expect(result.uploads_ocultos).toBe(false);
+  });
+
+  it('listReutilizaveis filters exigências by candidate cota (W6)', async () => {
+    findOneCand.mockResolvedValue(
+      stubCandidatura({ id_usuario: 10, tipo_vaga: 'PPI' }),
+    );
+    findTipo.mockResolvedValue([
+      {
+        id: 1,
+        nome: 'RG',
+        id_tipo_base: 4,
+        fase: FaseDocumento.INSCRICAO,
+        obrigatorio: true,
+        tipo_cota: null,
+      },
+      {
+        id: 2,
+        nome: 'Autodeclaração PPI',
+        id_tipo_base: null,
+        fase: FaseDocumento.INSCRICAO,
+        obrigatorio: true,
+        tipo_cota: 'PPI',
+      },
+      {
+        id: 3,
+        nome: 'Laudo PcD',
+        id_tipo_base: null,
+        fase: FaseDocumento.INSCRICAO,
+        obrigatorio: true,
+        tipo_cota: 'PCD',
+      },
+    ]);
+
+    const result = await service.listReutilizaveis(1, 10);
+    expect(result.exigencias.map((e) => e.id_tipo_documento)).toEqual([1, 2]);
+  });
+
+  it('listReutilizaveis resolves entrega by campus match', async () => {
+    findOneCand.mockResolvedValue(
+      stubCandidatura({ id_usuario: 10, tipo_vaga: 'AC' }),
+    );
+    findTipo.mockResolvedValue([]);
+    findEntrega.mockResolvedValue([
+      // Different curso → skipped; campus-only row matches.
+      {
+        id: 1,
+        id_edital: 5,
+        id_campus: 99,
+        id_curso: 7,
+        modo: ModoEntrega.PRESENCIAL,
+      } as unknown as ConfiguracaoEntregaDocumental,
+      {
+        id: 2,
+        id_edital: 5,
+        id_campus: 3,
+        id_curso: 1,
+        modo: ModoEntrega.ONLINE,
+        subtipo_online: SubtipoEntregaOnline.EMAIL_INSTITUCIONAL,
+        email_institucional: 'docs@ifb.edu.br',
+      } as unknown as ConfiguracaoEntregaDocumental,
+    ]);
+
+    const result = await service.listReutilizaveis(1, 10);
+    expect(result.entrega?.modo).toBe(ModoEntrega.ONLINE);
+    expect(result.entrega?.email_institucional).toBe('docs@ifb.edu.br');
+    expect(result.pode_upload).toBe(false);
   });
 
   it('reutilizar rejects client fase that disagrees with exigência', async () => {

@@ -75,12 +75,16 @@ import {
 } from "./lib/upload-queue"
 import {
   appendEspelharMeusDados,
-  fetchDocumentosReutilizaveis,
   mergeDocsChecklist,
   normalizeDocTipoNome,
   postReutilizarDocumento,
   type ReutilizavelExigencia,
 } from "./lib/document-reuse"
+import {
+  fetchDocsChecklist,
+  type DocsChecklist,
+  type ChecklistEntregaInfo,
+} from "./lib/docs-checklist"
 import {
   ContestacaoFormScreen,
   MinhasContestacoesScreen,
@@ -1701,6 +1705,7 @@ function DocsScreen({
   )
   const { docs: apiDocs, source: docsSource, error: docsError, reload } = useDocumentos(candidaturaId, docsFallback)
   const [reutilizaveis, setReutilizaveis] = useState<ReutilizavelExigencia[]>([])
+  const [checklistMeta, setChecklistMeta] = useState<Pick<DocsChecklist, "configurado" | "pode_upload" | "uploads_ocultos" | "entrega"> | null>(null)
   const [reuseBusy, setReuseBusy] = useState<number | null>(null)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [queueCount, setQueueCount] = useState(0)
@@ -1714,15 +1719,25 @@ function DocsScreen({
   useEffect(() => {
     if (shouldUseMocks() || !candidaturaId || candidaturaId <= 0 || !getAccessToken()) {
       setReutilizaveis([])
+      setChecklistMeta(null)
       return
     }
     let cancelled = false
-    void fetchDocumentosReutilizaveis(candidaturaId)
-      .then((rows) => {
-        if (!cancelled) setReutilizaveis(rows)
+    void fetchDocsChecklist(candidaturaId)
+      .then((data) => {
+        if (cancelled) return
+        setReutilizaveis(data.exigencias)
+        setChecklistMeta({
+          configurado: data.configurado,
+          pode_upload: data.pode_upload,
+          uploads_ocultos: data.uploads_ocultos,
+          entrega: data.entrega,
+        })
       })
       .catch(() => {
-        if (!cancelled) setReutilizaveis([])
+        if (cancelled) return
+        setReutilizaveis([])
+        setChecklistMeta(null)
       })
     return () => {
       cancelled = true
@@ -1888,16 +1903,52 @@ function DocsScreen({
             <MockBadge />
           </div>
         )}
-        <div className="bg-white rounded-2xl border border-[#D1E8D7] p-4 mb-4">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-sm font-bold text-[#0D1E12]">Progresso</p>
-            <span className="font-mono text-sm font-bold text-[#2A7B3E]">{enviados}/{total}</span>
+        {!shouldUseMocks() && checklistMeta && !checklistMeta.configurado && (
+          <div className="bg-gray-50 border border-[#E4EBE6] rounded-2xl p-4 mb-4 text-center" role="status">
+            <p className="text-sm font-semibold text-[#0D1E12] mb-1">Entrega de documentos não configurada</p>
+            <p className="text-xs text-[#4E6859] leading-relaxed">
+              Este processo seletivo ainda não definiu como a documentação será entregue. Acompanhe os avisos do edital.
+            </p>
           </div>
-          <div className="h-2 bg-[#E4EBE6] rounded-full overflow-hidden">
-            <div className="h-full bg-[#2A7B3E] rounded-full transition-all" style={{ width: `${total ? (enviados / total) * 100 : 0}%` }} />
+        )}
+        {!shouldUseMocks() && checklistMeta?.configurado && checklistMeta.uploads_ocultos && (
+          <div className="bg-[#E7F4EA] border border-[#D1E8D7] rounded-2xl p-4 mb-4" role="status">
+            <p className="text-sm font-bold text-[#0D1E12] mb-1">Entrega presencial</p>
+            <p className="text-xs text-[#4E6859] leading-relaxed">
+              A documentação deste processo é entregue presencialmente — nenhum envio digital é necessário aqui.
+              {checklistMeta.entrega?.local_nome ? ` Local: ${checklistMeta.entrega.local_nome}.` : ""}
+              {checklistMeta.entrega?.endereco ? ` ${checklistMeta.entrega.endereco}.` : ""}
+              {checklistMeta.entrega?.horario ? ` Horário: ${checklistMeta.entrega.horario}.` : ""}
+              {checklistMeta.entrega?.contactos ? ` Contato: ${checklistMeta.entrega.contactos}.` : ""}
+            </p>
+            {checklistMeta.entrega?.instrucoes && (
+              <p className="text-xs text-[#4E6859] mt-2 leading-relaxed">{checklistMeta.entrega.instrucoes}</p>
+            )}
           </div>
-          <p className="text-xs text-[#4E6859] mt-2">{missing} documento(s) ainda precisam ser enviados</p>
-        </div>
+        )}
+        {!shouldUseMocks() && checklistMeta?.configurado && !checklistMeta.pode_upload && !checklistMeta.uploads_ocultos && (
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-4" role="status">
+            <p className="text-sm font-bold text-[#0D1E12] mb-1">Entrega por canal externo</p>
+            <p className="text-xs text-amber-900 leading-relaxed">
+              A documentação deste processo é entregue por um canal externo (e-mail ou formulário) — o envio não é feito por aqui.
+              {checklistMeta.entrega?.email_institucional ? ` E-mail: ${checklistMeta.entrega.email_institucional}.` : ""}
+              {checklistMeta.entrega?.url_externa ? ` Acesse: ${checklistMeta.entrega.url_externa}.` : ""}
+              {checklistMeta.entrega?.instrucoes ? ` ${checklistMeta.entrega.instrucoes}` : ""}
+            </p>
+          </div>
+        )}
+        {!shouldUseMocks() && checklistMeta?.pode_upload && (
+          <div className="bg-white rounded-2xl border border-[#D1E8D7] p-4 mb-4">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-sm font-bold text-[#0D1E12]">Progresso</p>
+              <span className="font-mono text-sm font-bold text-[#2A7B3E]">{enviados}/{total}</span>
+            </div>
+            <div className="h-2 bg-[#E4EBE6] rounded-full overflow-hidden">
+              <div className="h-full bg-[#2A7B3E] rounded-full transition-all" style={{ width: `${total ? (enviados / total) * 100 : 0}%` }} />
+            </div>
+            <p className="text-xs text-[#4E6859] mt-2">{missing} documento(s) ainda precisam ser enviados</p>
+          </div>
+        )}
 
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 mb-4 flex gap-2.5">
           <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
@@ -1927,10 +1978,10 @@ function DocsScreen({
         )}
 
         <div className="flex flex-col gap-3 pb-4">
-          {docs.length === 0 && !docsError ? (
+          {docs.length === 0 && !docsError && (shouldUseMocks() || checklistMeta?.pode_upload) ? (
             <p className="text-sm text-[#4E6859] text-center py-4">Nenhum documento listado para esta inscrição.</p>
           ) : null}
-          {docs.map(doc => (
+          {(shouldUseMocks() || checklistMeta?.pode_upload) && docs.map(doc => (
             <div key={doc.id}
               className={`bg-white rounded-2xl border p-4 ${doc.status === "pendente" ? "border-amber-300" : doc.status === "enviado" ? "border-[#D1E8D7]" : "border-[#E4EBE6]"}`}>
               <div className="flex items-start justify-between gap-3">
@@ -2025,25 +2076,37 @@ function DocsScreen({
           ))}
         </div>
 
-        <Btn
-          v="primary"
-          cls="w-full h-14"
-          disabled={!canFinish}
-          onClick={() => {
-            reload()
-            setNav?.("inscricoes")
-            goto("inscricoes")
-          }}
-        >
-          <CheckCircle className="w-5 h-5" /> Finalizar Envio
-        </Btn>
-        {!canFinish && (
-          <p className="text-center text-xs text-[#4E6859] mt-2 pb-4">
-            Envie os {missing} documento(s) pendente(s) para habilitar Finalizar Envio.
-          </p>
-        )}
-        {canFinish && (
-          <p className="text-center text-xs text-[#4E6859] mt-2 pb-4">Você pode finalizar e acompanhar em Minhas Inscrições.</p>
+        {(shouldUseMocks() || checklistMeta?.pode_upload) ? (
+          <>
+            <Btn
+              v="primary"
+              cls="w-full h-14"
+              disabled={!canFinish}
+              onClick={() => {
+                reload()
+                setNav?.("inscricoes")
+                goto("inscricoes")
+              }}
+            >
+              <CheckCircle className="w-5 h-5" /> Finalizar Envio
+            </Btn>
+            {!canFinish && (
+              <p className="text-center text-xs text-[#4E6859] mt-2 pb-4">
+                Envie os {missing} documento(s) pendente(s) para habilitar Finalizar Envio.
+              </p>
+            )}
+            {canFinish && (
+              <p className="text-center text-xs text-[#4E6859] mt-2 pb-4">Você pode finalizar e acompanhar em Minhas Inscrições.</p>
+            )}
+          </>
+        ) : (
+          <Btn
+            v="secondary"
+            cls="w-full h-14"
+            onClick={() => { setNav?.("inscricoes"); goto("inscricoes") }}
+          >
+            Voltar para Minhas Inscrições
+          </Btn>
         )}
       </div>
     </div>

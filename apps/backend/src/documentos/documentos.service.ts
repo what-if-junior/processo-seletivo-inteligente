@@ -9,8 +9,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import {
   FaseDocumento,
+  ModoEntrega,
   OrigemNotificacao,
   StatusDocumento,
+  SubtipoEntregaOnline,
   TipoEtapaCronograma,
 } from '@repo/types';
 import { Documento } from './entities/documento.entity';
@@ -21,6 +23,7 @@ import { CronogramaService } from '../cronograma/cronograma.service';
 import { NotificacoesService } from '../notificacoes/notificacoes.service';
 import { TipoDocumento } from '../tipos-documento/entities/tipo-documento.entity';
 import { DocumentosContaService } from '../tipos-documento-base/documentos-conta.service';
+import { ConfiguracaoEntregaDocumental } from '../entrega-documental/entities/configuracao-entrega-documental.entity';
 import {
   assertDocumentoUpload,
   assertFaseMatriculaPermitida,
@@ -72,6 +75,30 @@ export type ReutilizavelExigencia = {
   } | null;
 };
 
+/** W6 delivery info for the DocsScreen checklist (REQ-1.6). */
+export type ChecklistEntregaInfo = {
+  configurado: boolean;
+  pode_upload: boolean;
+  uploads_ocultos: boolean;
+  modo?: ModoEntrega;
+  subtipo_online?: SubtipoEntregaOnline | null;
+  local_nome?: string | null;
+  endereco?: string | null;
+  horario?: string | null;
+  contactos?: string | null;
+  url_externa?: string | null;
+  email_institucional?: string | null;
+  instrucoes?: string | null;
+};
+
+export type ChecklistDocumentosResponse = {
+  exigencias: ReutilizavelExigencia[];
+  configurado: boolean;
+  pode_upload: boolean;
+  uploads_ocultos: boolean;
+  entrega: ChecklistEntregaInfo | null;
+};
+
 @Injectable()
 export class DocumentosService {
   constructor(
@@ -85,6 +112,8 @@ export class DocumentosService {
     private readonly candidaturaRepository: Repository<Candidatura>,
     @InjectRepository(TipoDocumento)
     private readonly tipoDocumentoRepository: Repository<TipoDocumento>,
+    @InjectRepository(ConfiguracaoEntregaDocumental)
+    private readonly entregaRepository: Repository<ConfiguracaoEntregaDocumental>,
     private readonly documentosContaService: DocumentosContaService,
     private readonly cronogramaService: CronogramaService,
     private readonly notificacoesService: NotificacoesService,
@@ -131,7 +160,7 @@ export class DocumentosService {
   private async loadCandidatura(id: number): Promise<Candidatura> {
     const candidatura = await this.candidaturaRepository.findOne({
       where: { id },
-      relations: { usuario: true },
+      relations: { usuario: true, oferta: { curso: true, campus: true } },
     });
     if (!candidatura) {
       throw new NotFoundException(`Candidatura ${id} não encontrada`);
@@ -503,12 +532,43 @@ export class DocumentosService {
   }
 
   /**
-   * REQ-2.6: per edital exigência, Conta match meta (or null) for same account.
+   * W6/REQ-1.6: resolve the entrega config for an edital matching the
+   * candidatura's campus+curso. Null when the edital has no delivery config.
+   */
+  private async resolveEntregaConfig(
+    candidatura: Candidatura,
+  ): Promise<ConfiguracaoEntregaDocumental | null> {
+    const rows = await this.entregaRepository.find({
+      where: { id_edital: candidatura.id_edital },
+      order: { id: 'ASC' },
+    });
+    if (!rows.length) return null;
+    const campus = Number(candidatura.oferta?.id_campus);
+    const curso = Number(candidatura.oferta?.id_curso);
+    if (campus > 0 && curso > 0) {
+      const exact = rows.find(
+        (r) => Number(r.id_campus) === campus && Number(r.id_curso) === curso,
+      );
+      if (exact) return exact;
+      const byCampus = rows.find((r) => Number(r.id_campus) === campus);
+      if (byCampus) return byCampus;
+      const byCurso = rows.find((r) => Number(r.id_curso) === curso);
+      if (byCurso) return byCurso;
+    }
+    return rows[0];
+  }
+
+  /**
+   * REQ-2.6/W26-06: DocsScreen checklist from W6 config.
+   * - TiposDocumento exigências (per edital, filtered by candidate cota).
+   * - Entrega config derived (configurado / pode_upload / uploads_ocultos).
+   * - Empty/unconfigured → honest `configurado: false` so the PWA never
+   *   paints the mock catalogue in the authenticated path.
    */
   async listReutilizaveis(
     idCandidatura: number,
     idUsuario: number,
-  ): Promise<{ exigencias: ReutilizavelExigencia[] }> {
+  ): Promise<ChecklistDocumentosResponse> {
     if (!idCandidatura || Number.isNaN(idCandidatura)) {
       throw new BadRequestException('candidatura é obrigatório');
     }
@@ -519,6 +579,20 @@ export class DocumentosService {
       where: { id_edital: candidatura.id_edital },
       order: { ordem: 'ASC', id: 'ASC' },
     });
+    // W6: exigências may be scoped to a cota; candidate sees only its own.
+    const cota = String(candidatura.tipo_vaga ?? '');
+    const tiposFiltrados = tipos.filter(
+      (t) => !t.tipo_cota || t.tipo_cota === cota,
+    );
+
+    const entrega = await this.resolveEntregaConfig(candidatura);
+    const configurado = entrega != null;
+    const podeUpload =
+      entrega != null &&
+      entrega.modo === ModoEntrega.ONLINE &&
+      entrega.subtipo_online === SubtipoEntregaOnline.UPLOAD_NATIVO_PWA;
+    const uploadsOcultos = entrega != null && entrega.modo === ModoEntrega.PRESENCIAL;
+
     const { documentos: contaDocs } =
       await this.documentosContaService.listForUser(idUsuario);
     const candidates = contaDocs.map((d) => ({
@@ -527,7 +601,7 @@ export class DocumentosService {
       tipo_nome: d.tipo_nome,
     }));
 
-    const exigencias: ReutilizavelExigencia[] = tipos.map((t) => {
+    const exigencias: ReutilizavelExigencia[] = tiposFiltrados.map((t) => {
       const hit = matchDocumentoConta(
         { id_tipo_base: t.id_tipo_base, nome: t.nome },
         candidates,
@@ -555,7 +629,28 @@ export class DocumentosService {
       };
     });
 
-    return { exigencias };
+    return {
+      exigencias,
+      configurado,
+      pode_upload: podeUpload,
+      uploads_ocultos: uploadsOcultos,
+      entrega: entrega
+        ? {
+            configurado,
+            pode_upload: podeUpload,
+            uploads_ocultos: uploadsOcultos,
+            modo: entrega.modo,
+            subtipo_online: entrega.subtipo_online,
+            local_nome: entrega.local_nome,
+            endereco: entrega.endereco,
+            horario: entrega.horario,
+            contactos: entrega.contactos,
+            url_externa: entrega.url_externa,
+            email_institucional: entrega.email_institucional,
+            instrucoes: entrega.instrucoes,
+          }
+        : null,
+    };
   }
 
   /**

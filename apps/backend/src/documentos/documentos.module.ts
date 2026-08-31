@@ -10,6 +10,7 @@ import { CronogramaModule } from '../cronograma/cronograma.module';
 import { TipoDocumento } from '../tipos-documento/entities/tipo-documento.entity';
 import { TiposDocumentoBaseModule } from '../tipos-documento-base/tipos-documento-base.module';
 import { NotificacoesModule } from '../notificacoes/notificacoes.module';
+import { ConfiguracaoEntregaDocumental } from '../entrega-documental/entities/configuracao-entrega-documental.entity';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { NotificacoesModule } from '../notificacoes/notificacoes.module';
       MotivoHomologacaoDocumento,
       Candidatura,
       TipoDocumento,
+      ConfiguracaoEntregaDocumental,
     ]),
     CronogramaModule,
     TiposDocumentoBaseModule,
