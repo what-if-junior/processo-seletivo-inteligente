@@ -29,6 +29,7 @@ import {
 import type { Request } from 'express';
 import { memoryStorage } from 'multer';
 import { Public } from '../auth/decorators/public.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { EditaisService } from './editais.service';
 import { CreateEditalDto } from './dto/create-edital.dto';
 import { UpdateEditalDto } from './dto/update-edital.dto';
@@ -40,6 +41,7 @@ export class EditaisController {
   constructor(private readonly editaisService: EditaisService) {}
 
   @Post()
+  @Roles('gestor')
   @ApiBearerAuth()
   @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
   @ApiOperation({
@@ -73,6 +75,7 @@ export class EditaisController {
   }
 
   @Get('gestao')
+  @Roles('gestor')
   @ApiBearerAuth()
   @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
   @ApiOperation({
@@ -90,6 +93,7 @@ export class EditaisController {
   }
 
   @Get('gestao/:id')
+  @Roles('gestor')
   @ApiBearerAuth()
   @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
   @ApiOperation({
@@ -100,6 +104,7 @@ export class EditaisController {
   }
 
   @Post(':id/arquivos')
+  @Roles('gestor')
   @ApiBearerAuth()
   @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
   @ApiConsumes('multipart/form-data')
@@ -135,6 +140,7 @@ export class EditaisController {
   }
 
   @Get(':id/arquivos')
+  @Roles('gestor')
   @ApiBearerAuth()
   @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
   @ApiOkResponse({ type: EditalArquivoMetaDto, isArray: true })
@@ -165,6 +171,7 @@ export class EditaisController {
   }
 
   @Get(':id/arquivos/:arquivoId')
+  @Roles('gestor')
   @ApiBearerAuth()
   @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
   @Header('Content-Type', 'application/pdf')
@@ -196,6 +203,7 @@ export class EditaisController {
   }
 
   @Patch(':id')
+  @Roles('gestor')
   @ApiBearerAuth()
   @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
   @ApiOperation({
@@ -215,6 +223,7 @@ export class EditaisController {
   }
 
   @Delete(':id')
+  @Roles('gestor')
   @ApiBearerAuth()
   @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
   @ApiOperation({ summary: 'Remove um edital (requer JWT)' })

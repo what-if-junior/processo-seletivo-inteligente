@@ -16,6 +16,7 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { Public } from '../auth/decorators/public.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { EntregaDocumentalService } from './entrega-documental.service';
 import { CreateEntregaDocumentalDto } from './dto/create-entrega-documental.dto';
 import { UpdateEntregaDocumentalDto } from './dto/update-entrega-documental.dto';
@@ -38,6 +39,7 @@ export class EntregaDocumentalController {
   }
 
   @Get('gestao')
+  @Roles('gestor')
   @ApiBearerAuth()
   @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
   @ApiOperation({
@@ -48,6 +50,7 @@ export class EntregaDocumentalController {
   }
 
   @Get('gestao/:id')
+  @Roles('gestor')
   @ApiBearerAuth()
   @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
   @ApiOperation({
@@ -61,6 +64,7 @@ export class EntregaDocumentalController {
   }
 
   @Post()
+  @Roles('gestor')
   @ApiBearerAuth()
   @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
   @ApiOperation({
@@ -87,6 +91,7 @@ export class EntregaDocumentalController {
   }
 
   @Patch(':id')
+  @Roles('gestor')
   @ApiBearerAuth()
   @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
   @ApiOperation({ summary: 'Atualiza configuração de entrega (JWT)' })
@@ -100,6 +105,7 @@ export class EntregaDocumentalController {
 
   @Delete(':id')
   @HttpCode(204)
+  @Roles('gestor')
   @ApiBearerAuth()
   @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
   @ApiOperation({ summary: 'Remove configuração de entrega (JWT)' })

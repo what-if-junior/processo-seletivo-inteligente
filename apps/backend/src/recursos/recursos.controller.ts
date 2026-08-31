@@ -6,6 +6,7 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { RecursosService } from './recursos.service';
+import { Roles } from '../auth/decorators/roles.decorator';
 
 @ApiTags('recursos')
 @ApiBearerAuth()
@@ -15,6 +16,7 @@ export class RecursosController {
   constructor(private readonly recursosService: RecursosService) {}
 
   @Get()
+  @Roles('gestor')
   @ApiOperation({
     summary: 'Lista recursos, opcionalmente de uma etapa (requer JWT)',
   })
@@ -26,6 +28,7 @@ export class RecursosController {
   }
 
   @Get(':id')
+  @Roles('gestor')
   @ApiOperation({
     summary: 'Detalha um recurso com etapa e gestor (requer JWT)',
   })

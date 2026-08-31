@@ -24,6 +24,7 @@ import type { Request } from 'express';
 import { memoryStorage } from 'multer';
 import { TipoContestacao } from '@repo/types';
 import { Public } from '../auth/decorators/public.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { ContestacoesService } from './contestacoes.service';
 import {
   PatchContestacaoStatusDto,
@@ -142,6 +143,7 @@ export class ContestacoesController {
 
   @Get()
   @ApiBearerAuth()
+  @Roles('gestor')
   @ApiOperation({ summary: 'Listagem admin (filtros edital/tipo/status)' })
   listAdmin(
     @Query('edital') edital?: string,
@@ -157,6 +159,7 @@ export class ContestacoesController {
 
   @Get(':id')
   @ApiBearerAuth()
+  @Roles('gestor')
   @ApiOperation({ summary: 'Detalhe + histórico' })
   findOne(@Req() req: Request, @Param('id', ParseIntPipe) id: number) {
     const uid = this.userId(req);
@@ -170,6 +173,7 @@ export class ContestacoesController {
 
   @Get(':id/anexo')
   @ApiBearerAuth()
+  @Roles('gestor')
   @ApiOperation({ summary: 'Download do anexo' })
   async getAnexo(
     @Req() req: Request,
@@ -189,6 +193,7 @@ export class ContestacoesController {
 
   @Patch(':id')
   @ApiBearerAuth()
+  @Roles('gestor')
   @ApiOperation({ summary: 'Alterar status (gestor)' })
   patchStatus(
     @Param('id', ParseIntPipe) id: number,
@@ -199,6 +204,7 @@ export class ContestacoesController {
 
   @Post(':id/responder')
   @ApiBearerAuth()
+  @Roles('gestor')
   @ApiOperation({
     summary: 'Resposta individual com histórico (W30; sem lote)',
   })

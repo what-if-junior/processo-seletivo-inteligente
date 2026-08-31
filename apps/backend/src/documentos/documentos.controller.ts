@@ -27,6 +27,7 @@ import {
 import type { Request } from 'express';
 import { memoryStorage } from 'multer';
 import { FaseDocumento } from '@repo/types';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { DocumentosService } from './documentos.service';
 import {
   DecidirDocumentoDto,
@@ -58,6 +59,7 @@ export class DocumentosController {
   }
 
   @Get('motivos')
+  @Roles('gestor')
   @ApiOperation({
     summary: 'Catálogo de motivos de homologação/rejeição (W27)',
   })
@@ -66,6 +68,7 @@ export class DocumentosController {
   }
 
   @Get('fila')
+  @Roles('gestor')
   @ApiOperation({
     summary:
       'Fila de homologação humana (filtros edital/status/fase); default em_analise',
@@ -234,6 +237,7 @@ export class DocumentosController {
   }
 
   @Patch(':id/decidir')
+  @Roles('gestor')
   @ApiOperation({
     summary: 'Homologar ou rejeitar com motivo de catálogo (humano)',
   })
@@ -245,6 +249,7 @@ export class DocumentosController {
   }
 
   @Post('decidir-lote')
+  @Roles('gestor')
   @ApiOperation({ summary: 'Decisão em lote (homologar/rejeitar)' })
   decidirLote(@Body() dto: DecidirLoteDto) {
     return this.documentosService.decidirLote(dto.ids ?? [], dto);

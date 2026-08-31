@@ -19,6 +19,7 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { NotificacoesService } from './notificacoes.service';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { CreateNotificacaoDto } from './dto/create-notificacao.dto';
 import { UpdatePreferenciaNotificacaoDto } from './dto/update-preferencia.dto';
 import {
@@ -76,6 +77,7 @@ export class NotificacoesController {
   // ─── Admin / gestao ────────────────────────────────────────────────────────
 
   @Get()
+  @Roles('gestor')
   @ApiQuery({ name: 'id_edital', required: false })
   @ApiOperation({ summary: 'Lista notificações (gestão JWT)' })
   listGestao(@Query('id_edital') idEdital?: string) {
@@ -89,6 +91,7 @@ export class NotificacoesController {
   }
 
   @Post()
+  @Roles('gestor')
   @ApiOperation({
     summary:
       'Cria e (opcionalmente) envia notificação com audiência edital/campus/status',
@@ -103,18 +106,21 @@ export class NotificacoesController {
   // ─── Lembretes ─────────────────────────────────────────────────────────────
 
   @Get('lembretes')
+  @Roles('gestor')
   @ApiOperation({ summary: 'Lista configuração de lembretes (JWT)' })
   listLembretes() {
     return this.notificacoesService.listLembretes();
   }
 
   @Post('lembretes')
+  @Roles('gestor')
   @ApiOperation({ summary: 'Cria lembrete (ex.: matrícula due) (JWT)' })
   createLembrete(@Body() dto: CreateLembreteDto) {
     return this.notificacoesService.createLembrete(dto);
   }
 
   @Post('lembretes/processar')
+  @Roles('gestor')
   @ApiOperation({
     summary:
       'Dispara lembretes vencidos (matrícula approaching, etc.) — JWT admin',
@@ -124,6 +130,7 @@ export class NotificacoesController {
   }
 
   @Patch('lembretes/:id')
+  @Roles('gestor')
   @ApiOperation({ summary: 'Atualiza lembrete (JWT)' })
   updateLembrete(
     @Param('id', ParseIntPipe) id: number,
@@ -134,6 +141,7 @@ export class NotificacoesController {
 
   @Delete('lembretes/:id')
   @HttpCode(204)
+  @Roles('gestor')
   @ApiOperation({ summary: 'Remove lembrete (JWT)' })
   removeLembrete(@Param('id', ParseIntPipe) id: number) {
     return this.notificacoesService.removeLembrete(id);

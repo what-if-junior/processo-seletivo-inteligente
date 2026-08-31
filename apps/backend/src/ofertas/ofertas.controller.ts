@@ -19,6 +19,7 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { Public } from '../auth/decorators/public.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { OfertasService } from './ofertas.service';
 import { CreateOfertaDto } from './dto/create-oferta.dto';
 import { UpdateOfertaDto } from './dto/update-oferta.dto';
@@ -32,6 +33,7 @@ export class OfertasController {
   constructor(private readonly ofertasService: OfertasService) {}
 
   @Post()
+  @Roles('gestor')
   @ApiBearerAuth()
   @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
   @ApiOperation({
@@ -75,6 +77,7 @@ export class OfertasController {
   }
 
   @Get('gestao')
+  @Roles('gestor')
   @ApiBearerAuth()
   @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
   @ApiOperation({
@@ -115,6 +118,7 @@ export class OfertasController {
   }
 
   @Get('gestao/:id')
+  @Roles('gestor')
   @ApiBearerAuth()
   @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
   @ApiOperation({
@@ -126,6 +130,7 @@ export class OfertasController {
   }
 
   @Get(':id/candidaturas')
+  @Roles('gestor')
   @ApiBearerAuth()
   @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
   @ApiOperation({
@@ -136,6 +141,7 @@ export class OfertasController {
   }
 
   @Put(':id/cotas')
+  @Roles('gestor')
   @ApiBearerAuth()
   @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
   @ApiOperation({
@@ -150,6 +156,7 @@ export class OfertasController {
   }
 
   @Post(':id/cotas')
+  @Roles('gestor')
   @ApiBearerAuth()
   @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
   @ApiOperation({ summary: 'Adiciona uma cota à oferta (JWT)' })
@@ -158,6 +165,7 @@ export class OfertasController {
   }
 
   @Patch(':id/cotas/:cotaId')
+  @Roles('gestor')
   @ApiBearerAuth()
   @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
   @ApiOperation({ summary: 'Atualiza uma cota da oferta (JWT)' })
@@ -170,6 +178,7 @@ export class OfertasController {
   }
 
   @Delete(':id/cotas/:cotaId')
+  @Roles('gestor')
   @ApiBearerAuth()
   @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
   @ApiOperation({ summary: 'Remove uma cota da oferta (JWT)' })
@@ -191,6 +200,7 @@ export class OfertasController {
   }
 
   @Patch(':id')
+  @Roles('gestor')
   @ApiBearerAuth()
   @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
   @ApiOperation({ summary: 'Atualiza uma oferta (requer JWT)' })
@@ -202,6 +212,7 @@ export class OfertasController {
   }
 
   @Delete(':id')
+  @Roles('gestor')
   @ApiBearerAuth()
   @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
   @ApiOperation({ summary: 'Remove uma oferta (requer JWT)' })

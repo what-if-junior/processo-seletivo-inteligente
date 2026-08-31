@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  ForbiddenException,
   Get,
   Header,
   Param,
@@ -8,6 +9,7 @@ import {
   Patch,
   Post,
   Query,
+  Req,
   StreamableFile,
 } from '@nestjs/common';
 import {
@@ -17,7 +19,9 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import type { Request } from 'express';
 import { CandidaturasService } from './candidaturas.service';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { CreateCandidaturaDto } from './dto/create-candidatura.dto';
 import { UpdateAdminCandidaturaDto } from './dto/update-admin-candidatura.dto';
 import { UpdateTipoVagaDto } from '../socioeconomico/dto/socioeconomico.dto';
@@ -49,20 +53,34 @@ export class CandidaturasController {
       'Lista candidaturas; opcional ?usuario= ou ?protocolo= (requer JWT)',
   })
   async findAll(
+    @Req() req: Request,
     @Query('usuario') usuario?: string,
     @Query('protocolo') protocolo?: string,
   ) {
+    const role = (req.user as { role?: string } | undefined)?.role;
+    const isGestor = role === 'gestor';
     if (protocolo != null && protocolo !== '') {
+      if (!isGestor) {
+        throw new ForbiddenException(
+          'Acesso restrito a gestores (papel não autorizado)',
+        );
+      }
       const found = await this.candidaturasService.findByProtocolo(protocolo);
       return found ? [found] : [];
     }
     if (usuario != null && usuario !== '') {
       return this.candidaturasService.findByUsuario(Number(usuario));
     }
+    if (!isGestor) {
+      throw new ForbiddenException(
+        'Acesso restrito a gestores (papel não autorizado)',
+      );
+    }
     return this.candidaturasService.findAll();
   }
 
   @Get(':id/socioeconomico')
+  @Roles('gestor')
   @ApiOperation({
     summary:
       'Resposta socioeconómica ativa + arquivadas (REQ-2.3); incompleto sob regra B',
@@ -89,6 +107,7 @@ export class CandidaturasController {
   }
 
   @Get(':id')
+  @Roles('gestor')
   @ApiOperation({
     summary:
       'Detalha uma candidatura com documentos, etapas, recursos e socio (requer JWT)',
@@ -128,6 +147,7 @@ export class CandidaturasController {
   }
 
   @Patch(':id')
+  @Roles('gestor')
   @ApiOperation({
     summary:
       'Atualiza status e/ou observações administrativas (W27 homologação)',

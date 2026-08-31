@@ -22,6 +22,7 @@ import {
 } from '@nestjs/swagger';
 import { memoryStorage } from 'multer';
 import { BACKEND_UPLOAD_MAX_BYTES } from '@repo/types';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { TiposDocumentoBaseService } from './tipos-documento-base.service';
 import { CreateTipoDocumentoBaseDto } from './dto/create-tipo-documento-base.dto';
 import { UpdateTipoDocumentoBaseDto } from './dto/update-tipo-documento-base.dto';
@@ -49,12 +50,14 @@ export class TiposDocumentoBaseController {
   }
 
   @Post()
+  @Roles('gestor')
   @ApiOperation({ summary: 'Cria tipo base da conta (JWT)' })
   create(@Body() dto: CreateTipoDocumentoBaseDto) {
     return this.service.create(dto);
   }
 
   @Patch(':id')
+  @Roles('gestor')
   @ApiOperation({ summary: 'Atualiza tipo base da conta (JWT)' })
   update(
     @Param('id', ParseIntPipe) id: number,
@@ -65,6 +68,7 @@ export class TiposDocumentoBaseController {
 
   @Delete(':id')
   @HttpCode(200)
+  @Roles('gestor')
   @ApiOperation({
     summary:
       'Remove tipo base (JWT). 409 se vinculado a editais ou DocumentosConta.',
@@ -74,6 +78,7 @@ export class TiposDocumentoBaseController {
   }
 
   @Post(':id/template')
+  @Roles('gestor')
   @ApiConsumes('multipart/form-data')
   @ApiBody({
     schema: {
@@ -103,6 +108,7 @@ export class TiposDocumentoBaseController {
   }
 
   @Get(':id/template')
+  @Roles('gestor')
   @ApiOperation({ summary: 'Baixa template do tipo base (JWT)' })
   async downloadTemplate(@Param('id', ParseIntPipe) id: number) {
     const { file } = await this.service.downloadTemplate(id);

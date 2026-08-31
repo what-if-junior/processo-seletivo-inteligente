@@ -24,6 +24,7 @@ import {
 import { memoryStorage } from 'multer';
 import { BACKEND_UPLOAD_MAX_BYTES } from '@repo/types';
 import { Public } from '../auth/decorators/public.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { TiposDocumentoService } from './tipos-documento.service';
 import { CreateTipoDocumentoDto } from './dto/create-tipo-documento.dto';
 import { UpdateTipoDocumentoDto } from './dto/update-tipo-documento.dto';
@@ -45,6 +46,7 @@ export class TiposDocumentoController {
   }
 
   @Get('gestao')
+  @Roles('gestor')
   @ApiBearerAuth()
   @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
   @ApiOperation({
@@ -55,6 +57,7 @@ export class TiposDocumentoController {
   }
 
   @Get('gestao/:id')
+  @Roles('gestor')
   @ApiBearerAuth()
   @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
   @ApiOperation({ summary: 'Detalhe de tipo com campos e warnings (JWT)' })
@@ -66,6 +69,7 @@ export class TiposDocumentoController {
   }
 
   @Post()
+  @Roles('gestor')
   @ApiBearerAuth()
   @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
   @ApiOperation({ summary: 'Cria tipo de documento no edital (JWT)' })
@@ -89,6 +93,7 @@ export class TiposDocumentoController {
   }
 
   @Patch(':id')
+  @Roles('gestor')
   @ApiBearerAuth()
   @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
   @ApiOperation({
@@ -105,6 +110,7 @@ export class TiposDocumentoController {
 
   @Delete(':id')
   @HttpCode(200)
+  @Roles('gestor')
   @ApiBearerAuth()
   @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
   @ApiOperation({
@@ -118,6 +124,7 @@ export class TiposDocumentoController {
   }
 
   @Put(':id/campos')
+  @Roles('gestor')
   @ApiBearerAuth()
   @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
   @ApiOperation({
@@ -132,6 +139,7 @@ export class TiposDocumentoController {
   }
 
   @Post(':id/template')
+  @Roles('gestor')
   @ApiBearerAuth()
   @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
   @ApiConsumes('multipart/form-data')
@@ -164,6 +172,7 @@ export class TiposDocumentoController {
   }
 
   @Get(':id/template')
+  @Roles('gestor')
   @ApiBearerAuth()
   @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
   @ApiOperation({ summary: 'Baixa template do tipo (JWT)' })

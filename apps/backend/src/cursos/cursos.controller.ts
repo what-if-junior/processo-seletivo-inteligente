@@ -18,6 +18,7 @@ import { CursosService } from './cursos.service';
 import { CreateCursoDto } from './dto/create-curso.dto';
 import { UpdateCursoDto } from './dto/update-curso.dto';
 import { Public } from '../auth/decorators/public.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
 
 @ApiTags('cursos')
 @Controller('cursos')
@@ -25,6 +26,7 @@ export class CursosController {
   constructor(private readonly cursosService: CursosService) {}
 
   @Post()
+  @Roles('gestor')
   @ApiBearerAuth()
   @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
   @ApiOperation({ summary: 'Cria um curso no catálogo (requer JWT)' })
@@ -47,6 +49,7 @@ export class CursosController {
   }
 
   @Patch(':id')
+  @Roles('gestor')
   @ApiBearerAuth()
   @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
   @ApiOperation({ summary: 'Atualiza um curso do catálogo (requer JWT)' })
@@ -58,6 +61,7 @@ export class CursosController {
   }
 
   @Delete(':id')
+  @Roles('gestor')
   @ApiBearerAuth()
   @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
   @ApiOperation({ summary: 'Remove um curso do catálogo (requer JWT)' })

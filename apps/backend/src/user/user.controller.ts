@@ -19,6 +19,7 @@ import { UserService } from './user.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { Public } from '../auth/decorators/public.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
 
 @ApiTags('user')
 @Controller('user')
@@ -35,6 +36,7 @@ export class UserController {
   }
 
   @Get()
+  @Roles('gestor')
   @ApiBearerAuth()
   @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
   @ApiOperation({ summary: 'Lista usuários com endereços (requer JWT)' })
@@ -62,6 +64,7 @@ export class UserController {
   }
 
   @Patch(':id/ativo')
+  @Roles('gestor')
   @ApiBearerAuth()
   @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
   @ApiBody({

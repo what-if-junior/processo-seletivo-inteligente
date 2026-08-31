@@ -18,6 +18,7 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { Public } from '../auth/decorators/public.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { CronogramaService } from './cronograma.service';
 import { CreateCronogramaEtapaDto } from './dto/create-cronograma-etapa.dto';
 import { UpdateCronogramaEtapaDto } from './dto/update-cronograma-etapa.dto';
@@ -39,6 +40,7 @@ export class CronogramaController {
   }
 
   @Get('gestao')
+  @Roles('gestor')
   @ApiBearerAuth()
   @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
   @ApiOperation({
@@ -49,6 +51,7 @@ export class CronogramaController {
   }
 
   @Get('gestao/:id')
+  @Roles('gestor')
   @ApiBearerAuth()
   @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
   @ApiOperation({ summary: 'Detalhe de etapa com warnings (JWT)' })
@@ -60,6 +63,7 @@ export class CronogramaController {
   }
 
   @Put('ordem')
+  @Roles('gestor')
   @ApiBearerAuth()
   @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
   @ApiOperation({ summary: 'Reordena etapas do cronograma (JWT)' })
@@ -71,6 +75,7 @@ export class CronogramaController {
   }
 
   @Post()
+  @Roles('gestor')
   @ApiBearerAuth()
   @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
   @ApiOperation({ summary: 'Cria etapa no cronograma do edital (JWT)' })
@@ -94,6 +99,7 @@ export class CronogramaController {
   }
 
   @Patch(':id')
+  @Roles('gestor')
   @ApiBearerAuth()
   @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
   @ApiOperation({ summary: 'Atualiza etapa do cronograma (JWT)' })
@@ -107,6 +113,7 @@ export class CronogramaController {
 
   @Delete(':id')
   @HttpCode(204)
+  @Roles('gestor')
   @ApiBearerAuth()
   @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
   @ApiOperation({ summary: 'Remove etapa do cronograma (JWT)' })

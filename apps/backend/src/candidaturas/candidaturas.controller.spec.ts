@@ -9,6 +9,7 @@ describe('CandidaturasController', () => {
   const service = {
     findAll: jest.fn(),
     findByUsuario: jest.fn(),
+    findByProtocolo: jest.fn(),
     findOne: jest.fn(),
     create: jest.fn(),
     cancel: jest.fn(),
@@ -30,10 +31,36 @@ describe('CandidaturasController', () => {
     controller = module.get(CandidaturasController);
   });
 
-  it('lists by usuario query', async () => {
+  it('lists by usuario query (candidate JWT)', async () => {
     service.findByUsuario.mockResolvedValue([]);
-    await controller.findAll('3');
+    await controller.findAll(
+      { user: { sub: 1, role: 'candidato' } } as never,
+      '3',
+    );
     expect(service.findByUsuario).toHaveBeenCalledWith(3);
+  });
+
+  it('forbids unfiltered list for candidate JWT', async () => {
+    await expect(
+      controller.findAll({ user: { sub: 1, role: 'candidato' } } as never),
+    ).rejects.toThrow('Acesso restrito a gestores');
+    expect(service.findAll).not.toHaveBeenCalled();
+  });
+
+  it('allows unfiltered list for gestor JWT', async () => {
+    service.findAll.mockResolvedValue([]);
+    await controller.findAll({ user: { sub: 2, role: 'gestor' } } as never);
+    expect(service.findAll).toHaveBeenCalled();
+  });
+
+  it('allows protocolo query for gestor JWT', async () => {
+    service.findByProtocolo.mockResolvedValue(null);
+    await controller.findAll(
+      { user: { sub: 2, role: 'gestor' } } as never,
+      undefined,
+      'PSI-2026-0001',
+    );
+    expect(service.findByProtocolo).toHaveBeenCalledWith('PSI-2026-0001');
   });
 
   it('delegates create', async () => {
