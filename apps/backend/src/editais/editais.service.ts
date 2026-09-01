@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { TermosModo } from '@repo/types';
+import { AssistantOperacao, TermosModo } from '@repo/types';
 import { Edital } from './entities/edital.entity';
 import { EditalArquivo } from './entities/edital-arquivo.entity';
 import { CreateEditalDto } from './dto/create-edital.dto';
@@ -20,6 +20,7 @@ import {
 import { TiposDocumentoBaseService } from '../tipos-documento-base/tipos-documento-base.service';
 import { CarrosselService } from '../carrossel/carrossel.service';
 import { NotificacoesService } from '../notificacoes/notificacoes.service';
+import { AssistantService } from '../assistant/assistant.service';
 
 const PDF_MAGIC = Buffer.from('%PDF');
 const MAX_PDF_BYTES = 15 * 1024 * 1024;
@@ -43,6 +44,7 @@ export class EditaisService {
     private readonly carrosselService: CarrosselService,
     @Inject(forwardRef(() => NotificacoesService))
     private readonly notificacoesService: NotificacoesService,
+    private readonly assistantService: AssistantService,
   ) {}
 
   async create(
@@ -179,6 +181,12 @@ export class EditaisService {
       await this.carrosselService.syncAutoForEdital(saved);
     }
 
+    // REQ-7.x: enfileira sincronização RAG quando flags de publicação ou termos mudam.
+    const termosChanged = dto.termos_valor !== undefined;
+    if (flagsChanged || termosChanged) {
+      await this.enqueueIngestaoBestEffort(id, 'update');
+    }
+
     let notificacao: Awaited<
       ReturnType<NotificacoesService['notifyCohortChange']>
     > = null;
@@ -223,6 +231,8 @@ export class EditaisService {
     if (result.affected === 0) {
       throw new NotFoundException(`Edital com id ${id} não encontrado`);
     }
+    // REQ-7.x: enfileira remoção do índice RAG (best-effort).
+    await this.enqueueIngestaoBestEffort(id, 'delete');
   }
 
   async uploadArquivo(
@@ -249,6 +259,8 @@ export class EditaisService {
       edital: { id: editalId } as Edital,
     });
     const saved = await this.arquivoRepository.save(entity);
+    // REQ-7.x: novo PDF vigente → enfileira ingestão no índice RAG (best-effort).
+    await this.enqueueIngestaoBestEffort(editalId, 'insert');
     const metas = await this.listArquivos(editalId);
     const meta = metas.find((m) => m.id === saved.id);
     if (!meta) {
@@ -332,6 +344,24 @@ export class EditaisService {
     }
 
     return { meta, buffer: row.arquivo };
+  }
+
+  /**
+   * Enfileira a ingestão RAG sem nunca quebrar a operação do edital:
+   * falha na fila é apenas logada (best-effort).
+   */
+  private async enqueueIngestaoBestEffort(
+    editalId: number,
+    operacao: AssistantOperacao,
+  ): Promise<void> {
+    try {
+      await this.assistantService.enqueueIngestao(editalId, operacao);
+    } catch (err) {
+      console.warn(
+        `[assistant] falha ao enfileirar ingestão edital=${editalId} op=${operacao}`,
+        err,
+      );
+    }
   }
 
   private assertPdfBuffer(buffer: Buffer, mimetype?: string) {

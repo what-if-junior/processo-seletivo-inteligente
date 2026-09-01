@@ -8,6 +8,7 @@ import { EditalArquivo } from './entities/edital-arquivo.entity';
 import { TiposDocumentoBaseService } from '../tipos-documento-base/tipos-documento-base.service';
 import { CarrosselService } from '../carrossel/carrossel.service';
 import { NotificacoesService } from '../notificacoes/notificacoes.service';
+import { AssistantService } from '../assistant/assistant.service';
 
 describe('EditaisService', () => {
   let service: EditaisService;
@@ -85,6 +86,10 @@ describe('EditaisService', () => {
         },
         { provide: CarrosselService, useValue: carrosselService },
         { provide: NotificacoesService, useValue: notificacoesService },
+        {
+          provide: AssistantService,
+          useValue: { enqueueIngestao: jest.fn().mockResolvedValue({ id: 1 }) },
+        },
       ],
     }).compile();
 
