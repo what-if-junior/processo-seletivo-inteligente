@@ -56,7 +56,10 @@ describe("CandidateApp push preference toggle (W31-09)", () => {
   it("renders push toggle disabled with helper text when push unsupported", async () => {
     await openPreferenciasAvisos();
 
-    const pushRow = screen.getByText("Silenciar push").closest("div");
+    const pushRow = screen
+      .getByText("Silenciar push")
+      .closest("div")
+      ?.parentElement;
     expect(pushRow).not.toBeNull();
     const checkbox = within(pushRow as HTMLElement).getByRole("checkbox");
     expect(checkbox).toBeDisabled();
@@ -68,10 +71,14 @@ describe("CandidateApp push preference toggle (W31-09)", () => {
   it("email and oficiais toggles remain enabled", async () => {
     await openPreferenciasAvisos();
 
-    const emailRow = screen.getByText("Silenciar e-mail").closest("div");
+    const emailRow = screen
+      .getByText("Silenciar e-mail")
+      .closest("div")
+      ?.parentElement;
     const oficiaisRow = screen
       .getByText("Silenciar leitura de avisos oficiais")
-      .closest("div");
+      .closest("div")
+      ?.parentElement;
     expect(
       within(emailRow as HTMLElement).getByRole("checkbox"),
     ).not.toBeDisabled();
