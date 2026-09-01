@@ -10,6 +10,7 @@ import {
   TipoLembreteNotificacao,
 } from '@repo/types';
 import { NotificacoesService } from './notificacoes.service';
+import { PushService } from './push.service';
 import { Notificacao } from './entities/notificacao.entity';
 import { NotificacaoLeitura } from './entities/notificacao-leitura.entity';
 import { PreferenciaNotificacao } from './entities/preferencia-notificacao.entity';
@@ -137,6 +138,12 @@ describe('NotificacoesService', () => {
         {
           provide: getRepositoryToken(LembreteNotificacao),
           useValue: lembreteRepo,
+        },
+        {
+          provide: PushService,
+          useValue: {
+            sendToUser: jest.fn(async () => ({ enviadas: 0 })),
+          },
         },
         { provide: getRepositoryToken(LembreteDisparo), useValue: disparoRepo },
         { provide: getRepositoryToken(Candidatura), useValue: candidaturaRepo },

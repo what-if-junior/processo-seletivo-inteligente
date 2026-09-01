@@ -56,6 +56,10 @@ RUN npm run build -w admin-web
 FROM types-build AS candidate-app-build
 ARG NEXT_PUBLIC_API_URL=http://localhost:5005
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+# W31-09: chave pública VAPID inlinada no bundle (safe). Sem ela o push fica
+# desativado no navegador (fail-closed).
+ARG NEXT_PUBLIC_VAPID_PUBLIC_KEY=
+ENV NEXT_PUBLIC_VAPID_PUBLIC_KEY=$NEXT_PUBLIC_VAPID_PUBLIC_KEY
 ENV BACKEND_SERVICE_URL=http://backend:5005
 COPY apps/candidate-app ./apps/candidate-app
 RUN npm run build -w candidate-app

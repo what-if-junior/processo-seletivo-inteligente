@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -19,6 +20,7 @@ import { PreferenciaNotificacao } from './entities/preferencia-notificacao.entit
 import { NotificacaoEntrega } from './entities/notificacao-entrega.entity';
 import { LembreteNotificacao } from './entities/lembrete-notificacao.entity';
 import { LembreteDisparo } from './entities/lembrete-disparo.entity';
+import { PushService } from './push.service';
 import { Candidatura } from '../candidaturas/entities/candidatura.entity';
 import { User } from '../user/entities/user.entity';
 import { CronogramaEtapa } from '../cronograma/entities/cronograma-etapa.entity';
@@ -45,7 +47,7 @@ export type NotifyUserInput = {
   id_edital?: number | null;
   filtro_status?: string | null;
   id_gestor?: number | null;
-  canais?: Array<'pwa' | 'email'>;
+  canais?: Array<'pwa' | 'email' | 'push'>;
   /** Treat as official (respect silenciar_oficiais). Default true for cronograma. */
   oficial?: boolean;
 };
@@ -56,6 +58,7 @@ export type DispatchResult = {
   leituras_criadas: number;
   entregas_email: number;
   email_adiados: number;
+  push_enviadas: number;
   omitidos_preferencia: number;
 };
 
@@ -75,6 +78,8 @@ export type CandidateNotificacaoDto = {
 
 @Injectable()
 export class NotificacoesService {
+  private readonly logger = new Logger(NotificacoesService.name);
+
   constructor(
     @InjectRepository(Notificacao)
     private readonly notifRepo: Repository<Notificacao>,
@@ -96,11 +101,12 @@ export class NotificacoesService {
     private readonly etapaRepo: Repository<CronogramaEtapa>,
     @InjectRepository(Edital)
     private readonly editalRepo: Repository<Edital>,
+    private readonly pushService: PushService,
   ) {}
 
-  /** SMTP not wired in MVP — email intents are durable with adiado_smtp. */
+  /** W31-08: delivery real via n8n webhook. Sem `N8N_EMAIL_ENDPOINT`, intents ficam adiadas. */
   private smtpAvailable(): boolean {
-    return Boolean(process.env.SMTP_HOST?.trim());
+    return Boolean(process.env.N8N_EMAIL_ENDPOINT?.trim());
   }
 
   async getOrCreatePreferencias(
@@ -214,6 +220,7 @@ export class NotificacoesService {
         leituras_criadas: 0,
         entregas_email: 0,
         email_adiados: 0,
+        push_enviadas: 0,
         omitidos_preferencia: 0,
       };
     }
@@ -300,17 +307,18 @@ export class NotificacoesService {
   }
 
   private normalizeCanais(
-    canais?: string[] | Array<'pwa' | 'email'>,
-  ): Array<'pwa' | 'email'> {
-    if (!canais?.length) return ['pwa', 'email'];
-    const out = new Set<'pwa' | 'email'>();
+    canais?: string[] | Array<'pwa' | 'email' | 'push'>,
+  ): Array<'pwa' | 'email' | 'push'> {
+    if (!canais?.length) return ['pwa', 'email', 'push'];
+    const out = new Set<'pwa' | 'email' | 'push'>();
     for (const c of canais) {
       const n = String(c).toLowerCase();
       if (n === 'pwa' || n === 'app') out.add('pwa');
       else if (n === 'email' || n === 'e-mail') out.add('email');
+      else if (n === 'push' || n === 'web-push') out.add('push');
     }
     if (out.size === 0) {
-      throw new BadRequestException('canais deve incluir pwa e/ou email');
+      throw new BadRequestException('canais deve incluir pwa, email e/ou push');
     }
     return [...out];
   }
@@ -318,11 +326,15 @@ export class NotificacoesService {
   private async dispatchToUsers(
     notificacao: Notificacao,
     userIds: number[],
-    opts: { canais: Array<'pwa' | 'email'>; oficial: boolean },
+    opts: {
+      canais: Array<'pwa' | 'email' | 'push'>;
+      oficial: boolean;
+    },
   ): Promise<DispatchResult> {
     let leituras = 0;
     let entregasEmail = 0;
     let emailAdiados = 0;
+    let pushEnviadas = 0;
     let omitidos = 0;
 
     const unique = [...new Set(userIds)];
@@ -404,12 +416,12 @@ export class NotificacoesService {
               canal: CanalNotificacao.EMAIL,
               status: StatusEntregaNotificacao.ADIADO_SMTP,
               destino: user?.email ?? null,
-              detalhe: 'SMTP_HOST ausente — intent gravado; envio adiado',
+              detalhe: 'N8N_EMAIL_ENDPOINT ausente — intent gravado; envio adiado',
               processado_em: new Date(),
             }),
           );
         } else {
-          // Future: real nodemailer send. Mark pendente for worker.
+          // Worker (EmailWorkerService) drena via POST n8n_email_endpoint.
           await this.entregaRepo.save(
             this.entregaRepo.create({
               id_notificacao: notificacao.id,
@@ -417,8 +429,29 @@ export class NotificacoesService {
               canal: CanalNotificacao.EMAIL,
               status: StatusEntregaNotificacao.PENDENTE,
               destino: user?.email ?? null,
-              detalhe: 'queued for SMTP worker',
+              detalhe: 'na fila do worker n8n (N8N_EMAIL_ENDPOINT)',
             }),
+          );
+        }
+      }
+
+      // W31-09 — push (fail-closed: sem VAPID envia 0 e nunca lança).
+      if (opts.canais.includes('push')) {
+        try {
+          const res = await this.pushService.sendToUser(
+            idUsuario,
+            {
+              titulo: notificacao.titulo,
+              corpo: notificacao.corpo,
+              deep_link: notificacao.deep_link,
+            },
+            notificacao.id,
+          );
+          pushEnviadas += res.enviadas;
+        } catch (err) {
+          // Nunca quebra o dispatch por causa de push.
+          this.logger.error?.(
+            `push falhou no dispatch (user ${idUsuario}): ${(err as Error).message}`,
           );
         }
       }
@@ -435,6 +468,7 @@ export class NotificacoesService {
       leituras_criadas: leituras,
       entregas_email: entregasEmail,
       email_adiados: emailAdiados,
+      push_enviadas: pushEnviadas,
       omitidos_preferencia: omitidos,
     };
   }

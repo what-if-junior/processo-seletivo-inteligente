@@ -6,12 +6,15 @@ import { PreferenciaNotificacao } from './entities/preferencia-notificacao.entit
 import { NotificacaoEntrega } from './entities/notificacao-entrega.entity';
 import { LembreteNotificacao } from './entities/lembrete-notificacao.entity';
 import { LembreteDisparo } from './entities/lembrete-disparo.entity';
+import { PushSubscription } from './entities/push-subscription.entity';
 import { Candidatura } from '../candidaturas/entities/candidatura.entity';
 import { User } from '../user/entities/user.entity';
 import { CronogramaEtapa } from '../cronograma/entities/cronograma-etapa.entity';
 import { Edital } from '../editais/entities/edital.entity';
 import { NotificacoesService } from './notificacoes.service';
 import { NotificacoesController } from './notificacoes.controller';
+import { PushService } from './push.service';
+import { EmailWorkerService } from './email-worker.service';
 
 @Module({
   imports: [
@@ -22,6 +25,7 @@ import { NotificacoesController } from './notificacoes.controller';
       NotificacaoEntrega,
       LembreteNotificacao,
       LembreteDisparo,
+      PushSubscription,
       Candidatura,
       User,
       CronogramaEtapa,
@@ -29,7 +33,7 @@ import { NotificacoesController } from './notificacoes.controller';
     ]),
   ],
   controllers: [NotificacoesController],
-  providers: [NotificacoesService],
-  exports: [NotificacoesService],
+  providers: [NotificacoesService, PushService, EmailWorkerService],
+  exports: [NotificacoesService, PushService],
 })
 export class NotificacoesModule {}

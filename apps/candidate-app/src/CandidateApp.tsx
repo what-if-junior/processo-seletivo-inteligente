@@ -51,6 +51,12 @@ import {
   type PreferenciaAvisos,
 } from "./lib/notificacoes-api"
 import {
+  isPushSupported,
+  requestPushSubscription,
+  unsubscribePush,
+  getVapidPublicKey,
+} from "./lib/push"
+import {
   deleteDocumentoConta,
   fetchDocumentosConta,
   fetchTiposBaseAtivos,
@@ -2893,6 +2899,10 @@ function PreferenciasAvisosScreen({ onBack }: { onBack: () => void }) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const useMock = shouldUseMocks() || !canFetchNotificacoes()
+  // W31-09: push só é oferecido quando o navegador suporta e há VAPID no build.
+  const [pushSupported] = useState(
+    () => !useMock && isPushSupported() && Boolean(getVapidPublicKey()),
+  )
 
   useEffect(() => {
     if (useMock) {
@@ -2921,6 +2931,22 @@ function PreferenciasAvisosScreen({ onBack }: { onBack: () => void }) {
     if (useMock) return
     setSaving(true)
     try {
+      // W31-09: ligar push também pede permissão e assina o dispositivo.
+      if (key === "silenciar_push" && next.silenciar_push === false) {
+        if (!pushSupported) throw new Error("Notificações push indisponíveis neste dispositivo")
+        const sub = await requestPushSubscription()
+        if (!sub) {
+          // Usuário negou permissão ou sem VAPID — reverta o toggle.
+          setPrefs(prefs)
+          setError("Permissão de notificação negada — ative nas configurações do navegador")
+          return
+        }
+      }
+      // Desligar push remove a assinatura local + no backend.
+      if (key === "silenciar_push" && next.silenciar_push === true) {
+        await unsubscribePush()
+      }
+
       const saved = await updatePreferenciasAvisos({ [key]: next[key] })
       setPrefs(saved)
       setError(null)
@@ -2932,6 +2958,16 @@ function PreferenciasAvisosScreen({ onBack }: { onBack: () => void }) {
     }
   }
 
+  const rows: Array<{
+    key: "silenciar_email" | "silenciar_push" | "silenciar_oficiais"
+    label: string
+    disabled?: boolean
+  }> = [
+    { key: "silenciar_email", label: "Silenciar e-mail" },
+    { key: "silenciar_push", label: "Silenciar push", disabled: !pushSupported },
+    { key: "silenciar_oficiais", label: "Silenciar leitura de avisos oficiais" },
+  ]
+
   return (
     <div>
       <BackHeader title="Preferência de Avisos" onBack={onBack} />
@@ -2941,26 +2977,27 @@ function PreferenciasAvisosScreen({ onBack }: { onBack: () => void }) {
         ) : (
           <>
             {error && <p className="text-sm text-red-600" role="alert">{error}</p>}
-            {(
-              [
-                ["silenciar_email", "Silenciar e-mail"],
-                ["silenciar_push", "Silenciar push"],
-                ["silenciar_oficiais", "Silenciar leitura de avisos oficiais"],
-              ] as const
-            ).map(([key, label]) => (
-              <label
+            {rows.map(({ key, label, disabled }) => (
+              <div
                 key={key}
-                className="flex items-center justify-between gap-3 bg-white border border-[#E4EBE6] rounded-2xl px-4 py-3"
+                className={`flex items-center justify-between gap-3 bg-white border border-[#E4EBE6] rounded-2xl px-4 py-3 ${disabled ? "opacity-60" : ""}`}
               >
-                <span className="text-sm font-semibold text-[#0D1E12]">{label}</span>
+                <div className="min-w-0">
+                  <span className="text-sm font-semibold text-[#0D1E12]">{label}</span>
+                  {disabled && key === "silenciar_push" && (
+                    <p className="text-xs text-[#4E6859]">
+                      Notificações push indisponíveis neste dispositivo
+                    </p>
+                  )}
+                </div>
                 <input
                   type="checkbox"
-                  className="h-5 w-5 accent-[#2A7B3E]"
+                  className="h-5 w-5 accent-[#2A7B3E] shrink-0"
                   checked={Boolean(prefs?.[key])}
-                  disabled={saving}
+                  disabled={saving || disabled}
                   onChange={() => { void toggle(key) }}
                 />
-              </label>
+              </div>
             ))}
             <p className="text-xs text-[#4E6859]">
               Avisos oficiais incluem alterações de cronograma e comunicados do processo.

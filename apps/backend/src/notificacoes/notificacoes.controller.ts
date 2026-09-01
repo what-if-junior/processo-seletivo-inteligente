@@ -19,9 +19,12 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { NotificacoesService } from './notificacoes.service';
+import { PushService } from './push.service';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CreateNotificacaoDto } from './dto/create-notificacao.dto';
 import { UpdatePreferenciaNotificacaoDto } from './dto/update-preferencia.dto';
+import { SubscribePushDto } from './dto/subscribe-push.dto';
+import { UnsubscribePushDto } from './dto/unsubscribe-push.dto';
 import {
   CreateLembreteDto,
   UpdateLembreteDto,
@@ -34,7 +37,10 @@ type AuthUser = { sub: number; email?: string };
 @ApiBearerAuth()
 @ApiUnauthorizedResponse({ description: 'JWT ausente ou inválido' })
 export class NotificacoesController {
-  constructor(private readonly notificacoesService: NotificacoesService) {}
+  constructor(
+    private readonly notificacoesService: NotificacoesService,
+    private readonly pushService: PushService,
+  ) {}
 
   // ─── Candidate ─────────────────────────────────────────────────────────────
 
@@ -72,6 +78,40 @@ export class NotificacoesController {
     @Body() dto: UpdatePreferenciaNotificacaoDto,
   ) {
     return this.notificacoesService.updatePreferencias(req.user.sub, dto);
+  }
+
+  // ─── Web Push (W31-09) ─────────────────────────────────────────────────────
+
+  @Post('push/subscribe')
+  @ApiOperation({
+    summary: 'Registra assinatura de Web Push do candidato (JWT)',
+  })
+  subscribePush(
+    @Req() req: { user: AuthUser },
+    @Body() dto: SubscribePushDto,
+  ) {
+    return this.pushService.subscribe(req.user.sub, dto);
+  }
+
+  @Post('push/unsubscribe')
+  @HttpCode(204)
+  @ApiOperation({ summary: 'Remove assinatura de Web Push (JWT)' })
+  async unsubscribePush(
+    @Req() req: { user: AuthUser },
+    @Body() dto: UnsubscribePushDto,
+  ) {
+    await this.pushService.unsubscribe(req.user.sub, dto.endpoint);
+  }
+
+  @Get('push/status')
+  @ApiOperation({
+    summary: 'Status do push (ativo + nº de assinaturas) para a PWA (JWT)',
+  })
+  async pushStatus(@Req() req: { user: AuthUser }) {
+    return {
+      ativo: this.pushService.isEnabled(),
+      assinaturas: await this.pushService.countForUser(req.user.sub),
+    };
   }
 
   // ─── Admin / gestao ────────────────────────────────────────────────────────
