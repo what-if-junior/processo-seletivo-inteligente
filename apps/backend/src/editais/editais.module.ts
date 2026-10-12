@@ -7,6 +7,7 @@ import { EditaisService } from './editais.service';
 import { TiposDocumentoBaseModule } from '../tipos-documento-base/tipos-documento-base.module';
 import { CarrosselModule } from '../carrossel/carrossel.module';
 import { NotificacoesModule } from '../notificacoes/notificacoes.module';
+import { AssistantModule } from '../assistant/assistant.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { NotificacoesModule } from '../notificacoes/notificacoes.module';
     TiposDocumentoBaseModule,
     forwardRef(() => CarrosselModule),
     forwardRef(() => NotificacoesModule),
+    AssistantModule,
   ],
   controllers: [EditaisController],
   providers: [EditaisService],

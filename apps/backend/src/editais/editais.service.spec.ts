@@ -8,6 +8,7 @@ import { EditalArquivo } from './entities/edital-arquivo.entity';
 import { TiposDocumentoBaseService } from '../tipos-documento-base/tipos-documento-base.service';
 import { CarrosselService } from '../carrossel/carrossel.service';
 import { NotificacoesService } from '../notificacoes/notificacoes.service';
+import { AssistantService } from '../assistant/assistant.service';
 
 describe('EditaisService', () => {
   let service: EditaisService;
@@ -43,6 +44,10 @@ describe('EditaisService', () => {
 
   const notificacoesService = {
     notifyCohortChange: jest.fn().mockResolvedValue(null),
+  };
+
+  const assistantService = {
+    enqueueIngestao: jest.fn().mockResolvedValue({ id: 1 }),
   };
 
   const draftEdital: Edital = {
@@ -85,6 +90,7 @@ describe('EditaisService', () => {
         },
         { provide: CarrosselService, useValue: carrosselService },
         { provide: NotificacoesService, useValue: notificacoesService },
+        { provide: AssistantService, useValue: assistantService },
       ],
     }).compile();
 
@@ -228,6 +234,23 @@ describe('EditaisService', () => {
       expect(result.publicado).toBe(true);
       expect(carrosselService.syncAutoForEdital).toHaveBeenCalledWith(
         expect.objectContaining({ id: 10, publicado: true }),
+      );
+    });
+  });
+
+  describe('RAG ingestion queue', () => {
+    it('queues an update when only the terms mode changes', async () => {
+      editalRepo.findOne.mockResolvedValue({
+        ...draftEdital,
+        termos_modo: TermosModo.PDF,
+      });
+      editalRepo.save.mockImplementation(async (edital) => edital);
+
+      await service.update(10, { termos_modo: TermosModo.URL });
+
+      expect(assistantService.enqueueIngestao).toHaveBeenCalledWith(
+        10,
+        'update',
       );
     });
   });

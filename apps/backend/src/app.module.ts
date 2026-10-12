@@ -21,6 +21,7 @@ import { FaixasModule } from './faixas/faixas.module';
 import { CarrosselModule } from './carrossel/carrossel.module';
 import { NotificacoesModule } from './notificacoes/notificacoes.module';
 import { HubModule } from './hub/hub.module';
+import { AssistantModule } from './assistant/assistant.module';
 import { SocioeconomicoModule } from './socioeconomico/socioeconomico.module';
 import { LotesModule } from './lotes/lotes.module';
 import { ChamadasModule } from './chamadas/chamadas.module';
@@ -75,6 +76,7 @@ import { RolesGuard } from './auth/guards/roles.guard';
     CarrosselModule,
     NotificacoesModule,
     HubModule,
+    AssistantModule,
     SocioeconomicoModule,
     LotesModule,
     ChamadasModule,
